@@ -76,7 +76,8 @@ async def chat_endpoint(
         results = index.query(
             vector=query_embedding,
             top_k=3,
-            include_metadata=True
+            include_metadata=True,  # FIXED: Added the missing comma here!
+            namespace="carleton"
         )
         
         context_text = ""
@@ -88,22 +89,28 @@ async def chat_endpoint(
                 metadata = match.metadata
                 doc_text = metadata.get("text", "")
                 
-                context_text += f"\n--- Document: {metadata['doc']} | Section: {metadata['section']} ---\n{doc_text}\n"
+                # FIXED: Mapped to the actual keys from our ingestion script
+                doc_source = metadata.get("source", "Unknown Source")
+                
+                context_text += f"\n--- Source: {doc_source} ---\n{doc_text}\n"
                 
                 sources.append({
-                    "doc": metadata['doc'],
-                    "section": metadata['section'],
+                    "doc": doc_source,
+                    "section": "Web Policy", # Fallback since we don't use sections anymore
                     "snippet": doc_text[:150] + "..." 
                 })
         
         # --- Build AI Prompt ---
-        system_prompt = f"""You are a helpful institutional knowledge assistant.
+        system_prompt = f"""You are CampusQ, an independent institutional knowledge assistant designed to help students navigate Carleton University policies. 
+        DISCLAIMER: YOU ARE NOT OFFICIALLY AFFILIATED WITH CARLETON UNIVERSITY.
+        
         You have two sources of information: 
-        1. CONTEXT: Official documents from the database.
+        1. CONTEXT: Official documents extracted from the database.
         2. ATTACHMENT: A temporary file the user just uploaded.
         
         Answer the user's question using ONLY these provided texts. 
-        If the answer is not in the text, explicitly say so. Keep answers clear and concise.
+        If the answer is not in the text, explicitly say "I do not have enough information to answer this based on the provided documents." Do not guess.
+        Keep answers clear, concise, and professional.
         
         DATABASE CONTEXT:
         {context_text}

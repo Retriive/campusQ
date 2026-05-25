@@ -41,38 +41,29 @@ async def get_documents():
     documents = [{"id": str(i + 1), "name": file, "status": "indexed"} for i, file in enumerate(files)]
     return {"documents": documents}
 
+# ==========================================
+# ⚡ THE O(1) EXPRESS LANE (API ONLY)
+# ==========================================
 @app.get("/api/course/{course_code}")
 async def course_lookup(course_code: str):
-    """Standalone GET endpoint for pure API calls."""
+    """Standalone GET endpoint for pure, lightning-fast API calls."""
     clean_code = course_code.upper().strip()
+    course_id = clean_code.replace(" ", "") # e.g. "ACSE3105"
+    
     try:
-        dept = clean_code.split(" ")[0]
-        url_upper = f"https://calendar.carleton.ca/undergrad/courses/{dept.upper()}/"
-        url_lower = f"https://calendar.carleton.ca/undergrad/courses/{dept.lower()}/"
+        # O(1) Direct ID Fetch - No AI embeddings needed!
+        result = index.fetch(ids=[course_id], namespace="carleton")
         
-        query_embedding = openai_client.embeddings.create(
-            input=f"Course description for {clean_code}",
-            model="text-embedding-3-small"
-        ).data[0].embedding
-        
-        results = index.query(
-            vector=query_embedding, top_k=250, 
-            filter={"source": {"$in": [url_upper, url_lower]}},
-            include_metadata=True, namespace="carleton"
-        )
-        
-        normalized_search = clean_code.replace(" ", "")
-        if results.matches:
-            for match in results.matches:
-                doc_text = match.metadata.get("text", "")
-                if normalized_search in doc_text.replace(" ", "").replace("\xa0", ""):
-                    return {"found": True, "course_code": clean_code, "description": doc_text}
-        return {"found": False}
+        if result and "vectors" in result and course_id in result["vectors"]:
+            doc_text = result["vectors"][course_id]["metadata"].get("text", "")
+            return {"found": True, "course_code": clean_code, "description": doc_text}
+            
+        return {"found": False, "message": f"Could not find exact course data for {clean_code}."}
     except Exception as e:
         return {"found": False, "error": str(e)}
 
 # ==========================================
-# 🧠 THE RAG CHAT ENGINE WITH INTERCEPTOR
+# 🧠 THE RAG CHAT ENGINE WITH SMART INTERCEPTOR
 # ==========================================
 @app.post("/api/chat")
 async def chat_endpoint(
@@ -84,49 +75,49 @@ async def chat_endpoint(
     print(f"Searching database for: {user_query}")
     
     # ---------------------------------------------------------
-    # 🛑 THE SILENT INTERCEPTOR: Catch exact course requests early
+    # 🛑 THE SMART INTERCEPTOR: Catch multiple exact courses early
     # ---------------------------------------------------------
-    # Looks for any 4 letters followed by optional space and 4 numbers (e.g. "sysc 4416" or "COMP3008")
-    course_match = re.search(r'([a-zA-Z]{4})\s*(\d{4})', user_query)
+    # re.findall returns a list of all course codes mentioned in the prompt
+    course_matches = re.findall(r'([a-zA-Z]{4})\s*(\d{4})', user_query, re.IGNORECASE)
     
-    if course_match and not file: # Don't intercept if they attached a PDF
-        dept = course_match.group(1).upper()
-        num = course_match.group(2)
-        clean_code = f"{dept} {num}"
-        print(f"Interceptor triggered for: {clean_code}")
+    if course_matches and not file: 
+        responses = []
+        sources = []
+        seen_codes = set() # Prevent duplicate lookups if user says "SYSC 4416 and SYSC 4416"
         
-        try:
-            url_upper = f"https://calendar.carleton.ca/undergrad/courses/{dept}/"
-            url_lower = f"https://calendar.carleton.ca/undergrad/courses/{dept.lower()}/"
+        for match in course_matches:
+            clean_code = f"{match[0].upper()} {match[1]}"
+            if clean_code in seen_codes:
+                continue
+            seen_codes.add(clean_code)
             
-            query_embedding = openai_client.embeddings.create(
-                input=f"Course description for {clean_code}",
-                model="text-embedding-3-small"
-            ).data[0].embedding
+            course_id = clean_code.replace(" ", "")
+            print(f"Interceptor fetching: {course_id}")
             
-            results = index.query(
-                vector=query_embedding, top_k=250, 
-                filter={"source": {"$in": [url_upper, url_lower]}},
-                include_metadata=True, namespace="carleton"
-            )
-            
-            normalized_search = clean_code.replace(" ", "")
-            if results.matches:
-                for match in results.matches:
-                    doc_text = match.metadata.get("text", "")
-                    if normalized_search in doc_text.replace(" ", "").replace("\xa0", ""):
-                        # BINGO! Return immediately to the chat UI. No LLM processing required.
-                        return {
-                            "answer": f"**Course Match Found:**\n\n{doc_text}",
-                            "sources": [{
-                                "doc": match.metadata.get("source", f"{dept} Calendar"),
-                                "section": "Direct Database Match",
-                                "snippet": "Exact course details retrieved instantly via metadata filter."
-                            }]
-                        }
-        except Exception as e:
-            print(f"Interceptor failed, falling back to LLM: {e}")
-            pass # If the interceptor fails for any reason, let the normal LLM handle it below.
+            try:
+                # O(1) Direct Fetch!
+                result = index.fetch(ids=[course_id], namespace="carleton")
+                
+                if result and "vectors" in result and course_id in result["vectors"]:
+                    metadata = result["vectors"][course_id]["metadata"]
+                    doc_text = metadata.get("text", "")
+                    source_url = metadata.get("source", f"{match[0].upper()} Calendar")
+                    
+                    responses.append(f"### **{clean_code}**\n{doc_text}")
+                    sources.append({
+                        "doc": source_url,
+                        "section": "Direct Database Match",
+                        "snippet": "Exact course details retrieved instantly."
+                    })
+            except Exception as e:
+                print(f"Fetch error for {course_id}: {e}")
+                
+        # If we successfully fetched AT LEAST ONE course, return them all together
+        if responses:
+            return {
+                "answer": "**Course Matches Found:**\n\n---\n" + "\n---\n".join(responses),
+                "sources": sources
+            }
     # ---------------------------------------------------------
 
     # --- Normal RAG flow for general questions ---

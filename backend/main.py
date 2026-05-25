@@ -57,31 +57,31 @@ async def get_documents():
 @app.get("/api/course/{course_code}")
 async def course_lookup(course_code: str):
     """Express lane for deterministic course lookups. Bypasses the LLM entirely."""
-    # Clean up the input (e.g., "sysc 4416" -> "SYSC 4416")
     clean_code = course_code.upper().strip()
     print(f"Executing deterministic lookup for: {clean_code}")
     
     try:
-        # 1. Embed the search term to find the right neighborhood in Pinecone
+        # 1. THE FIX: Add "Semantic Padding" so the vector matches the vibe of a course catalog
+        search_query = f"Course description, credits, and prerequisites for {clean_code}"
+        
         query_embedding = openai_client.embeddings.create(
-            input=clean_code,
+            input=search_query,
             model="text-embedding-3-small"
         ).data[0].embedding
         
-        # 2. Grab the top 5 closest chunks
+        # 2. THE FIX: Widen the net to 30 chunks to ensure we catch it
         results = index.query(
             vector=query_embedding,
-            top_k=5,
+            top_k=30,
             include_metadata=True,
             namespace="carleton"
         )
         
-        # 3. Deterministic Python Match (No AI Hallucination)
+        # 3. Deterministic Python Match
         if results.matches:
             for match in results.matches:
                 doc_text = match.metadata.get("text", "")
                 
-                # If the exact course code is in this text block, return immediately.
                 if clean_code in doc_text:
                     return {
                         "found": True,

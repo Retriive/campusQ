@@ -69,29 +69,50 @@ def scrape_clean_page(url):
         return None
 
 def process_and_upload(text, source_url, dept_index):
-    # STRICT SPLIT: Only splits at official headers (e.g., "\nSYSC 4416 [0.5 credit]")
-    # This prevents chopping course descriptions in half.
-    raw_chunks = re.split(r'\n(?=[A-Z]{4}\s\d{4}\s*\[)', text)
+    # Regex to capture the header (code + credits) and the remaining description
+    # Group 1: Course Code, Group 2: Credits, Group 3: Description/Rest
+    course_pattern = re.compile(r'([A-Z]{4}\s\d{4})\s*\[([\d\.]+\scredit)\]\n(.*?)(?=\n[A-Z]{4}\s\d{4}\s*\[|\Z)', re.DOTALL)
     
-    chunks = [chunk.strip() for chunk in raw_chunks if len(chunk.strip()) > 50]
+    matches = course_pattern.finditer(text)
     
     vectors_to_upsert = []
-    for i, chunk in enumerate(chunks):
-        # We only upload if it looks like a real course (contains the bracket)
-        if "[" in chunk[:50]: 
-            response = openai_client.embeddings.create(input=chunk, model="text-embedding-3-small")
-            embedding = response.data[0].embedding
-            
-            vectors_to_upsert.append({
-                "id": f"dept-{dept_index}-chunk-{i}",
-                "values": embedding,
-                "metadata": {"text": chunk, "source": source_url, "tenant": NAMESPACE}
-            })
+    for match in matches:
+        full_header = match.group(0)
+        course_code = match.group(1)
+        credits = match.group(2)
+        body = match.group(3).strip()
+        
+        # Extract metadata
+        prereqs = re.findall(r'Prerequisite\(s\):\s*(.*?)(?=\n|\.)', body)
+        precludes = re.findall(r'Precludes additional credit for\s*(.*?)(?=\n|\.)', body)
+        
+        # Prepare Metadata
+        metadata = {
+            "text": full_header, # Keep full text for LLM context
+            "course_code": course_code,
+            "credits": credits,
+            "prerequisites": ", ".join(prereqs) if prereqs else "None",
+            "precludes": ", ".join(precludes) if precludes else "None",
+            "source": source_url,
+            "tenant": NAMESPACE
+        }
+        
+        # Generate Embedding
+        embedding = openai_client.embeddings.create(
+            input=f"{course_code}: {body[:500]}", 
+            model="text-embedding-3-small"
+        ).data[0].embedding
+        
+        vectors_to_upsert.append({
+            "id": course_code.replace(" ", ""), # Deterministic ID
+            "values": embedding,
+            "metadata": metadata
+        })
         
     if vectors_to_upsert:
         index.upsert(vectors=vectors_to_upsert, namespace=NAMESPACE)
-        print(f"      -> Uploaded {len(vectors_to_upsert)} verified course chunks.")
-
+        print(f"      -> Uploaded {len(vectors_to_upsert)} structured course entities.")
+        
 def run_pipeline():
     start_time = time.time()
     dept_urls = get_department_links()

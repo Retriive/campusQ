@@ -51,6 +51,54 @@ async def get_documents():
         
     return {"documents": documents}
 
+# ==========================================
+# 🚀 NEW: THE COURSE EXPRESS LANE
+# ==========================================
+@app.get("/api/course/{course_code}")
+async def course_lookup(course_code: str):
+    """Express lane for deterministic course lookups. Bypasses the LLM entirely."""
+    # Clean up the input (e.g., "sysc 4416" -> "SYSC 4416")
+    clean_code = course_code.upper().strip()
+    print(f"Executing deterministic lookup for: {clean_code}")
+    
+    try:
+        # 1. Embed the search term to find the right neighborhood in Pinecone
+        query_embedding = openai_client.embeddings.create(
+            input=clean_code,
+            model="text-embedding-3-small"
+        ).data[0].embedding
+        
+        # 2. Grab the top 5 closest chunks
+        results = index.query(
+            vector=query_embedding,
+            top_k=5,
+            include_metadata=True,
+            namespace="carleton"
+        )
+        
+        # 3. Deterministic Python Match (No AI Hallucination)
+        if results.matches:
+            for match in results.matches:
+                doc_text = match.metadata.get("text", "")
+                
+                # If the exact course code is in this text block, return immediately.
+                if clean_code in doc_text:
+                    return {
+                        "found": True,
+                        "course_code": clean_code,
+                        "description": doc_text,
+                        "source": match.metadata.get("source", "Unknown")
+                    }
+                    
+        return {"found": False, "message": f"Could not find exact course data for {clean_code}."}
+        
+    except Exception as e:
+        print(f"Lookup Error: {e}")
+        return {"found": False, "error": str(e)}
+
+# ==========================================
+# 🧠 THE RAG CHAT ENGINE
+# ==========================================
 @app.post("/api/chat")
 async def chat_endpoint(
     question: str = Form(...),

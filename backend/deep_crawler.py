@@ -17,7 +17,7 @@ index = pc.Index("knowledge-base")
 
 BASE_URL = "https://calendar.carleton.ca"
 START_URL = f"{BASE_URL}/undergrad/courses/"
-NAMESPACE = "carleton"
+NAMESPACE = "courses"
 
 def get_department_links():
     """Stage 1: Uses urljoin to catch every single relative and absolute department link."""
@@ -104,7 +104,7 @@ def process_and_upload(text, source_url, dept_index):
         ).data[0].embedding
         
         vectors_to_upsert.append({
-            "id": course_code.replace(" ", ""), # Deterministic ID
+            "id": course_code.replace(" ", "").replace("\xa0", ""),
             "values": embedding,
             "metadata": metadata
         })

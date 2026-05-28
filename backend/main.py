@@ -1,126 +1,185 @@
 import os
 import json
 import re
+from datetime import datetime
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pinecone import Pinecone
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 from dotenv import load_dotenv
 import fitz  # PyMuPDF
 
-# Load API Key from .env file
 load_dotenv()
 
 app = FastAPI()
 
-# Allow frontend to communicate with backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+async_openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Initialize Pinecone
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index("knowledge-base")
+
+SIMILARITY_THRESHOLD = 0.25
+
+
+def rewrite_query_for_embedding(user_query: str) -> str:
+    if len(user_query) <= 60:
+        return user_query
+    try:
+        rewrite_response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a search query optimizer for a Carleton University academic knowledge base. "
+                        "Rewrite the user's question into a concise, keyword-rich search query (max 2 sentences) "
+                        "that will retrieve the most relevant course, program, or policy information. "
+                        "Output ONLY the rewritten query, no explanation."
+                    ),
+                },
+                {"role": "user", "content": user_query},
+            ],
+            max_tokens=80,
+            temperature=0,
+        )
+        return rewrite_response.choices[0].message.content.strip()
+    except Exception:
+        return user_query
+
+
+def extract_clean_description(doc_text: str) -> str:
+    lines = [l.strip() for l in doc_text.split("\n") if l.strip()]
+    if len(lines) > 3:
+        return " ".join(lines[3:])
+    elif len(lines) > 0:
+        return lines[-1]
+    return doc_text
+
+
+def parse_course_from_metadata(metadata: dict, clean_code: str) -> dict:
+    doc_text = metadata.get("text", "")
+    lines = [l.strip() for l in doc_text.split("\n") if l.strip()]
+    course_name = lines[2] if len(lines) > 2 else "Course Details"
+    raw_credits = metadata.get("credits", "0.5")
+    cred_match = re.search(r"[\d\.]+", str(raw_credits))
+    credits_val = float(cred_match.group()) if cred_match else 0.5
+    prereq_str = metadata.get("prerequisites", "None")
+    prereqs_array = [] if prereq_str == "None" else [p.strip() for p in prereq_str.split(",")]
+    clean_desc = extract_clean_description(doc_text)
+    return {
+        "courseCode": metadata.get("course_code", clean_code),
+        "courseName": course_name,
+        "credits": credits_val,
+        "description": clean_desc,
+        "prerequisites": prereqs_array,
+    }
+
 
 @app.get("/")
 async def health_check():
     return {"status": "CampusQ Brain is active and listening."}
 
+
 @app.get("/api/documents")
 async def get_documents():
-    docs_dir = "./docs"
-    if not os.path.exists(docs_dir):
-        return {"documents": []}
-    files = [f for f in os.listdir(docs_dir) if f.endswith(".pdf")]
-    documents = [{"id": str(i + 1), "name": file, "status": "indexed"} for i, file in enumerate(files)]
-    return {"documents": documents}
+    try:
+        stats = index.describe_index_stats()
+        return {"count": stats.total_vector_count}
+    except Exception as e:
+        print(f"Stats Error: {e}")
+        return {"count": 0}
 
-# ==========================================
-# ⚡ THE O(1) EXPRESS LANE (API ONLY)
-# ==========================================
+
 @app.get("/api/course/{course_code}")
 async def course_lookup(course_code: str):
-    """Standalone GET endpoint for pure, lightning-fast API calls."""
     clean_code = course_code.upper().strip()
-    course_id = clean_code.replace(" ", "") # e.g. "ACSE3105"
-    
+    course_id = clean_code.replace(" ", "")
     try:
-        # O(1) Direct ID Fetch - No AI embeddings needed!
-        result = index.fetch(ids=[course_id], namespace="carleton")
-        
+        result = index.fetch(ids=[course_id], namespace="courses")
         if result and "vectors" in result and course_id in result["vectors"]:
-            doc_text = result["vectors"][course_id]["metadata"].get("text", "")
-            return {"found": True, "course_code": clean_code, "description": doc_text}
-            
+            metadata = result["vectors"][course_id]["metadata"]
+            structured = parse_course_from_metadata(metadata, clean_code)
+            return {"found": True, **structured}
         return {"found": False, "message": f"Could not find exact course data for {clean_code}."}
     except Exception as e:
         return {"found": False, "error": str(e)}
 
-# ==========================================
-# 🧠 THE RAG CHAT ENGINE WITH SMART INTERCEPTOR
-# ==========================================
+
+@app.post("/api/feedback")
+async def submit_feedback(
+    message: str = Form(...),
+    query: str = Form(""),
+):
+    timestamp = datetime.utcnow().isoformat()
+    log_line = f"[{timestamp}] Query: {repr(query)} | Feedback: {repr(message)}\n"
+    with open("feedback.log", "a", encoding="utf-8") as f:
+        f.write(log_line)
+    return {"success": True}
+
+
 @app.post("/api/chat")
 async def chat_endpoint(
     question: str = Form(...),
-    history: str = Form("[]"), 
-    file: UploadFile = File(None) 
+    history: str = Form("[]"),
+    file: UploadFile = File(None),
 ):
     user_query = question
     print(f"Searching database for: {user_query}")
-    
-    # ---------------------------------------------------------
-    # 🛑 THE SMART INTERCEPTOR: Catch multiple exact courses early
-    # ---------------------------------------------------------
-    # re.findall returns a list of all course codes mentioned in the prompt
+
     course_matches = re.findall(r'([a-zA-Z]{4})\s*(\d{4})', user_query, re.IGNORECASE)
-    
-    if course_matches and not file: 
+
+    if course_matches and not file:
         responses = []
         sources = []
-        seen_codes = set() # Prevent duplicate lookups if user says "SYSC 4416 and SYSC 4416"
-        
+        structured_courses = []
+        not_found_codes = []
+        seen_codes = set()
+
         for match in course_matches:
             clean_code = f"{match[0].upper()} {match[1]}"
             if clean_code in seen_codes:
                 continue
             seen_codes.add(clean_code)
-            
             course_id = clean_code.replace(" ", "")
             print(f"Interceptor fetching: {course_id}")
-            
+
             try:
-                # O(1) Direct Fetch!
-                result = index.fetch(ids=[course_id], namespace="carleton")
-                
+                result = index.fetch(ids=[course_id], namespace="courses")
                 if result and "vectors" in result and course_id in result["vectors"]:
                     metadata = result["vectors"][course_id]["metadata"]
-                    doc_text = metadata.get("text", "")
+                    structured = parse_course_from_metadata(metadata, clean_code)
+                    structured_courses.append(structured)
                     source_url = metadata.get("source", f"{match[0].upper()} Calendar")
-                    
-                    responses.append(f"### **{clean_code}**\n{doc_text}")
+                    responses.append(clean_code)
                     sources.append({
                         "doc": source_url,
                         "section": "Direct Database Match",
-                        "snippet": "Exact course details retrieved instantly."
+                        "snippet": "Exact course details retrieved instantly.",
                     })
+                else:
+                    not_found_codes.append(clean_code)
             except Exception as e:
                 print(f"Fetch error for {course_id}: {e}")
-                
-        # If we successfully fetched AT LEAST ONE course, return them all together
-        if responses:
-            return {
-                "answer": "**Course Matches Found:**\n\n---\n" + "\n---\n".join(responses),
-                "sources": sources
-            }
-    # ---------------------------------------------------------
+                not_found_codes.append(clean_code)
 
-    # --- Normal RAG flow for general questions ---
+        if structured_courses:
+            found_msg = f"Found {len(structured_courses)} course(s) for you."
+            if not_found_codes:
+                found_msg += f" Note: {', '.join(not_found_codes)} were not found via direct lookup."
+            return {"answer": found_msg, "courses": structured_courses, "sources": sources}
+
+        print(f"Interceptor missed all codes {not_found_codes} — falling through to RAG")
+
     attachment_text = ""
     try:
         if file:
@@ -128,81 +187,224 @@ async def chat_endpoint(
             doc = fitz.open(stream=content, filetype="pdf")
             for page in doc:
                 attachment_text += page.get_text("text") + "\n"
-        
+
+        search_query = rewrite_query_for_embedding(user_query)
+        print(f"Embedding query: {search_query}")
+
         query_embedding = openai_client.embeddings.create(
-            input=user_query,
-            model="text-embedding-3-small"
+            input=search_query,
+            model="text-embedding-3-small",
         ).data[0].embedding
-        
-        results = index.query(
-            vector=query_embedding,
-            top_k=10, 
-            include_metadata=True,
-            namespace="carleton"
-        )
-        
+
+        all_matches = []
+        for ns in ["courses", "programs", "policies"]:
+            ns_results = index.query(
+                vector=query_embedding,
+                top_k=8,
+                include_metadata=True,
+                namespace=ns,
+            )
+            if ns_results.matches:
+                all_matches.extend(ns_results.matches)
+
+        all_matches.sort(key=lambda m: m.score, reverse=True)
+        all_matches = all_matches[:10]
+
         context_text = ""
         sources = []
-        seen_urls = set() 
-        
-        if results.matches:
-            for match in results.matches:
-                if match.score < 0.30:
+        seen_urls = set()
+        chunks_used = 0
+
+        for match in all_matches:
+            if match.score < SIMILARITY_THRESHOLD:
+                continue
+            metadata = match.metadata
+            doc_text = metadata.get("text", "")
+            doc_source = metadata.get("source", "Unknown Source")
+            context_text += f"\n--- Source: {doc_source} (relevance: {match.score:.2f}) ---\n{doc_text}\n"
+            chunks_used += 1
+            if doc_source not in seen_urls:
+                seen_urls.add(doc_source)
+                sources.append({
+                    "doc": doc_source,
+                    "section": "Carleton Academic Calendar",
+                    "snippet": doc_text[:150] + "...",
+                })
+
+        print(f"RAG: {chunks_used} chunks passed threshold {SIMILARITY_THRESHOLD}")
+
+        if not context_text and not attachment_text:
+            return {
+                "answer": (
+                    "I don't have enough information in my knowledge base to answer that confidently. "
+                    "For the most accurate information, please check calendar.carleton.ca or contact your academic advisor."
+                ),
+                "sources": [],
+            }
+
+        system_prompt = f"""You are CampusQ, an AI assistant that helps students navigate Carleton University's academic calendar, courses, and policies.
+
+IMPORTANT: You are an independent tool and are NOT officially affiliated with Carleton University. Always recommend students verify critical decisions with their academic advisor or the official Carleton calendar at calendar.carleton.ca.
+
+STRICT RULES:
+1. ANSWER ONLY FROM THE PROVIDED CONTEXT. Do not use your general training knowledge about universities.
+2. DO NOT MIX PROGRAMS. Only cite information that explicitly applies to the program or course the student asked about.
+3. IF THE ANSWER IS NOT IN THE CONTEXT, say: "I don't have that information in my current database. Please check calendar.carleton.ca or speak with your academic advisor."
+4. BE SPECIFIC. Quote requirements, credit counts, and prerequisites directly from the context.
+5. BE CONCISE. Students need clear, actionable answers.
+
+CONTEXT FROM CARLETON ACADEMIC DATABASE:
+{context_text}
+
+STUDENT-UPLOADED DOCUMENT:
+{attachment_text if attachment_text else "None provided."}
+"""
+
+        past_messages = json.loads(history)
+        api_messages = [{"role": "system", "content": system_prompt}]
+        for msg in past_messages:
+            api_messages.append({"role": msg["role"], "content": msg["content"]})
+        api_messages.append({"role": "user", "content": user_query})
+
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=api_messages,
+            temperature=0.2,
+        )
+
+        if file:
+            sources.append({
+                "doc": file.filename,
+                "section": "Student-Uploaded Document",
+                "snippet": "File uploaded directly to this conversation.",
+            })
+
+        return {"answer": response.choices[0].message.content, "sources": sources}
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return {"answer": "Sorry, CampusQ ran into an error processing your request. Please try again.", "sources": []}
+
+
+@app.post("/api/chat/stream")
+async def chat_stream(
+    question: str = Form(...),
+    history: str = Form("[]"),
+):
+    user_query = question
+
+    async def generate():
+        course_matches = re.findall(r'([a-zA-Z]{4})\s*(\d{4})', user_query, re.IGNORECASE)
+
+        if course_matches:
+            structured_courses = []
+            seen_codes = set()
+
+            for match in course_matches:
+                clean_code = f"{match[0].upper()} {match[1]}"
+                if clean_code in seen_codes:
+                    continue
+                seen_codes.add(clean_code)
+                course_id = clean_code.replace(" ", "")
+
+                try:
+                    result = index.fetch(ids=[course_id], namespace="courses")
+                    if result and "vectors" in result and course_id in result["vectors"]:
+                        metadata = result["vectors"][course_id]["metadata"]
+                        structured = parse_course_from_metadata(metadata, clean_code)
+                        structured_courses.append(structured)
+                except Exception as e:
+                    print(f"Stream interceptor error: {e}")
+
+            if structured_courses:
+                count = len(structured_courses)
+                text = f"Here {'are' if count > 1 else 'is'} the {'courses' if count > 1 else 'course'} you asked about."
+                yield f"data: {json.dumps({'type': 'token', 'content': text})}\n\n"
+                yield f"data: {json.dumps({'type': 'courses', 'data': structured_courses})}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                return
+
+        try:
+            search_query = rewrite_query_for_embedding(user_query)
+            query_embedding = openai_client.embeddings.create(
+                input=search_query,
+                model="text-embedding-3-small",
+            ).data[0].embedding
+
+            all_matches = []
+            for ns in ["courses", "programs", "policies"]:
+                ns_results = index.query(
+                    vector=query_embedding,
+                    top_k=8,
+                    include_metadata=True,
+                    namespace=ns,
+                )
+                if ns_results.matches:
+                    all_matches.extend(ns_results.matches)
+
+            all_matches.sort(key=lambda m: m.score, reverse=True)
+            all_matches = all_matches[:10]
+
+            context_text = ""
+            for match in all_matches:
+                if match.score < SIMILARITY_THRESHOLD:
                     continue
                 metadata = match.metadata
                 doc_text = metadata.get("text", "")
                 doc_source = metadata.get("source", "Unknown Source")
-                
-                context_text += f"\n--- Source: {doc_source} ---\n{doc_text}\n"
-                
-                if doc_source not in seen_urls:
-                    seen_urls.add(doc_source)
-                    sources.append({
-                        "doc": doc_source,
-                        "section": "Web Policy",
-                        "snippet": doc_text[:150] + "..." 
-                    })
-        
-        system_prompt = f"""You are CampusQ, an independent institutional knowledge assistant designed to help students navigate Carleton University policies. 
-        DISCLAIMER: YOU ARE NOT OFFICIALLY AFFILIATED WITH CARLETON UNIVERSITY.
-        
-        CRITICAL RULES FOR READING CONTEXT:
-        1. NO MIXING PROGRAMS: The context contains information from MULTIPLE different engineering programs. You must strictly verify that a stream, course, or requirement actually belongs to the specific program the user is asking about.
-        2. NO GUESSING: If the answer is not explicitly in the text, say "I do not have enough information to answer this based on the provided documents." Do not try to extrapolate or guess.
-        Keep answers clear, concise, and professional.
-        
-        DATABASE CONTEXT:
-        {context_text}
-        
-        USER ATTACHMENT TEXT:
-        {attachment_text if attachment_text else "None"}
-        """
-        
-        past_messages = json.loads(history)
-        api_messages = [{"role": "system", "content": system_prompt}]
-        
-        for msg in past_messages:
-            api_messages.append({"role": msg["role"], "content": msg["content"]})
-            
-        api_messages.append({"role": "user", "content": user_query})
-        
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=api_messages
-        )
-        
-        if file:
-            sources.append({
-                "doc": file.filename,
-                "section": "User Attachment",
-                "snippet": "File uploaded directly to this conversation."
-            })
-        
-        return {
-            "answer": response.choices[0].message.content,
-            "sources": sources
-        }
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        return {"answer": "Sorry, there was an error processing your request.", "sources": []}
+                context_text += f"\n--- Source: {doc_source} (relevance: {match.score:.2f}) ---\n{doc_text}\n"
+
+            if not context_text:
+                msg = "I don't have enough information in my knowledge base to answer that confidently. For the most accurate information, please check calendar.carleton.ca or contact your academic advisor."
+                yield f"data: {json.dumps({'type': 'token', 'content': msg})}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                return
+
+            system_prompt = f"""You are CampusQ, an AI assistant that helps students navigate Carleton University's academic calendar, courses, and policies.
+
+IMPORTANT: You are NOT officially affiliated with Carleton University. Always recommend students verify critical decisions with their academic advisor or calendar.carleton.ca.
+
+STRICT RULES:
+1. ANSWER ONLY FROM THE PROVIDED CONTEXT.
+2. DO NOT MIX PROGRAMS.
+3. IF NOT IN CONTEXT: say you don't have that information and direct to calendar.carleton.ca.
+4. BE SPECIFIC with requirements, credit counts, and prerequisites.
+5. BE CONCISE.
+
+CONTEXT:
+{context_text}"""
+
+            past_messages = json.loads(history)
+            api_messages = [{"role": "system", "content": system_prompt}]
+            for msg in past_messages:
+                api_messages.append({"role": msg["role"], "content": msg["content"]})
+            api_messages.append({"role": "user", "content": user_query})
+
+            stream = await async_openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=api_messages,
+                temperature=0.2,
+                stream=True,
+            )
+
+            async for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
+
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        except Exception as e:
+            print(f"Stream error: {e}")
+            yield f"data: {json.dumps({'type': 'token', 'content': 'Sorry, CampusQ ran into an error. Please try again.'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )

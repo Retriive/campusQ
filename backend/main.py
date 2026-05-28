@@ -96,6 +96,46 @@ def extract_clean_description(doc_text: str) -> str:
     return full_desc or " ".join(desc_parts)
 
 
+def rag_lookup_prerequisites(course_code: str) -> str:
+    """
+    When the O(1) metadata fetch has no prerequisite info, do a targeted
+    semantic search for the prerequisite sentence in the indexed chunks.
+    Returns the raw prerequisite string, or "" if not found.
+    """
+    try:
+        query = f"{course_code} prerequisite required courses"
+        embedding = openai_client.embeddings.create(
+            input=query,
+            model="text-embedding-3-small",
+        ).data[0].embedding
+        results = index.query(
+            vector=embedding,
+            top_k=5,
+            include_metadata=True,
+            namespace="courses",
+        )
+        for match in results.matches:
+            if match.score < 0.5:
+                continue
+            chunk_text = match.metadata.get("text", "")
+            # only look in chunks that mention this course code
+            if course_code.replace(" ", "").upper() not in chunk_text.upper().replace(" ", "").replace("\xa0", ""):
+                continue
+            m = re.search(
+                r'Prerequisite\(s\)\s*[: ]\s*(.+?)(?=\s*(?:Precludes|Lectures\s+\w+|Also listed|Not available|\Z))',
+                chunk_text, re.IGNORECASE | re.DOTALL
+            )
+            if m:
+                return m.group(1).strip().rstrip(".")
+            # also try the metadata prereq field on this chunk
+            mp = match.metadata.get("prerequisites", "")
+            if mp and mp.lower() not in ("none", ""):
+                return mp.strip()
+    except Exception as e:
+        print(f"RAG prereq fallback error for {course_code}: {e}")
+    return ""
+
+
 def parse_course_from_metadata(metadata: dict, clean_code: str) -> dict:
     doc_text = metadata.get("text", "")
     lines = [l.strip() for l in doc_text.split("\n") if l.strip()]
@@ -118,6 +158,9 @@ def parse_course_from_metadata(metadata: dict, clean_code: str) -> dict:
         meta_prereq = metadata.get("prerequisites", "")
         if meta_prereq and meta_prereq.lower() not in ("none", ""):
             prereq_text = meta_prereq.strip()
+        else:
+            # last resort: RAG search across the indexed chunks
+            prereq_text = rag_lookup_prerequisites(clean_code)
 
     # Also build a clean code array (for the prereq visualizer) from whatever we found
     if prereq_text:

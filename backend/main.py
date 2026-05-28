@@ -58,12 +58,42 @@ def rewrite_query_for_embedding(user_query: str) -> str:
 
 
 def extract_clean_description(doc_text: str) -> str:
+    """
+    Extracts just the readable course description from raw calendar text.
+    Strips boilerplate suffixes like Prerequisite(s), Precludes, Lectures, etc.
+    Raw text format:
+      Line 0: course code
+      Line 1: credits
+      Line 2: course name
+      Line 3+: description (plus mixed-in boilerplate)
+    """
     lines = [l.strip() for l in doc_text.split("\n") if l.strip()]
+
     if len(lines) > 3:
-        return " ".join(lines[3:])
-    elif len(lines) > 0:
-        return lines[-1]
-    return doc_text
+        desc_parts = lines[3:]
+    elif lines:
+        desc_parts = [lines[-1]]
+    else:
+        return doc_text
+
+    full_desc = " ".join(desc_parts)
+
+    # Trim everything from the first occurrence of these boilerplate phrases onward
+    cutoff_patterns = [
+        r"Precludes additional credit",
+        r"Prerequisite\(s\)\s*:",
+        r"Includes:\s*Experiential Learning",
+        r"Lectures\s+\w+\s+hours?",
+        r"Also listed as",
+        r"Not available for",
+        r"Note[:\s]",
+    ]
+    for pattern in cutoff_patterns:
+        m = re.search(pattern, full_desc, re.IGNORECASE)
+        if m:
+            full_desc = full_desc[:m.start()].strip().rstrip(".")
+
+    return full_desc or " ".join(desc_parts)
 
 
 def parse_course_from_metadata(metadata: dict, clean_code: str) -> dict:
@@ -74,13 +104,21 @@ def parse_course_from_metadata(metadata: dict, clean_code: str) -> dict:
     cred_match = re.search(r"[\d\.]+", str(raw_credits))
     credits_val = float(cred_match.group()) if cred_match else 0.5
     prereq_str = metadata.get("prerequisites", "None")
-    # Extract clean course codes (e.g. SYSC 2100) from the raw prerequisite string
-    # instead of splitting by comma which produces messy fragments like "( ECOR 2050 or..."
-    if prereq_str == "None" or not prereq_str:
-        prereqs_array = []
+    # Pull clean course codes from the prerequisite metadata field.
+    # Non-breaking spaces (\xa0) appear in Carleton calendar data between dept and number.
+    if prereq_str and prereq_str != "None":
+        raw_codes = re.findall(r'[A-Z]{3,4}[\xa0\s]+\d{4}', prereq_str)
+        prereqs_array = list(dict.fromkeys(  # deduplicate, preserve order
+            p.replace('\xa0', ' ').strip() for p in raw_codes
+        ))
     else:
-        prereqs_array = re.findall(r'[A-Z]{3,4}\xa0?\s*\d{4}', prereq_str)
-        prereqs_array = [p.replace('\xa0', ' ').strip() for p in prereqs_array]
+        # Fall back: scan the raw doc_text for a "Prerequisite(s):" line and extract codes from it
+        prereq_match = re.search(r'Prerequisite\(s\)\s*:\s*(.+?)(?:\.|$)', doc_text, re.IGNORECASE | re.DOTALL)
+        if prereq_match:
+            raw_codes = re.findall(r'[A-Z]{3,4}[\xa0\s]+\d{4}', prereq_match.group(1))
+            prereqs_array = list(dict.fromkeys(p.replace('\xa0', ' ').strip() for p in raw_codes))
+        else:
+            prereqs_array = []
     clean_desc = extract_clean_description(doc_text)
     return {
         "courseCode": metadata.get("course_code", clean_code),

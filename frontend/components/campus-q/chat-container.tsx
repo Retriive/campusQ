@@ -294,11 +294,23 @@ export function ChatContainer() {
           <>
             <main className="flex-1 overflow-y-auto">
               {messages.length === 0 ? (
-                <div className="h-full flex items-center justify-center overflow-y-auto">
-                  <EmptyState
-                    onSuggestionClick={handleSuggestionClick}
-                    onViewChange={(v) => setCurrentView(v as View)}
-                  />
+                <div className="flex flex-col min-h-full">
+                  <div className="flex-1 flex flex-col justify-center">
+                    <EmptyState
+                      onSuggestionClick={handleSuggestionClick}
+                      onViewChange={(v) => setCurrentView(v as View)}
+                    />
+                  </div>
+                  {/* Input lives here on home screen, centered with content */}
+                  <div className="max-w-2xl mx-auto w-full px-4 pb-6">
+                    <ChatInput
+                      value={input}
+                      onChange={setInput}
+                      onSubmit={handleSubmit}
+                      disabled={isLoading}
+                      isHome
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="max-w-3xl mx-auto px-4 md:px-6 py-8 space-y-8">
@@ -376,12 +388,14 @@ export function ChatContainer() {
               )}
             </main>
 
-            <ChatInput
-              value={input}
-              onChange={setInput}
-              onSubmit={handleSubmit}
-              disabled={isLoading}
-            />
+            {messages.length > 0 && (
+              <ChatInput
+                value={input}
+                onChange={setInput}
+                onSubmit={handleSubmit}
+                disabled={isLoading}
+              />
+            )}
           </>
         )}
 

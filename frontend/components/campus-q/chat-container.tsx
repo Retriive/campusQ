@@ -301,7 +301,7 @@ export function ChatContainer() {
                   />
                 </div>
               ) : (
-                <div className="max-w-4xl mx-auto px-4 md:px-6 py-8 space-y-6">
+                <div className="max-w-3xl mx-auto px-4 md:px-6 py-8 space-y-8">
                   {messages.map((message) => {
                     const codes = message.role === "assistant" ? extractCourseCodes(message.content) : []
                     const suggestions = message.role === "assistant" && !isLoading
@@ -360,16 +360,14 @@ export function ChatContainer() {
                   })}
 
                   {isLoading && (
-                    <div className="flex gap-3">
-                      <div className="shrink-0 size-8 rounded-lg bg-primary flex items-center justify-center">
-                        <div className="flex gap-1">
-                          <span className="size-1 rounded-full bg-white animate-bounce [animation-delay:-0.3s]" />
-                          <span className="size-1 rounded-full bg-white animate-bounce [animation-delay:-0.15s]" />
-                          <span className="size-1 rounded-full bg-white animate-bounce" />
-                        </div>
+                    <div className="flex gap-3 items-start">
+                      <div className={cn("shrink-0 size-7 rounded-lg flex items-center justify-center font-bold text-xs text-white bg-primary")}>
+                        Q
                       </div>
-                      <div className="pt-2">
-                        <span className="text-sm text-muted-foreground">Searching...</span>
+                      <div className="flex items-center gap-1.5 pt-2">
+                        <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:-0.3s]" />
+                        <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:-0.15s]" />
+                        <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce" />
                       </div>
                     </div>
                   )}

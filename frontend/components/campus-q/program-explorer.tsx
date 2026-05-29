@@ -1,41 +1,82 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, BookOpen, ArrowLeft, Search, ChevronRight } from "lucide-react"
+import { Loader2, BookOpen, ArrowLeft, Search, ChevronRight, Layers } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import ReactMarkdown from "react-markdown"
 import { cn } from "@/lib/utils"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
-interface Program {
-  name: string
-  faculty: string
-  description: string
+interface Stream {
+  label: string      // display name
+  queryName: string  // what we send to the backend
 }
 
-const FACULTIES: { name: string; color: string; programs: Omit<Program, "faculty">[] }[] = [
+interface Program {
+  name: string
+  description: string
+  faculty: string
+  streams?: Stream[]
+}
+
+const FACULTIES: {
+  name: string
+  color: string
+  bgColor: string
+  programs: Omit<Program, "faculty">[]
+}[] = [
   {
     name: "Engineering & Design",
     color: "text-blue-600 dark:text-blue-400",
+    bgColor: "bg-blue-50 dark:bg-blue-950/30",
     programs: [
-      { name: "Aerospace Engineering", description: "Aerodynamics, propulsion, and spacecraft systems" },
+      {
+        name: "Aerospace Engineering",
+        description: "Aerodynamics, propulsion, and spacecraft systems",
+        streams: [
+          { label: "Stream A — Aerodynamics, Propulsion & Vehicle Performance", queryName: "Aerospace Engineering Stream A: Aerodynamics, Propulsion and Vehicle Performance" },
+          { label: "Stream B — Aerospace Structures, Systems & Vehicle Design", queryName: "Aerospace Engineering Stream B: Aerospace Structures, Systems and Vehicle Design" },
+          { label: "Stream C — Aerospace Electronics & Systems", queryName: "Aerospace Engineering Stream C: Aerospace Electronics and Systems" },
+          { label: "Stream D — Space Systems Design", queryName: "Aerospace Engineering Stream D: Space Systems Design" },
+        ],
+      },
+      { name: "Architectural Conservation and Sustainability Engineering", description: "Heritage structures, sustainability, and building technology" },
       { name: "Architecture", description: "Architectural design, history, and building technology" },
-      { name: "Biomedical and Electrical Engineering", description: "Engineering principles applied to medicine and biology" },
+      { name: "Biomedical and Electrical Engineering", description: "Engineering applied to medicine — electrical focus" },
+      { name: "Biomedical and Mechanical Engineering", description: "Engineering applied to medicine — mechanical focus" },
       { name: "Civil Engineering", description: "Structures, infrastructure, and environmental systems" },
       { name: "Communications Engineering", description: "Wireless systems, networks, and signal processing" },
       { name: "Computer Systems Engineering", description: "Hardware, software, and embedded systems design" },
       { name: "Electrical Engineering", description: "Circuits, power systems, and electromagnetic fields" },
+      { name: "Engineering Physics", description: "Physics-based engineering, optics, and quantum systems" },
+      { name: "Environmental Engineering", description: "Environmental protection, water, and waste systems" },
       { name: "Industrial Design", description: "Product design, human factors, and manufacturing" },
       { name: "Mechanical Engineering", description: "Mechanics, thermodynamics, and machine design" },
+      { name: "Mechatronics Engineering", description: "Mechanical systems, electronics, and control" },
       { name: "Network Technology", description: "Computer networks, security, and telecommunications" },
-      { name: "Software Engineering", description: "Software design, testing, and project management" },
-      { name: "Sustainable and Renewable Energy Engineering", description: "Green energy systems and sustainable design" },
+      {
+        name: "Software Engineering",
+        description: "Software design, testing, and project management",
+        streams: [
+          { label: "Software Engineering (General)", queryName: "Software Engineering Bachelor of Engineering" },
+          { label: "Stream A — Artificial Intelligence", queryName: "Software Engineering Stream A: Artificial Intelligence" },
+        ],
+      },
+      {
+        name: "Sustainable and Renewable Energy Engineering",
+        description: "Green energy systems and sustainable design",
+        streams: [
+          { label: "Stream A — Smart Technologies for Power Generation & Distribution", queryName: "Sustainable and Renewable Energy Engineering Stream A: Smart Technologies for Power Generation and Distribution" },
+          { label: "Stream B — Efficient Energy Generation & Conversion", queryName: "Sustainable and Renewable Energy Engineering Stream B: Efficient Energy Generation and Conversion" },
+        ],
+      },
     ],
   },
   {
     name: "Science",
     color: "text-emerald-600 dark:text-emerald-400",
+    bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
     programs: [
       { name: "Biochemistry", description: "Chemistry of biological processes and living systems" },
       { name: "Bioinformatics", description: "Computational approaches to biological data" },
@@ -48,6 +89,7 @@ const FACULTIES: { name: string; color: string; programs: Omit<Program, "faculty
       { name: "Environmental Science", description: "Environmental systems, ecology, and sustainability" },
       { name: "Food Science and Nutrition", description: "Food chemistry, safety, and human nutrition" },
       { name: "Mathematics", description: "Pure and applied mathematics" },
+      { name: "Nanoscience", description: "Materials and phenomena at the nanoscale" },
       { name: "Neuroscience", description: "Brain function, cognition, and nervous system" },
       { name: "Physics", description: "Classical and modern physics, quantum mechanics" },
       { name: "Psychology", description: "Human behaviour, cognition, and mental processes" },
@@ -57,6 +99,7 @@ const FACULTIES: { name: string; color: string; programs: Omit<Program, "faculty
   {
     name: "Arts & Social Sciences",
     color: "text-purple-600 dark:text-purple-400",
+    bgColor: "bg-purple-50 dark:bg-purple-950/30",
     programs: [
       { name: "Anthropology", description: "Human cultures, evolution, and social organization" },
       { name: "Art History", description: "Visual arts, architecture, and cultural heritage" },
@@ -87,6 +130,7 @@ const FACULTIES: { name: string; color: string; programs: Omit<Program, "faculty
   {
     name: "Sprott School of Business",
     color: "text-orange-600 dark:text-orange-400",
+    bgColor: "bg-orange-50 dark:bg-orange-950/30",
     programs: [
       { name: "Accounting", description: "Financial reporting, auditing, and taxation" },
       { name: "Business (BCom)", description: "Core business fundamentals across all disciplines" },
@@ -101,6 +145,7 @@ const FACULTIES: { name: string; color: string; programs: Omit<Program, "faculty
   {
     name: "Public Affairs",
     color: "text-yellow-600 dark:text-yellow-500",
+    bgColor: "bg-yellow-50 dark:bg-yellow-950/30",
     programs: [
       { name: "Human Rights", description: "International human rights law and advocacy" },
       { name: "Public Administration", description: "Government management, policy, and public service" },
@@ -111,6 +156,7 @@ const FACULTIES: { name: string; color: string; programs: Omit<Program, "faculty
   {
     name: "Information Technology",
     color: "text-cyan-600 dark:text-cyan-400",
+    bgColor: "bg-cyan-50 dark:bg-cyan-950/30",
     programs: [
       { name: "Information Technology (BIT)", description: "IT systems, databases, networking, and software" },
       { name: "Interactive Multimedia and Design", description: "Web, game, and interactive media design" },
@@ -118,9 +164,11 @@ const FACULTIES: { name: string; color: string; programs: Omit<Program, "faculty
   },
   {
     name: "Health Sciences",
-    color: "text-red-600 dark:text-red-400",
+    color: "text-red-500 dark:text-red-400",
+    bgColor: "bg-red-50 dark:bg-red-950/30",
     programs: [
       { name: "Health Sciences", description: "Health systems, policy, and interdisciplinary health studies" },
+      { name: "Nursing", description: "Collaborative nursing program with health and patient care" },
     ],
   },
 ]
@@ -129,40 +177,31 @@ const ALL_PROGRAMS: Program[] = FACULTIES.flatMap((f) =>
   f.programs.map((p) => ({ ...p, faculty: f.name }))
 )
 
+type ViewState =
+  | { screen: "directory" }
+  | { screen: "streams"; program: Program; faculty: typeof FACULTIES[number] }
+  | { screen: "detail"; program: Program; streamLabel?: string; queryName: string }
+
 export function ProgramExplorer() {
-  const [selected, setSelected] = React.useState<Program | null>(null)
+  const [view, setView] = React.useState<ViewState>({ screen: "directory" })
   const [result, setResult] = React.useState("")
   const [loading, setLoading] = React.useState(false)
   const [search, setSearch] = React.useState("")
 
-  const searchResults = search.trim()
-    ? ALL_PROGRAMS.filter(
-        (p) =>
-          p.name.toLowerCase().includes(search.toLowerCase()) ||
-          p.description.toLowerCase().includes(search.toLowerCase())
-      )
-    : null
-
-  const loadProgram = async (program: Program) => {
-    setSelected(program)
+  const loadRequirements = async (queryName: string) => {
     setResult("")
     setLoading(true)
-
-    const question = `What are all the required courses for the ${program.name} program at Carleton University? List them organized by year with course codes and credit values.`
-
+    const question = `What are all the required courses for ${queryName} at Carleton University? Please list them organized by year with course codes and credit values. Include any stream-specific requirements.`
     try {
       const formData = new FormData()
       formData.append("question", question)
       formData.append("history", "[]")
-
       const response = await fetch(`${API_URL}/api/chat/stream`, { method: "POST", body: formData })
       if (!response.body) throw new Error()
-
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ""
       let fullText = ""
-
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -184,25 +223,96 @@ export function ProgramExplorer() {
     }
   }
 
-  // Detail view
-  if (selected) {
-    const faculty = FACULTIES.find((f) => f.name === selected.faculty)
+  const handleProgramClick = (program: Program) => {
+    const faculty = FACULTIES.find((f) => f.name === program.faculty)!
+    if (program.streams && program.streams.length > 0) {
+      setView({ screen: "streams", program, faculty })
+    } else {
+      setView({ screen: "detail", program, queryName: program.name })
+      loadRequirements(program.name)
+    }
+  }
+
+  const handleStreamClick = (program: Program, stream: Stream) => {
+    setView({ screen: "detail", program, streamLabel: stream.label, queryName: stream.queryName })
+    loadRequirements(stream.queryName)
+  }
+
+  const goBack = () => {
+    if (view.screen === "detail" && (view as any).program?.streams?.length > 0) {
+      const program = (view as any).program as Program
+      const faculty = FACULTIES.find((f) => f.name === program.faculty)!
+      setView({ screen: "streams", program, faculty })
+    } else {
+      setView({ screen: "directory" })
+    }
+    setResult("")
+  }
+
+  // ── Stream picker ────────────────────────────────────────────────────────
+  if (view.screen === "streams") {
+    const { program, faculty } = view
     return (
       <div className="flex flex-col gap-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => { setSelected(null); setResult("") }}>
+          <Button variant="ghost" size="icon" onClick={() => setView({ screen: "directory" })}>
             <ArrowLeft className="size-4" />
           </Button>
           <div>
-            <p className={cn("text-xs font-medium mb-0.5", faculty?.color)}>{selected.faculty}</p>
-            <h2 className="text-lg font-semibold leading-tight">{selected.name}</h2>
+            <p className={cn("text-xs font-medium mb-0.5", faculty.color)}>{faculty.name}</p>
+            <h2 className="text-lg font-semibold">{program.name}</h2>
+          </div>
+        </div>
+
+        <div className={cn("rounded-xl p-4 border border-border", faculty.bgColor)}>
+          <div className="flex items-center gap-2 mb-1">
+            <Layers className={cn("size-4", faculty.color)} />
+            <p className="text-sm font-semibold">Select your stream</p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            This program has multiple specialization streams. Each has a different course sequence.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          {program.streams!.map((stream) => (
+            <button
+              key={stream.queryName}
+              onClick={() => handleStreamClick(program, stream)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl border border-border bg-card hover:bg-secondary/40 hover:border-border/80 transition-all text-left group"
+            >
+              <span className="text-sm font-medium text-foreground">{stream.label}</span>
+              <ChevronRight className="size-3.5 text-muted-foreground/30 shrink-0 group-hover:text-muted-foreground transition-colors" />
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Detail view ──────────────────────────────────────────────────────────
+  if (view.screen === "detail") {
+    const { program, streamLabel } = view as { program: Program; streamLabel?: string; queryName: string }
+    const faculty = FACULTIES.find((f) => f.name === program.faculty)
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={goBack}>
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div>
+            <p className={cn("text-xs font-medium mb-0.5", faculty?.color)}>{program.faculty}</p>
+            <h2 className="text-lg font-semibold leading-tight">{program.name}</h2>
+            {streamLabel && (
+              <p className="text-xs text-muted-foreground mt-0.5">{streamLabel}</p>
+            )}
           </div>
         </div>
 
         {loading && (
           <div className="flex items-center gap-2.5 text-muted-foreground py-8 justify-center text-sm">
             <Loader2 className="size-4 animate-spin" />
-            Loading program requirements…
+            Loading requirements…
           </div>
         )}
 
@@ -221,15 +331,24 @@ export function ProgramExplorer() {
     )
   }
 
-  // Directory view
+  // ── Directory ────────────────────────────────────────────────────────────
+  const searchResults = search.trim()
+    ? ALL_PROGRAMS.filter(
+        (p) =>
+          p.name.toLowerCase().includes(search.toLowerCase()) ||
+          p.description.toLowerCase().includes(search.toLowerCase())
+      )
+    : null
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-lg font-semibold mb-0.5">Programs</h2>
-        <p className="text-sm text-muted-foreground">{ALL_PROGRAMS.length} Carleton programs — click any to see requirements</p>
+        <p className="text-sm text-muted-foreground">
+          {ALL_PROGRAMS.length} Carleton programs — click any to see requirements
+        </p>
       </div>
 
-      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
         <input
@@ -241,7 +360,6 @@ export function ProgramExplorer() {
         />
       </div>
 
-      {/* Search results */}
       {searchResults ? (
         <div>
           {searchResults.length === 0 ? (
@@ -251,19 +369,13 @@ export function ProgramExplorer() {
               {searchResults.map((p) => {
                 const faculty = FACULTIES.find((f) => f.name === p.faculty)
                 return (
-                  <ProgramCard
-                    key={p.name}
-                    program={p}
-                    facultyColor={faculty?.color}
-                    onClick={() => loadProgram(p)}
-                  />
+                  <ProgramCard key={p.name} program={p} facultyColor={faculty?.color} onClick={() => handleProgramClick(p)} />
                 )
               })}
             </div>
           )}
         </div>
       ) : (
-        /* Grouped by faculty */
         <div className="space-y-8">
           {FACULTIES.map((faculty) => (
             <div key={faculty.name}>
@@ -279,7 +391,7 @@ export function ProgramExplorer() {
                     key={p.name}
                     program={{ ...p, faculty: faculty.name }}
                     facultyColor={faculty.color}
-                    onClick={() => loadProgram({ ...p, faculty: faculty.name })}
+                    onClick={() => handleProgramClick({ ...p, faculty: faculty.name })}
                   />
                 ))}
               </div>
@@ -300,14 +412,26 @@ function ProgramCard({
   facultyColor?: string
   onClick: () => void
 }) {
+  const hasStreams = !!program.streams?.length
   return (
     <button
       onClick={onClick}
       className="group flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-secondary/40 hover:border-border/80 transition-all text-left"
     >
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-foreground truncate">{program.name}</p>
-        <p className="text-xs text-muted-foreground truncate mt-0.5">{program.description}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <p className="text-xs text-muted-foreground truncate">{program.description}</p>
+          {hasStreams && (
+            <span className={cn(
+              "shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md",
+              facultyColor,
+              "bg-current/10"
+            )}>
+              {program.streams!.length} streams
+            </span>
+          )}
+        </div>
       </div>
       <ChevronRight className="size-3.5 text-muted-foreground/30 shrink-0 group-hover:text-muted-foreground transition-colors" />
     </button>

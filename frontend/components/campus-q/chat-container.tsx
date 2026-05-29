@@ -313,7 +313,7 @@ export function ChatContainer() {
                   </div>
                 </div>
               ) : (
-                <div className="max-w-3xl mx-auto px-4 md:px-6 py-8 space-y-8">
+                <div className="max-w-2xl mx-auto px-4 md:px-6 py-10 space-y-10">
                   {messages.map((message) => {
                     const codes = message.role === "assistant" ? extractCourseCodes(message.content) : []
                     const suggestions = message.role === "assistant" && !isLoading

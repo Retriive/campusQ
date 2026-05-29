@@ -24,10 +24,10 @@ function useAnimatedPlaceholder(strings: string[], active: boolean) {
     const current = strings[index]
     if (phase === "typing") {
       if (displayed.length < current.length) {
-        const t = setTimeout(() => setDisplayed(current.slice(0, displayed.length + 1)), 40)
+        const t = setTimeout(() => setDisplayed(current.slice(0, displayed.length + 1)), 38)
         return () => clearTimeout(t)
       } else {
-        const t = setTimeout(() => setPhase("pausing"), 2200)
+        const t = setTimeout(() => setPhase("pausing"), 2400)
         return () => clearTimeout(t)
       }
     }
@@ -37,7 +37,7 @@ function useAnimatedPlaceholder(strings: string[], active: boolean) {
     }
     if (phase === "deleting") {
       if (displayed.length > 0) {
-        const t = setTimeout(() => setDisplayed(displayed.slice(0, -1)), 16)
+        const t = setTimeout(() => setDisplayed(displayed.slice(0, -1)), 14)
         return () => clearTimeout(t)
       } else {
         setIndex((i) => (i + 1) % strings.length)
@@ -85,15 +85,19 @@ export function ChatInput({ value, onChange, onSubmit, disabled, isHome }: ChatI
   return (
     <div className={cn(
       "px-4 pb-5",
-      isHome ? "pt-0" : "pt-4 sticky bottom-0 z-10 bg-gradient-to-t from-background via-background/95 to-transparent"
+      isHome
+        ? "pt-0"
+        : "pt-3 sticky bottom-0 z-10 bg-gradient-to-t from-background via-background/95 to-transparent"
     )}>
       <div className="max-w-2xl mx-auto">
+
+        {/* Input box */}
         <div className={cn(
           "relative flex items-end rounded-2xl border bg-card transition-all duration-200",
           isHome
-            ? "shadow-lg shadow-black/[0.06] border-border/80 hover:border-border hover:shadow-xl hover:shadow-black/[0.08]"
+            ? "shadow-[0_2px_20px_rgba(0,0,0,0.06)] border-border/70 hover:shadow-[0_4px_24px_rgba(0,0,0,0.09)] hover:border-border"
             : "shadow-sm border-border/60",
-          value && "border-border shadow-md"
+          value && !isHome && "border-border/80"
         )}>
           <textarea
             ref={textareaRef}
@@ -103,7 +107,7 @@ export function ChatInput({ value, onChange, onSubmit, disabled, isHome }: ChatI
             placeholder={placeholder}
             rows={1}
             disabled={disabled}
-            className="flex-1 resize-none bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground/50 min-h-[54px] max-h-[180px] py-4 pl-4 pr-14 leading-relaxed"
+            className="flex-1 resize-none bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground/40 min-h-[52px] max-h-[180px] py-[14px] pl-4 pr-14 leading-relaxed"
           />
 
           <button
@@ -111,26 +115,23 @@ export function ChatInput({ value, onChange, onSubmit, disabled, isHome }: ChatI
             onClick={onSubmit}
             disabled={!canSubmit}
             className={cn(
-              "absolute right-2.5 bottom-2.5 size-9 rounded-xl flex items-center justify-center transition-all duration-200",
+              "absolute right-2.5 bottom-2.5 size-8 rounded-xl flex items-center justify-center transition-all duration-150",
               canSubmit
-                ? cn(theme.bgClass, "text-white shadow-sm hover:opacity-90 hover:scale-105 active:scale-95")
-                : "bg-secondary text-muted-foreground/30 cursor-not-allowed"
+                ? cn(theme.bgClass, "text-white shadow-sm hover:opacity-85 hover:scale-105 active:scale-95")
+                : "bg-secondary text-muted-foreground/25 cursor-not-allowed"
             )}
           >
-            <ArrowUp className="size-4" strokeWidth={2.5} />
+            <ArrowUp className="size-3.5" strokeWidth={2.5} />
           </button>
         </div>
 
-        {isHome && (
-          <p className="text-[11px] text-center text-muted-foreground/35 mt-2.5">
-            CampusQ is independent and not affiliated with Carleton University
-          </p>
-        )}
-        {!isHome && (
-          <p className="text-[11px] text-center text-muted-foreground/35 mt-2">
-            Verify important decisions with your advisor
-          </p>
-        )}
+        {/* Disclaimer */}
+        <p className="text-[11px] text-center text-muted-foreground/30 mt-2.5 tracking-wide">
+          {isHome
+            ? "Independent tool — not affiliated with Carleton University"
+            : "Verify important decisions with your advisor"
+          }
+        </p>
       </div>
     </div>
   )

@@ -291,11 +291,22 @@ async def chat_endpoint(
             model="text-embedding-3-small",
         ).data[0].embedding
 
+        is_program_query = any(kw in user_query.lower() for kw in [
+            "program", "required courses", "year 1", "year 2", "year 3", "year 4",
+            "stream", "engineering", "bachelor", "degree requirements", "curriculum",
+            "what courses do i need", "courses for my", "courses in the"
+        ])
+
+        top_k_programs = 25 if is_program_query else 8
+        top_k_other = 5 if is_program_query else 8
+        keep_total = 30 if is_program_query else 10
+
         all_matches = []
         for ns in ["courses", "programs", "regulations"]:
+            top_k = top_k_programs if ns == "programs" else top_k_other
             ns_results = index.query(
                 vector=query_embedding,
-                top_k=8,
+                top_k=top_k,
                 include_metadata=True,
                 namespace=ns,
             )
@@ -303,7 +314,7 @@ async def chat_endpoint(
                 all_matches.extend(ns_results.matches)
 
         all_matches.sort(key=lambda m: m.score, reverse=True)
-        all_matches = all_matches[:10]
+        all_matches = all_matches[:keep_total]
 
         context_text = ""
         sources = []
@@ -429,11 +440,24 @@ async def chat_stream(
                 model="text-embedding-3-small",
             ).data[0].embedding
 
+            # Detect program queries — they need many more chunks than course/policy queries
+            # because a full 4-year program can span 8-12 sections
+            is_program_query = any(kw in user_query.lower() for kw in [
+                "program", "required courses", "year 1", "year 2", "year 3", "year 4",
+                "stream", "engineering", "bachelor", "degree requirements", "curriculum",
+                "what courses do i need", "courses for my", "courses in the"
+            ])
+
+            top_k_programs = 25 if is_program_query else 8
+            top_k_other = 5 if is_program_query else 8
+            keep_total = 30 if is_program_query else 10
+
             all_matches = []
             for ns in ["courses", "programs", "regulations"]:
+                top_k = top_k_programs if ns == "programs" else top_k_other
                 ns_results = index.query(
                     vector=query_embedding,
-                    top_k=8,
+                    top_k=top_k,
                     include_metadata=True,
                     namespace=ns,
                 )
@@ -441,7 +465,7 @@ async def chat_stream(
                     all_matches.extend(ns_results.matches)
 
             all_matches.sort(key=lambda m: m.score, reverse=True)
-            all_matches = all_matches[:10]
+            all_matches = all_matches[:keep_total]
 
             context_text = ""
             for match in all_matches:

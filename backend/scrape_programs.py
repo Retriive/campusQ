@@ -1,272 +1,244 @@
+"""
+scrape_programs.py — Scrapes all undergrad program requirements from calendar.carleton.ca.
+
+Strategy:
+  - Scrape HTML pages directly (NOT PDFs — PDFs lose all structure)
+  - Auto-discover all program pages from the index
+  - Within each program page, split by year/section heading
+  - Store one Pinecone vector per year/section block
+  - This means "Year 1 Required Courses" is one chunk, not split mid-list
+
+Namespace: "programs"
+"""
+
 import os
 import re
 import time
 import requests
-import fitz
-import shutil
+import trafilatura
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from dotenv import load_dotenv
-
 from pinecone import Pinecone
 from openai import OpenAI
 
-# =========================================================
-# CONFIG
-# =========================================================
+load_dotenv()
 
-START_URL = "https://calendar.carleton.ca/undergrad/undergradprograms/"
-PDF_FOLDER = "pdfs"
-ARCHIVE_FOLDER = "archive"
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+index = pc.Index("knowledge-base")
 
 NAMESPACE = "programs"
 EMBED_MODEL = "text-embedding-3-small"
+BASE = "https://calendar.carleton.ca"
+PROGRAMS_ROOT = f"{BASE}/undergrad/undergradprograms/"
 
-# =========================================================
-# LOAD ENV
-# =========================================================
+# Faculty mapping based on URL slug patterns
+FACULTY_MAP = {
+    "engineering": "Engineering & Design",
+    "informationtechnology": "Information Technology",
+    "computerscience": "Science",
+    "science": "Science",
+    "arts": "Arts & Social Sciences",
+    "business": "Sprott School of Business",
+    "publicaffairs": "Public Affairs",
+    "health": "Health Sciences",
+    "architecture": "Engineering & Design",
+}
 
-load_dotenv()
+def detect_faculty(url: str, program_name: str) -> str:
+    url_lower = url.lower()
+    for key, faculty in FACULTY_MAP.items():
+        if key in url_lower:
+            return faculty
+    # Fallback: engineering keywords in name
+    eng_keywords = ["engineering", "network technology"]
+    if any(k in program_name.lower() for k in eng_keywords):
+        return "Engineering & Design"
+    return "Other"
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_INDEX = os.getenv("PINECONE_INDEX_NAME")
+# ── Stage 1: Discover all program pages ──────────────────────────────────────
 
-if not OPENAI_API_KEY or not PINECONE_API_KEY or not PINECONE_INDEX:
-    raise Exception("Missing environment variables")
-
-# =========================================================
-# CLIENTS
-# =========================================================
-
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
-
-pc = Pinecone(api_key=PINECONE_API_KEY)
-index = pc.Index(PINECONE_INDEX)
-
-# =========================================================
-# FOLDERS
-# =========================================================
-
-os.makedirs(PDF_FOLDER, exist_ok=True)
-os.makedirs(ARCHIVE_FOLDER, exist_ok=True)
-
-# =========================================================
-# STAGE 1 — GET PROGRAM LINKS
-# =========================================================
-
-def get_program_links():
-    print("[Stage 1] Fetching program links...")
-
-    r = requests.get(START_URL)
-    if r.status_code != 200:
-        print("Failed to load start page")
-        return []
-
+def get_program_links() -> list[str]:
+    print(f"\n[1/3] Discovering program pages from {PROGRAMS_ROOT}")
+    r = requests.get(PROGRAMS_ROOT, timeout=15)
+    r.raise_for_status()
     soup = BeautifulSoup(r.text, "html.parser")
+    content = soup.find("div", class_="pageblock") or soup.find("main") or soup
 
-    container = soup.find("div", class_="pageblock") or soup.find("main") or soup
-
-    links = set()
-
-    for a in container.find_all("a", href=True):
-        url = urljoin(START_URL, a["href"])
-
+    links = []
+    for a in content.find_all("a", href=True):
+        url = urljoin(PROGRAMS_ROOT, a["href"])
         if (
-            url.startswith(START_URL)
+            url.startswith(PROGRAMS_ROOT)
+            and url != PROGRAMS_ROOT
             and ".pdf" not in url
             and "#" not in url
-            and url != START_URL
+            and url not in links
         ):
-            links.add(url)
+            links.append(url)
 
-    links = list(links)
-
-    print(f"Found {len(links)} programs\n")
+    print(f"  → Found {len(links)} program pages")
     return links
 
+# ── Stage 2: Scrape and section a program page ────────────────────────────────
 
-# =========================================================
-# STAGE 2 — BUILD PDF URL
-# =========================================================
-
-def build_pdf_url(program_url):
-    slug = program_url.rstrip("/").split("/")[-1]
-    pdf_url = f"{program_url}{slug}.pdf"
-    return pdf_url, slug
-
-
-# =========================================================
-# STAGE 3 — DOWNLOAD PDF
-# =========================================================
-
-def download_pdf(pdf_url, slug):
-    path = os.path.join(PDF_FOLDER, f"{slug}.pdf")
-
-    if os.path.exists(path):
-        return path
-
-    r = requests.get(pdf_url, timeout=20)
-
-    if r.status_code != 200:
-        return None
-
-    with open(path, "wb") as f:
-        f.write(r.content)
-
-    return path
-
-
-# =========================================================
-# STAGE 4 — EXTRACT PDF TEXT
-# =========================================================
-
-def extract_pdf_text(path):
+def scrape_program_page(url: str) -> str:
+    """Trafilatura first, BeautifulSoup fallback."""
     try:
-        doc = fitz.open(path)
-        text = ""
+        downloaded = trafilatura.fetch_url(url)
+        text = trafilatura.extract(
+            downloaded,
+            include_tables=True,
+            include_links=False,
+            include_images=False,
+            no_fallback=False,
+        )
+        if text and len(text) > 300:
+            return text
+    except Exception:
+        pass
 
-        for page in doc:
-            text += page.get_text()
-
-        doc.close()
-        return text
-    except:
+    try:
+        r = requests.get(url, timeout=15)
+        soup = BeautifulSoup(r.text, "html.parser")
+        for tag in soup(["script", "style", "nav", "header", "footer"]):
+            tag.decompose()
+        main = soup.find("div", class_="pageblock") or soup.find("main") or soup
+        lines = [l.strip() for l in main.get_text(separator="\n").splitlines() if l.strip()]
+        return "\n".join(lines)
+    except Exception as e:
+        print(f"  ✗ Scrape failed: {e}")
         return ""
 
+def extract_program_name(text: str, url: str) -> str:
+    """Extract the program name from the first line of text."""
+    lines = [l.strip() for l in text.split('\n') if l.strip()]
+    for line in lines[:5]:
+        if len(line) > 10 and not line.startswith("http"):
+            return line
+    # Fallback: derive from URL slug
+    slug = url.rstrip('/').split('/')[-1]
+    return slug.replace('-', ' ').title()
 
-# =========================================================
-# STAGE 5 — CLEAN TEXT
-# =========================================================
+def split_into_sections(text: str) -> list[dict]:
+    """
+    Split program text into logical sections by detecting headings.
 
-def clean_text(text):
-    text = text.replace("\xa0", " ")
-    text = re.sub(r"\r", "\n", text)
-    text = re.sub(r"\n{2,}", "\n\n", text)
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"-\s*\d+\s*-", "", text)
-    return text.strip()
+    Heading patterns:
+      - "Year 1", "Year 2", "Year 3", "Year 4"
+      - "First Year", "Second Year", etc.
+      - "Required Courses", "Electives", "Stream", "Notes"
+      - Numbered sections
+    """
+    HEADING_PATTERNS = [
+        r'^(Year\s+[1-4]\b.*)',
+        r'^(First Year|Second Year|Third Year|Fourth Year)',
+        r'^(Required Courses?|Elective Courses?|Optional Courses?)',
+        r'^(Stream[:\s]|Specialization[:\s])',
+        r'^(Program Overview|Program Description|Introduction)',
+        r'^(Graduation Requirements?|Degree Requirements?)',
+        r'^(Notes?:|Important:|Notice:)',
+        r'^(Honours|General Program|Combined)',
+        r'^\d+\.\s+[A-Z]',  # Numbered sections
+    ]
+    combined = re.compile('|'.join(HEADING_PATTERNS), re.IGNORECASE | re.MULTILINE)
 
+    lines = text.split('\n')
+    sections = []
+    current_heading = "Overview"
+    current_lines = []
 
-# =========================================================
-# STAGE 6 — CHUNK TEXT
-# =========================================================
+    for line in lines:
+        if combined.match(line.strip()) and len(line.strip()) < 80:
+            # Save previous section if it has content
+            if current_lines:
+                content = '\n'.join(current_lines).strip()
+                if len(content) > 50:
+                    sections.append({"heading": current_heading, "content": content})
+            current_heading = line.strip()
+            current_lines = []
+        else:
+            current_lines.append(line)
 
-def chunk_text(text, size=1200, overlap=200):
-    chunks = []
-    i = 0
+    # Save last section
+    if current_lines:
+        content = '\n'.join(current_lines).strip()
+        if len(content) > 50:
+            sections.append({"heading": current_heading, "content": content})
 
-    while i < len(text):
-        chunks.append(text[i:i+size])
-        i += size - overlap
+    # If no sections were detected, return the whole text as one chunk
+    if not sections:
+        sections = [{"heading": "Program Requirements", "content": text.strip()}]
 
-    return chunks
+    return sections
 
+# ── Stage 3: Embed and upload ─────────────────────────────────────────────────
 
-# =========================================================
-# STAGE 7 — BATCH EMBEDDINGS
-# =========================================================
+def upload_sections(program_name: str, faculty: str, url: str, sections: list[dict]):
+    vectors = []
+    slug = url.rstrip('/').split('/')[-1]
 
-def embed_batch(chunks):
-    response = openai_client.embeddings.create(
-        model=EMBED_MODEL,
-        input=chunks
-    )
-    return [d.embedding for d in response.data]
+    texts = []
+    for s in sections:
+        texts.append(
+            f"{program_name} — {s['heading']}\n{s['content'][:800]}"
+        )
 
-
-# =========================================================
-# ARCHIVE FUNCTION (NEW)
-# =========================================================
-
-def archive_pdf(path):
-    try:
-        if path and os.path.exists(path):
-            filename = os.path.basename(path)
-            new_path = os.path.join(ARCHIVE_FOLDER, filename)
-
-            shutil.move(path, new_path)
-            print("  Moved PDF to archive")
-
-    except Exception as e:
-        print(f"  Failed to archive PDF: {e}")
-
-
-# =========================================================
-# STAGE 8 — PROCESS PROGRAM
-# =========================================================
-
-def process_program(program_url):
-    pdf_url, slug = build_pdf_url(program_url)
-
-    print(f"Processing: {slug}")
-
-    pdf_path = download_pdf(pdf_url, slug)
-
-    if not pdf_path:
-        print("  PDF missing")
+    if not texts:
         return
 
-    try:
-        raw = extract_pdf_text(pdf_path)
+    response = openai_client.embeddings.create(input=texts, model=EMBED_MODEL)
 
-        if len(raw) < 200:
-            print("  Not enough text")
-            return
+    for i, emb_data in enumerate(response.data):
+        s = sections[i]
+        chunk_id = f"{slug}-{re.sub(r'[^a-z0-9]', '-', s['heading'].lower())}-{i}"
+        vectors.append({
+            "id": chunk_id,
+            "values": emb_data.embedding,
+            "metadata": {
+                "program": program_name,
+                "faculty": faculty,
+                "section": s['heading'],
+                "text": f"{program_name}\n{s['heading']}\n{s['content'][:1200]}",
+                "source": url,
+            },
+        })
 
-        cleaned = clean_text(raw)
-        chunks = chunk_text(cleaned)
+    index.upsert(vectors=vectors, namespace=NAMESPACE)
 
-        if not chunks:
-            return
-
-        embeddings = embed_batch(chunks)
-
-        vectors = []
-
-        for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
-            vectors.append({
-                "id": f"{slug}-{i}",
-                "values": emb,
-                "metadata": {
-                    "text": chunk,
-                    "program": slug.replace("-", " "),
-                    "program_slug": slug,
-                    "source_pdf": pdf_url,
-                    "source_page": program_url,
-                    "tenant": NAMESPACE,
-                    "chunk_index": i
-                }
-            })
-
-        index.upsert(vectors=vectors, namespace=NAMESPACE)
-
-        print(f"  Uploaded {len(vectors)} chunks")
-
-    finally:
-        archive_pdf(pdf_path)
-
-
-# =========================================================
-# STAGE 9 — PIPELINE
-# =========================================================
+# ── Main pipeline ─────────────────────────────────────────────────────────────
 
 def run():
-    start = time.time()
+    program_urls = get_program_links()
+    total_sections = 0
+    total_programs = 0
 
-    links = get_program_links()
+    print(f"\n[2/3] Scraping {len(program_urls)} program pages...\n")
 
-    for i, url in enumerate(links):
-        print(f"[{i+1}/{len(links)}]")
-        process_program(url)
-        time.sleep(1)
+    for i, url in enumerate(program_urls):
+        slug = url.rstrip('/').split('/')[-1]
+        print(f"  [{i+1}/{len(program_urls)}] {slug}")
 
-    print("\nDONE in", round((time.time() - start)/60, 2), "min")
+        text = scrape_program_page(url)
+        if not text or len(text) < 200:
+            print("    ✗ Not enough content")
+            continue
 
+        program_name = extract_program_name(text, url)
+        faculty = detect_faculty(url, program_name)
+        sections = split_into_sections(text)
 
-# =========================================================
-# ENTRY
-# =========================================================
+        upload_sections(program_name, faculty, url, sections)
+        total_sections += len(sections)
+        total_programs += 1
+        print(f"    ✓ '{program_name}' → {len(sections)} sections")
+
+        time.sleep(0.8)
+
+    print(f"\n{'='*50}")
+    print(f"✓ PROGRAMS COMPLETE — {total_programs} programs, {total_sections} sections indexed")
+    print(f"{'='*50}\n")
 
 if __name__ == "__main__":
     run()

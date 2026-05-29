@@ -1,6 +1,6 @@
 "use client"
 
-import { BookOpen, ChevronRight } from "lucide-react"
+import { BookOpen } from "lucide-react"
 import { useCampus } from "./campus-context"
 import { cn } from "@/lib/utils"
 
@@ -58,27 +58,15 @@ export function CourseCard({
           </p>
         )}
 
-        {/* Prerequisites */}
+        {/* Prerequisites — always show raw text to preserve OR/AND logic */}
         <div className="border-t border-border/50 pt-4">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Prerequisites
           </p>
-          {hasChips ? (
-            <div className="flex flex-wrap gap-1.5">
-              {prerequisites.map((prereq) => (
-                <span
-                  key={prereq}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border bg-secondary/50 text-xs font-mono text-foreground/80"
-                >
-                  <ChevronRight className="size-2.5 text-muted-foreground" />
-                  {prereq}
-                </span>
-              ))}
-            </div>
-          ) : hasRawText ? (
+          {hasRawText ? (
             <p className="text-xs text-muted-foreground leading-relaxed">{prerequisiteText}</p>
           ) : (
-            <p className="text-xs text-muted-foreground/60">None required.</p>
+            <p className="text-xs text-muted-foreground/50 italic">None required.</p>
           )}
         </div>
       </div>

@@ -72,18 +72,10 @@ export function CourseCompare({ initialCourses = [] }: CourseCompareProps) {
       label: "Prerequisites",
       key: "prerequisites",
       render: (c) =>
-        c.prerequisites.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {c.prerequisites.map((p) => (
-              <span key={p} className="px-1.5 py-0.5 bg-primary/10 text-primary text-xs rounded font-mono">
-                {p}
-              </span>
-            ))}
-          </div>
-        ) : c.prerequisiteText && c.prerequisiteText !== "None" ? (
+        c.prerequisiteText && c.prerequisiteText !== "None" ? (
           <span className="text-xs text-muted-foreground leading-relaxed">{c.prerequisiteText}</span>
         ) : (
-          <span className="text-green-600 dark:text-green-400 font-medium text-xs">None</span>
+          <span className="text-xs text-muted-foreground/50 italic">None required</span>
         ),
     },
     {

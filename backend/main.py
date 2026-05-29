@@ -144,24 +144,24 @@ def parse_course_from_metadata(metadata: dict, clean_code: str) -> dict:
     cred_match = re.search(r"[\d\.]+", str(raw_credits))
     credits_val = float(cred_match.group()) if cred_match else 0.5
     # --- Prerequisite extraction ---
-    # Strategy: always try to pull the raw "Prerequisite(s): ..." sentence from the
-    # doc_text first (most reliable), then fall back to the metadata field.
+    # Priority: 1) prerequisite_text field (full OR/AND), 2) doc_text regex, 3) codes only, 4) RAG
     prereq_text = ""
-    prereq_match = re.search(
-        r'Prerequisite\(s\)\s*[: ]\s*(.+?)(?=\s*(?:Precludes|Lectures\s+\w+|Also listed|Not available|$))',
-        doc_text, re.IGNORECASE | re.DOTALL
-    )
-    if prereq_match:
-        prereq_text = prereq_match.group(1).strip().rstrip(".")
+    stored = metadata.get("prerequisite_text", "")
+    if stored and stored.lower() not in ("none", ""):
+        prereq_text = stored.strip()
     else:
-        # fall back to metadata field
-        meta_prereq = metadata.get("prerequisites", "")
-        if meta_prereq and meta_prereq.lower() not in ("none", ""):
-            prereq_text = meta_prereq.strip()
+        prereq_match = re.search(
+            r'Prerequisite\(s\)\s*[: ]\s*(.+?)(?=\s*(?:Precludes|Lectures\s+\w+|Also listed|Not available|$))',
+            doc_text, re.IGNORECASE | re.DOTALL
+        )
+        if prereq_match:
+            prereq_text = prereq_match.group(1).strip().rstrip(".")
         else:
-            # last resort: RAG search across the indexed chunks
-            prereq_text = rag_lookup_prerequisites(clean_code)
-
+            meta_prereq = metadata.get("prerequisites", "")
+            if meta_prereq and meta_prereq.lower() not in ("none", ""):
+                prereq_text = meta_prereq.strip()
+            else:
+                prereq_text = rag_lookup_prerequisites(clean_code)
     # Also build a clean code array (for the prereq visualizer) from whatever we found
     if prereq_text:
         raw_codes = re.findall(r'[A-Z]{3,4}[\xa0 ]+\d{4}', prereq_text)

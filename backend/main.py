@@ -322,8 +322,12 @@ async def chat_endpoint(
         chunks_used = 0
 
         for match in all_matches:
-            if match.score < SIMILARITY_THRESHOLD:
-                continue
+            # For program queries: include all program chunks regardless of score
+            # (years 3-4 chunks often score lower but are still needed for full context)
+            is_program_chunk = "program" in match.metadata or "section" in match.metadata
+            if not is_program_query or not is_program_chunk:
+                if match.score < SIMILARITY_THRESHOLD:
+                    continue
             metadata = match.metadata
             doc_text = metadata.get("text", "")
             doc_source = metadata.get("source", "Unknown Source")
@@ -469,8 +473,10 @@ async def chat_stream(
 
             context_text = ""
             for match in all_matches:
-                if match.score < SIMILARITY_THRESHOLD:
-                    continue
+                is_program_chunk = "program" in match.metadata or "section" in match.metadata
+                if not is_program_query or not is_program_chunk:
+                    if match.score < SIMILARITY_THRESHOLD:
+                        continue
                 metadata = match.metadata
                 doc_text = metadata.get("text", "")
                 doc_source = metadata.get("source", "Unknown Source")

@@ -3,9 +3,9 @@ scrape_courses.py — Scrapes every undergrad course from calendar.carleton.ca.
 
 Strategy:
   - Discover all department pages under /undergrad/courses/
-  - For each department, extract every course as a structured object
+  - Use BeautifulSoup (NOT trafilatura — course pages are structured data, not articles)
+  - Parse with the regex pattern that was proven to work on Carleton's calendar format
   - Store one Pinecone vector per course, ID = course code (e.g. SYSC3110)
-  - This enables both O(1) direct lookup AND semantic RAG search
 
 Namespace: "courses"
 """
@@ -14,7 +14,6 @@ import os
 import re
 import time
 import requests
-import trafilatura
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from dotenv import load_dotenv
@@ -23,20 +22,58 @@ from openai import OpenAI
 
 load_dotenv()
 
-# ── Clients ──────────────────────────────────────────────────────────────────
-
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index("knowledge-base")
 
-NAMESPACE = "courses"
+NAMESPACE   = "courses"
 EMBED_MODEL = "text-embedding-3-small"
-BASE = "https://calendar.carleton.ca"
-COURSES_ROOT = f"{BASE}/undergrad/courses/"
+COURSES_ROOT = "https://calendar.carleton.ca/undergrad/courses/"
 
-# ── Stage 1: Discover department pages ───────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-def get_department_links():
+def clean_text(text: str) -> str:
+    text = text.replace("\xa0", " ")
+    text = re.sub(r"\r", "\n", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+def extract_description(body: str) -> str:
+    """Strip calendar boilerplate from the course body."""
+    cutoffs = [
+        r"Precludes additional credit",
+        r"Prerequisite\(s\)\s*[: ]",
+        r"Includes:\s*Experiential Learning",
+        r"Lectures\s+\w+\s+hours?",
+        r"Also listed as",
+        r"Not available for",
+    ]
+    desc = body
+    for pattern in cutoffs:
+        m = re.search(pattern, desc, re.IGNORECASE)
+        if m:
+            desc = desc[:m.start()].strip().rstrip(".,")
+    return desc.strip()
+
+def extract_prereq_text(body: str) -> str:
+    """Extract the full prerequisite sentence."""
+    m = re.search(
+        r"Prerequisite\(s\)\s*[: ]\s*(.+?)(?=\s*(?:Precludes|Lectures\s+\w+|Also listed|Not available|\Z))",
+        body, re.IGNORECASE | re.DOTALL
+    )
+    if m:
+        return m.group(1).strip().rstrip(".")
+    return ""
+
+def extract_prereq_codes(prereq_text: str) -> list:
+    """Pull individual course codes out of a prerequisite string."""
+    raw = re.findall(r"[A-Z]{3,4}\s+\d{4}", prereq_text)
+    return list(dict.fromkeys(raw))
+
+# ── Stage 1: Discover all department pages ────────────────────────────────────
+
+def get_department_links() -> list:
     print(f"\n[1/4] Discovering department pages from {COURSES_ROOT}")
     r = requests.get(COURSES_ROOT, timeout=15)
     r.raise_for_status()
@@ -58,107 +95,78 @@ def get_department_links():
     print(f"  → Found {len(links)} department pages")
     return links
 
-# ── Stage 2: Scrape a department page ────────────────────────────────────────
+# ── Stage 2: Scrape a department page ─────────────────────────────────────────
 
 def scrape_department(url: str) -> str:
-    """Use trafilatura for clean extraction, fall back to BeautifulSoup."""
-    try:
-        downloaded = trafilatura.fetch_url(url)
-        text = trafilatura.extract(
-            downloaded,
-            include_tables=True,
-            include_links=False,
-            include_images=False,
-            no_fallback=False,
-        )
-        if text and len(text) > 200:
-            return text
-    except Exception:
-        pass
-
-    # BeautifulSoup fallback
+    """
+    Use BeautifulSoup — NOT trafilatura.
+    Trafilatura is built for editorial articles; it discards structured
+    course catalog content as 'boilerplate'. BeautifulSoup preserves it.
+    """
     try:
         r = requests.get(url, timeout=15)
+        if r.status_code != 200:
+            return ""
         soup = BeautifulSoup(r.text, "html.parser")
-        for tag in soup(["script", "style", "nav", "header", "footer"]):
+        for tag in soup(["script", "style", "nav", "header", "footer", "form"]):
             tag.decompose()
-        main = soup.find("div", class_="pageblock") or soup.find("main") or soup
-        lines = [l.strip() for l in main.get_text(separator="\n").splitlines() if l.strip()]
-        return "\n".join(lines)
+        main = soup.find("div", class_="pageblock") or soup.find("main") or soup.find("body")
+        raw = main.get_text(separator="\n")
+        return clean_text(raw)
     except Exception as e:
-        print(f"  ✗ Failed to scrape {url}: {e}")
+        print(f"    ✗ Scrape error: {e}")
         return ""
 
-# ── Stage 3: Parse courses from page text ────────────────────────────────────
+# ── Stage 3: Parse courses from text ─────────────────────────────────────────
 
-def parse_courses(text: str, source_url: str) -> list[dict]:
-    """
-    Parses structured course data from a department page.
-    Handles both formats:
-      SYSC 3110 [0.5 credit] — old style with brackets
-      SYSC 3110              — new style without brackets
-    """
-    # Pattern: course code + optional credit + everything until next course code
-    pattern = re.compile(
-        r'([A-Z]{3,4}[\xa0 ]\d{4})\s*(?:\[([\d.]+ credits?)\])?\s*\n(.*?)(?=\n[A-Z]{3,4}[\xa0 ]\d{4}|\Z)',
-        re.DOTALL | re.IGNORECASE,
-    )
+# Carleton calendar format:
+#   SYSC 3110 [0.5 credit]
+#   Software Engineering Design
+#   An introduction to the design...
+#
+# The proven regex from the original working scraper, extended to handle
+# credit format variations and non-breaking spaces.
 
+COURSE_PATTERN = re.compile(
+    r"([A-Z]{3,4}[\s\xa0]\d{4})\s*\[([\d.]+\s*credits?)\]\s*\n(.*?)(?=\n[A-Z]{3,4}[\s\xa0]\d{4}\s*\[|\Z)",
+    re.DOTALL | re.IGNORECASE,
+)
+
+# Fallback for pages that list credits differently (e.g. "0.5 credit units")
+COURSE_PATTERN_ALT = re.compile(
+    r"([A-Z]{3,4}[\s\xa0]\d{4})\s*\n([\d.]+\s*credit[^\n]*)\n(.*?)(?=\n[A-Z]{3,4}[\s\xa0]\d{4}\s*\n|\Z)",
+    re.DOTALL | re.IGNORECASE,
+)
+
+def parse_courses(text: str, source_url: str) -> list:
     courses = []
-    for match in pattern.finditer(text):
-        raw_code = match.group(1).replace('\xa0', ' ').strip()
-        raw_credits = match.group(2) or ""
-        body = match.group(3).strip()
+    seen = set()
 
-        # Extract course name (first non-empty line of body)
-        body_lines = [l.strip() for l in body.split('\n') if l.strip()]
-        course_name = body_lines[0] if body_lines else raw_code
+    def process_match(raw_code, raw_credits, body):
+        course_code = raw_code.replace("\xa0", " ").strip()
+        if course_code in seen:
+            return
+        seen.add(course_code)
 
-        # Skip if body is too short (likely a stub)
-        if len(body) < 20:
-            continue
+        body_lines = [l for l in body.strip().split("\n") if l.strip()]
+        if not body_lines or len(body.strip()) < 30:
+            return
+
+        course_name = body_lines[0].strip()
 
         # Parse credits
-        cred_match = re.search(r'([\d.]+)', raw_credits)
-        if not cred_match:
-            # Try to find credits in the body
-            cred_match = re.search(r'\[([\d.]+)\s*credit', body, re.IGNORECASE)
-        credits = float(cred_match.group(1)) if cred_match else 0.5
+        cred_m = re.search(r"([\d.]+)", raw_credits)
+        credits = float(cred_m.group(1)) if cred_m else 0.5
 
-        # Parse prerequisite text (full sentence, not just codes)
-        prereq_text = ""
-        prereq_match = re.search(
-            r'Prerequisite\(s\)[:\s]+(.+?)(?=\s*(?:Precludes|Lectures|Also listed|$))',
-            body, re.IGNORECASE | re.DOTALL
-        )
-        if prereq_match:
-            prereq_text = prereq_match.group(1).strip().rstrip('.')
+        prereq_text = extract_prereq_text(body)
+        prereq_codes = extract_prereq_codes(prereq_text)
+        description = extract_description(body)
 
-        # Extract individual course codes from prereq text
-        prereq_codes = []
-        if prereq_text:
-            raw_codes = re.findall(r'[A-Z]{3,4}[\xa0 ]+\d{4}', prereq_text)
-            prereq_codes = list(dict.fromkeys(c.replace('\xa0', ' ').strip() for c in raw_codes))
-
-        # Clean description (strip boilerplate)
-        description = body
-        for cutoff in [
-            r'Precludes additional credit',
-            r'Prerequisite\(s\)',
-            r'Includes:\s*Experiential Learning',
-            r'Lectures\s+\w+\s+hours?',
-            r'Also listed as',
-        ]:
-            m = re.search(cutoff, description, re.IGNORECASE)
-            if m:
-                description = description[:m.start()].strip().rstrip('.')
-
-        # Department code (first 4 letters of course code)
-        dept = re.match(r'[A-Z]+', raw_code)
+        dept = re.match(r"[A-Z]+", course_code)
         dept = dept.group(0) if dept else ""
 
         courses.append({
-            "course_code": raw_code,
+            "course_code": course_code,
             "course_name": course_name,
             "credits": credits,
             "description": description,
@@ -168,85 +176,98 @@ def parse_courses(text: str, source_url: str) -> list[dict]:
             "source": source_url,
         })
 
+    # Try primary pattern
+    for m in COURSE_PATTERN.finditer(text):
+        process_match(m.group(1), m.group(2), m.group(3))
+
+    # If primary found nothing, try alternate format
+    if not courses:
+        for m in COURSE_PATTERN_ALT.finditer(text):
+            process_match(m.group(1), m.group(2), m.group(3))
+
     return courses
 
 # ── Stage 4: Embed and upload ─────────────────────────────────────────────────
 
-def upload_courses(courses: list[dict], batch_size: int = 50):
+def build_text_field(c: dict) -> str:
+    """The 'text' stored in metadata — used by the backend for display."""
+    lines = [c["course_code"], str(c["credits"]), c["course_name"]]
+    if c["description"]:
+        lines.append(c["description"])
+    return "\n".join(lines)
+
+def build_embed_text(c: dict) -> str:
+    """Rich semantic text for embedding — helps RAG find the right course."""
+    parts = [f"{c['course_code']}: {c['course_name']}"]
+    if c["description"]:
+        parts.append(c["description"][:600])
+    if c["prerequisite_text"]:
+        parts.append(f"Prerequisites: {c['prerequisite_text']}")
+    return " | ".join(parts)
+
+def upload_courses(courses: list, batch_size: int = 50):
     if not courses:
         return
 
-    # Build embedding texts — rich semantic text for good retrieval
-    texts = []
-    for c in courses:
-        parts = [f"{c['course_code']}: {c['course_name']}"]
-        if c['description']:
-            parts.append(c['description'][:600])
-        if c['prerequisite_text']:
-            parts.append(f"Prerequisites: {c['prerequisite_text']}")
-        texts.append(" | ".join(parts))
-
-    # Embed in batches
-    vectors = []
     for i in range(0, len(courses), batch_size):
-        batch_texts = texts[i:i + batch_size]
-        batch_courses = courses[i:i + batch_size]
+        batch = courses[i:i + batch_size]
+        texts = [build_embed_text(c) for c in batch]
 
-        response = openai_client.embeddings.create(
-            input=batch_texts,
-            model=EMBED_MODEL,
-        )
+        response = openai_client.embeddings.create(input=texts, model=EMBED_MODEL)
 
+        vectors = []
         for j, emb_data in enumerate(response.data):
-            c = batch_courses[j]
-            course_id = c['course_code'].replace(' ', '').replace('\xa0', '')
+            c = batch[j]
+            course_id = re.sub(r"[^A-Z0-9]", "", c["course_code"].upper())
             vectors.append({
                 "id": course_id,
                 "values": emb_data.embedding,
                 "metadata": {
-                    "course_code": c['course_code'],
-                    "course_name": c['course_name'],
-                    "credits": str(c['credits']),
-                    "description": c['description'][:800],
-                    "prerequisite_text": c['prerequisite_text'],
-                    "prerequisites": ', '.join(c['prerequisites']) if c['prerequisites'] else 'None',
-                    "department": c['department'],
-                    "source": c['source'],
-                    "text": f"{c['course_code']}\n{c['credits']}\n{c['course_name']}\n{c['description']}",
+                    "course_code":       c["course_code"],
+                    "course_name":       c["course_name"],
+                    "credits":           str(c["credits"]),
+                    "description":       c["description"][:800],
+                    "prerequisite_text": c["prerequisite_text"],
+                    "prerequisites":     ", ".join(c["prerequisites"]) if c["prerequisites"] else "None",
+                    "department":        c["department"],
+                    "source":            c["source"],
+                    "text":              build_text_field(c),
                 },
             })
 
-    index.upsert(vectors=vectors, namespace=NAMESPACE)
+        index.upsert(vectors=vectors, namespace=NAMESPACE)
 
-# ── Main pipeline ─────────────────────────────────────────────────────────────
+# ── Main ──────────────────────────────────────────────────────────────────────
 
 def run():
     dept_urls = get_department_links()
-    total_courses = 0
+    total = 0
 
     print(f"\n[2/4] Scraping {len(dept_urls)} department pages...\n")
 
     for i, url in enumerate(dept_urls):
-        dept = url.rstrip('/').split('/')[-1]
-        print(f"  [{i+1}/{len(dept_urls)}] {dept}")
+        dept = url.rstrip("/").split("/")[-1].upper()
+        print(f"  [{i+1}/{len(dept_urls)}] {dept}", end="  ")
 
         text = scrape_department(url)
         if not text:
-            print("    ✗ No text extracted")
+            print("✗ no text")
             continue
 
         courses = parse_courses(text, url)
         if not courses:
-            print(f"    ✗ No courses parsed")
+            # Debug: show a sample of the raw text so we can diagnose
+            snippet = text[:300].replace("\n", "\\n")
+            print(f"✗ 0 parsed  |  sample: {snippet[:120]}")
             continue
 
         upload_courses(courses)
-        total_courses += len(courses)
-        print(f"    ✓ {len(courses)} courses uploaded")
-        time.sleep(0.8)
+        total += len(courses)
+        print(f"✓ {len(courses)} courses")
+        time.sleep(0.5)
 
     print(f"\n{'='*50}")
-    print(f"✓ COURSES COMPLETE — {total_courses} courses indexed")
+    print(f"✓ COURSES DONE — {total} total courses indexed")
     print(f"{'='*50}\n")
 
 if __name__ == "__main__":

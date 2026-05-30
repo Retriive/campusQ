@@ -70,14 +70,13 @@ export default function LandingPage() {
         </div>
 
         <h1 className="text-4xl sm:text-5xl md:text-[64px] font-bold tracking-tight leading-[1.06] max-w-3xl text-zinc-900">
-          Stop digging through
+          Academic clarity,
           <br />
-          <span className="text-red-600">Carleton's calendar.</span>
+          <span className="text-red-600">instantly.</span>
         </h1>
 
         <p className="mt-6 text-base md:text-lg text-zinc-500 max-w-lg leading-relaxed">
-          It's 11pm. You need to know if you can take a course next semester.
-          Your advisor doesn't respond for two weeks. CampusQ answers in seconds.
+          You've got enough to figure out. Your course questions shouldn't be one of them.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mt-8 w-full sm:w-auto">

@@ -3,23 +3,31 @@ import Link from "next/link"
 
 export default function SignInPage() {
   return (
-    <div className="min-h-screen bg-[#fafaf9] flex flex-col">
+    <div style={{ minHeight: "100vh", background: "#fafaf9", display: "flex", flexDirection: "column", fontFamily: "inherit" }}>
 
       {/* Nav */}
-      <nav className="h-14 flex items-center px-6 border-b border-zinc-200/60">
-        <Link href="/" className="text-sm font-bold tracking-tight text-zinc-900">
-          Campus<span className="text-red-600">Q</span>
+      <nav style={{ height: 56, display: "flex", alignItems: "center", padding: "0 24px", borderBottom: "1px solid #e4e4e7", background: "#fafaf9" }}>
+        <Link href="/" style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.01em", color: "#18181b", textDecoration: "none" }}>
+          Campus<span style={{ color: "#dc2626" }}>Q</span>
         </Link>
       </nav>
 
-      {/* Sign in */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">
-            Welcome back
+      {/* Center content */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 16px" }}>
+
+        {/* Heading above card */}
+        <div style={{ marginBottom: 28, textAlign: "center" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 999, padding: "4px 12px", marginBottom: 16 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#dc2626", display: "inline-block" }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#dc2626", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+              Built for Carleton students
+            </span>
+          </div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: "#18181b", letterSpacing: "-0.02em", margin: 0 }}>
+            Welcome to CampusQ
           </h1>
-          <p className="mt-1.5 text-sm text-zinc-500">
-            Sign in to access CampusQ
+          <p style={{ fontSize: 14, color: "#71717a", marginTop: 6 }}>
+            Sign in to access your AI academic assistant
           </p>
         </div>
 
@@ -32,39 +40,90 @@ export default function SignInPage() {
               colorTextSecondary: "#71717a",
               colorInputBackground: "#ffffff",
               colorInputText: "#18181b",
-              borderRadius: "0.75rem",
+              colorInputPlaceholder: "#a1a1aa",
+              colorDanger: "#dc2626",
+              borderRadius: "12px",
               fontFamily: "inherit",
               fontSize: "14px",
+              spacingUnit: "16px",
+            },
+            layout: {
+              socialButtonsVariant: "blockButton",
+              socialButtonsPlacement: "top",
+              showOptionalFields: false,
             },
             elements: {
-              rootBox: "w-full max-w-sm",
-              card: "shadow-sm border border-zinc-200 rounded-2xl p-8",
-              headerTitle: "hidden",
-              headerSubtitle: "hidden",
-              socialButtonsBlockButton:
-                "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-800 font-medium rounded-xl h-11 transition-colors",
-              socialButtonsBlockButtonText: "font-medium",
-              dividerLine: "bg-zinc-200",
-              dividerText: "text-zinc-400 text-xs",
-              formFieldInput:
-                "border border-zinc-200 rounded-xl h-11 px-3 text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all",
-              formFieldLabel: "text-xs font-medium text-zinc-700 mb-1",
-              formButtonPrimary:
-                "bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl h-11 transition-colors",
-              footerActionLink: "text-red-600 hover:text-red-700 font-medium",
-              identityPreviewText: "text-zinc-700",
-              identityPreviewEditButton: "text-red-600",
-              formFieldSuccessText: "text-emerald-600",
-              formFieldErrorText: "text-red-500 text-xs",
-              alertText: "text-sm",
-              logoBox: "hidden",
-              logoImage: "hidden",
+              rootBox: {
+                width: "100%",
+                maxWidth: "400px",
+              },
+              card: {
+                boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+                border: "1px solid #e4e4e7",
+                borderRadius: "16px",
+                padding: "32px",
+                background: "#ffffff",
+              },
+              headerTitle: { display: "none" },
+              headerSubtitle: { display: "none" },
+              logoBox: { display: "none" },
+              socialButtonsBlockButton: {
+                border: "1px solid #e4e4e7",
+                borderRadius: "10px",
+                background: "#ffffff",
+                color: "#18181b",
+                fontWeight: 500,
+                fontSize: "14px",
+                height: "42px",
+                transition: "background 0.15s",
+              },
+              dividerLine: { background: "#e4e4e7" },
+              dividerText: { color: "#a1a1aa", fontSize: "12px" },
+              formFieldLabel: {
+                fontSize: "12px",
+                fontWeight: 500,
+                color: "#3f3f46",
+                marginBottom: "4px",
+              },
+              formFieldInput: {
+                border: "1px solid #e4e4e7",
+                borderRadius: "10px",
+                height: "42px",
+                padding: "0 12px",
+                fontSize: "14px",
+                color: "#18181b",
+                background: "#ffffff",
+                outline: "none",
+                transition: "border-color 0.15s",
+              },
+              formButtonPrimary: {
+                background: "#dc2626",
+                borderRadius: "10px",
+                height: "42px",
+                fontWeight: 600,
+                fontSize: "14px",
+                border: "none",
+                cursor: "pointer",
+                transition: "background 0.15s",
+              },
+              footerActionLink: {
+                color: "#dc2626",
+                fontWeight: 500,
+              },
+              identityPreviewEditButton: { color: "#dc2626" },
+              formFieldErrorText: { color: "#dc2626", fontSize: "12px" },
+              footer: {
+                background: "transparent",
+                borderTop: "none",
+                paddingTop: "16px",
+              },
             },
           }}
         />
 
-        <p className="mt-6 text-xs text-zinc-400 text-center max-w-xs">
-          By signing in you agree that CampusQ is an independent tool and not affiliated with Carleton University.
+        <p style={{ marginTop: 20, fontSize: 11, color: "#a1a1aa", textAlign: "center", maxWidth: 320, lineHeight: 1.5 }}>
+          CampusQ is independent and not affiliated with Carleton University.
+          Always verify important decisions with your academic advisor.
         </p>
       </div>
 

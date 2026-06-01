@@ -1,9 +1,9 @@
 """
-scrape_tuition.py — Scrapes all Carleton tuition, fees, and student accounts pages.
+scrape_library.py — Scrapes Carleton University Library pages.
 
-Namespace: "tuition"
+Namespace: "library"
 Safe to re-run — content-hash IDs overwrite previous vectors.
-Run: py scrape_tuition.py
+Run: py scrape_library.py
 """
 
 import os
@@ -16,40 +16,35 @@ from dotenv import load_dotenv
 from pinecone import Pinecone
 from openai import OpenAI
 
-load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index("knowledge-base")
 
-NAMESPACE = "tuition"
+NAMESPACE = "library"
 EMBED_MODEL = "text-embedding-3-small"
 
 URLS = [
-    ("Financial Rights",                    "https://carleton.ca/studentaccounts/financial-rights/"),
-    ("Tuition Fee Notes",                   "https://carleton.ca/studentaccounts/tuition-fees/tuition-fee-notes/"),
-    ("Fee Assessment",                      "https://carleton.ca/studentaccounts/tuition-fees/fee-assessment/"),
-    ("Late Charges",                        "https://carleton.ca/studentaccounts/tuition-fees/late-charges/"),
-    ("Interest Charges",                    "https://carleton.ca/studentaccounts/tuition-fees/interest-charges/"),
-    ("Financial Holds",                     "https://carleton.ca/studentaccounts/tuition-fees/financial-holds/"),
-    ("Administrative Charges",             "https://carleton.ca/studentaccounts/tuition-fees/admin-charges/"),
-    ("Miscellaneous Fees",                  "https://carleton.ca/studentaccounts/tuition-fees/misc-fees/"),
-    ("Historical Fees",                     "https://carleton.ca/studentaccounts/tuition-fees/historical-fees/"),
-    ("View Student Account",               "https://carleton.ca/studentaccounts/fee-payment/view-student-account/"),
-    ("Payment Schedule",                   "https://carleton.ca/studentaccounts/fee-payment/payment-schedule/"),
-    ("Payment Methods",                    "https://carleton.ca/studentaccounts/fee-payment/payment-methods/"),
-    ("Payment Within Canada",              "https://carleton.ca/studentaccounts/fee-payment/payment-methods/payment-within-canada/"),
-    ("Payment from Outside Canada",        "https://carleton.ca/studentaccounts/fee-payment/payment-methods/payment-from-outside-canada-2/"),
-    ("Payroll Deductions",                 "https://carleton.ca/studentaccounts/fee-payment/payment-methods/payroll-deductions/"),
-    ("Refund Policy",                      "https://carleton.ca/studentaccounts/fee-payment/refund-policy/"),
-    ("Information for New Students",       "https://carleton.ca/studentaccounts/fee-payment/information-for-new-students/"),
-    ("Information for Sponsored Students", "https://carleton.ca/studentaccounts/fee-payment/information-sponsored-students/"),
-    ("Fee Estimator Guide",                "https://carleton.ca/studentaccounts/fee-estimator-guide/"),
-    ("Income Tax Forms for Students",      "https://carleton.ca/studentaccounts/income-tax-forms-students/"),
-    ("Information for Parents / Guardians","https://carleton.ca/studentaccounts/for-parentsguardians/"),
-    ("Student Accounts FAQ",               "https://carleton.ca/studentaccounts/faq/"),
-    ("Third Party Billing",                "https://carleton.ca/studentaccounts/third-party/"),
-    ("Student Accounts Contact",           "https://carleton.ca/studentaccounts/contact-us/"),
+    ("Library — Visit and Building Info",           "https://library.carleton.ca/visit-building"),
+    ("Library — Hours",                             "https://library.carleton.ca/hours"),
+    ("Library — Study Space",                       "https://library.carleton.ca/building/study-space"),
+    ("Library — Study Rooms",                       "https://library.carleton.ca/services/study-rooms"),
+    ("Library — Building Concerns",                 "https://library.carleton.ca/building/building-concerns-let-us-know"),
+    ("Library — Book Arts Lab",                     "https://library.carleton.ca/building/book-arts-lab"),
+    ("Library — Services for Undergraduate Students", "https://library.carleton.ca/services/services-undergraduate-students"),
+    ("Library — Services for Graduate Students",    "https://library.carleton.ca/services/services-graduate-students"),
+    ("Library — Services for Alumni",               "https://library.carleton.ca/services/services-alumni"),
+    ("Library — Services for General Public",       "https://library.carleton.ca/services/services-general-public"),
+    ("Library — Services for High Schools",         "https://library.carleton.ca/services/services-high-schools"),
+    ("Library — Accessibility Services",            "https://library.carleton.ca/services/library-accessibility-services"),
+    ("Library — Accessibility in the Building",     "https://library.carleton.ca/services/library-accessibility-services/accessibility-library-building"),
+    ("Library — Adaptive Technology",               "https://library.carleton.ca/services/library-accessibility-services/adaptive-technology"),
+    ("Library — Computers",                         "https://library.carleton.ca/services/computers"),
+    ("Library — Borrowing",                         "https://library.carleton.ca/services/borrowing"),
+    ("Library — Course Reserves",                   "https://library.carleton.ca/find/reserves"),
+    ("Library — Interlibrary Loans",                "https://library.carleton.ca/services/interlibrary-loans"),
+    ("Library — Research Data Centre",              "https://library.carleton.ca/services/carleton-university-research-data-centre"),
 ]
 
 
@@ -72,7 +67,7 @@ def extract_text(soup: BeautifulSoup) -> str:
     for tag in soup(["script", "style", "nav", "header", "footer", "aside", "noscript", "form"]):
         tag.decompose()
     main = (
-        soup.find("div", class_=re.compile(r"entry-content|page-content|main-content", re.I)) or
+        soup.find("div", class_=re.compile(r"entry-content|page-content|main-content|content", re.I)) or
         soup.find("main") or
         soup.find("article") or
         soup.find("body")
@@ -109,8 +104,7 @@ def upload(label: str, url: str, chunks: list[str]) -> int:
     response = openai_client.embeddings.create(input=texts, model=EMBED_MODEL)
     vectors = []
     for i, emb_data in enumerate(response.data):
-        raw_id = f"{url}-{i}"
-        chunk_id = hashlib.md5(raw_id.encode()).hexdigest()[:20]
+        chunk_id = hashlib.md5(f"{url}-{i}".encode()).hexdigest()[:20]
         vectors.append({
             "id": chunk_id,
             "values": emb_data.embedding,
@@ -127,7 +121,7 @@ def upload(label: str, url: str, chunks: list[str]) -> int:
 
 def run():
     print("=" * 55)
-    print("CampusQ - Tuition & Student Accounts Scraper")
+    print("CampusQ - Library Scraper")
     print("=" * 55 + "\n")
 
     total = 0
@@ -147,7 +141,7 @@ def run():
         n = upload(label, url, chunks)
         total += n
         print(f"  {n} chunks")
-        time.sleep(0.5)
+        time.sleep(0.4)
 
     print(f"\n{'='*55}")
     print(f"DONE - {total} vectors in '{NAMESPACE}' namespace")

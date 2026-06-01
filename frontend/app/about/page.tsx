@@ -102,20 +102,6 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* Accuracy */}
-        <section className="flex flex-col gap-4">
-          <h2 className="text-xl font-semibold text-zinc-900">How accurate is it?</h2>
-          <p className="text-zinc-500 leading-relaxed text-sm">
-            We run structured evaluations against 65 real student questions across 7 categories.
-            Current results: <span className="text-zinc-900 font-medium">90% accuracy, 0% hallucination rate.</span> When
-            CampusQ doesn't know something, it says so — it never invents course codes, credit values,
-            or requirements. Every answer includes clickable sources so you can verify.
-          </p>
-          <p className="text-zinc-500 leading-relaxed text-sm">
-            We measure accuracy, run targeted fixes, and re-evaluate — a continuous improvement loop
-            that gets better the more it's used.
-          </p>
-        </section>
 
         {/* Disclaimer */}
         <section className="rounded-xl border border-zinc-200 bg-white p-6 flex flex-col gap-3">

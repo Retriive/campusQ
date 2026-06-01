@@ -55,7 +55,7 @@ export default function AboutPage() {
           <p className="text-zinc-500 leading-relaxed text-base">
             CampusQ is an independent AI academic assistant built for Carleton University students.
             Ask it anything about courses, programs, deadlines, tuition, financial aid, or campus services
-            — and get a real answer in seconds, sourced directly from official Carleton documents.
+            and get a real answer in seconds, sourced directly from official Carleton documents.
           </p>
         </section>
 
@@ -75,16 +75,16 @@ export default function AboutPage() {
           <p className="text-zinc-500 leading-relaxed text-sm">
             Every semester at Carleton, students waste hours cross-referencing PDFs, hunting for prerequisites,
             decoding program requirements, and waiting weeks for advisor appointments to answer questions
-            that should take 30 seconds. The information is all there — it's just completely inaccessible.
+            that should take 30 seconds. The information is all there, it's just completely inaccessible.
           </p>
           <p className="text-zinc-500 leading-relaxed text-sm">
             We indexed everything — 3,782 courses, 498 degree variants, every academic regulation,
-            registration procedure, tuition policy, financial aid page, library service, and campus resource —
+            registration procedure, tuition policy, financial aid page, library service, and campus resource,
             and built an AI that answers questions from it directly. No fluff, no guessing, no Reddit threads from 2019.
           </p>
           <p className="text-zinc-500 leading-relaxed text-sm">
             Built for Carleton students, by Carleton students. We know the problem because we lived it.
-            CampusQ is currently in beta — we're testing with real students, running structured accuracy evaluations,
+            CampusQ is currently in beta, we're testing with real students, running structured accuracy evaluations,
             and improving every week.
           </p>
         </section>
@@ -97,32 +97,6 @@ export default function AboutPage() {
               <div key={item} className="flex items-start gap-3 p-4 rounded-xl border border-zinc-200 bg-white">
                 <span className="size-1.5 rounded-full bg-red-500 mt-2 shrink-0" />
                 <span className="text-sm text-zinc-600 leading-relaxed">{item}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Knowledge base */}
-        <section className="flex flex-col gap-4">
-          <h2 className="text-xl font-semibold text-zinc-900">What's indexed</h2>
-          <p className="text-zinc-500 leading-relaxed text-sm">
-            CampusQ searches across 9 knowledge bases simultaneously on every question:
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {[
-              { name: "Courses", detail: "3,782 courses across 110 departments" },
-              { name: "Programs", detail: "498 degree variants across 84 programs" },
-              { name: "Academic Regulations", detail: "Grading, CGPA, examinations, misconduct" },
-              { name: "Registration & Advising", detail: "98 pages — procedures, overrides, LOP, audits" },
-              { name: "Academic Dates", detail: "38 structured deadlines with live countdowns" },
-              { name: "Tuition & Fees", detail: "Payments, refunds, financial holds, fee assessment" },
-              { name: "Campus Services", detail: "PMC, CSAS, Awards, OSAP, Co-op, AI tools, TLS" },
-              { name: "Library", detail: "Hours, study rooms, borrowing, accessibility, reserves" },
-              { name: "Structured Facts", detail: "High-frequency policies: repeat policy, GPA scale, WDN" },
-            ].map((item) => (
-              <div key={item.name} className="flex flex-col gap-0.5 p-3.5 rounded-xl border border-zinc-200 bg-white">
-                <span className="text-sm font-semibold text-zinc-900">{item.name}</span>
-                <span className="text-xs text-zinc-500">{item.detail}</span>
               </div>
             ))}
           </div>

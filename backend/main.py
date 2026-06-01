@@ -377,7 +377,7 @@ async def chat_endpoint(
         keep_total = 30 if is_program_query else 10
 
         all_matches = []
-        for ns in ["courses", "programs", "regulations"]:
+        for ns in ["courses", "programs", "regulations", "registrar", "services"]:
             top_k = top_k_programs if ns == "programs" else top_k_other
             ns_results = index.query(
                 vector=query_embedding,
@@ -593,7 +593,7 @@ async def chat_stream(
             keep_total = 30 if is_program_query else 10
 
             all_matches = []
-            for ns in ["courses", "programs", "regulations"]:
+            for ns in ["courses", "programs", "regulations", "registrar", "services"]:
                 top_k = top_k_programs if ns == "programs" else top_k_other
                 ns_results = index.query(
                     vector=query_embedding,

@@ -40,7 +40,7 @@ def run_all():
             print("Valid options: courses, programs, regulations")
             sys.exit(1)
     else:
-        scrapers = ["courses", "programs", "regulations"]
+        scrapers = ["courses", "programs", "regulations", "services"]
 
     for scraper in scrapers:
         print(f"\n{'='*60}")
@@ -56,6 +56,9 @@ def run_all():
         elif scraper == "regulations":
             import scrape_regulations
             scrape_regulations.run()
+        elif scraper == "services":
+            import scrape_services
+            scrape_services.run()
 
     elapsed = round((time.time() - start) / 60, 1)
     print(f"\n{'='*60}")

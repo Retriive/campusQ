@@ -12,7 +12,7 @@ load_dotenv()
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index("knowledge-base")
 
-NAMESPACES_TO_WIPE = ["courses", "programs", "policies", "regulations"]
+NAMESPACES_TO_WIPE = ["courses", "programs", "policies", "regulations", "services", "registrar"]
 
 def wipe():
     print("=" * 50)

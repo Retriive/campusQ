@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils"
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 interface Stream {
-  label: string      // display name
-  queryName: string  // what we send to the backend
+  label: string
+  queryName: string
 }
 
 interface Program {
@@ -83,9 +83,42 @@ const FACULTIES: {
       { name: "Biology", description: "Life sciences from molecular to ecosystem level" },
       { name: "Chemistry", description: "Molecular structure, reactions, and materials" },
       { name: "Computer Mathematics", description: "Mathematics and computing combined" },
-      { name: "Computer Science", description: "Algorithms, AI, software, and theory of computation" },
+      {
+        name: "Computer Science",
+        description: "Algorithms, AI, software, and theory of computation",
+        streams: [
+          { label: "B.C.S. Honours (General)", queryName: "Computer Science B.C.S. Honours" },
+          { label: "Algorithms Stream", queryName: "Computer Science Algorithms Stream B.C.S. Honours" },
+          { label: "AI & Machine Learning Stream", queryName: "Computer Science Artificial Intelligence and Machine Learning Stream B.C.S. Honours" },
+          { label: "Computer Game Development Stream", queryName: "Computer Science Computer Game Development Stream B.C.S. Honours" },
+          { label: "Cybersecurity Stream", queryName: "Computer Science Cybersecurity Stream B.C.S. Honours" },
+          { label: "Management & Business Systems Stream", queryName: "Computer Science Management and Business Systems Stream B.C.S. Honours" },
+          { label: "Software Engineering Stream", queryName: "Computer Science Software Engineering Stream B.C.S. Honours" },
+          { label: "UX/UI Stream", queryName: "Computer Science User Experience and User Interfaces Stream B.C.S. Honours" },
+          { label: "B.C.S. Major", queryName: "Computer Science B.C.S. Major" },
+          { label: "Combined Honours — Computing Theory & Numerical Methods", queryName: "Computer Science and Mathematics Concentration in Computing Theory and Numerical Methods B.Math. Combined Honours" },
+          { label: "Combined Honours — Statistics & Computing", queryName: "Computer Science and Mathematics Concentration in Statistics and Computing B.Math. Combined Honours" },
+          { label: "Cybersecurity B.Cyber. Honours", queryName: "Cybersecurity B.Cyber. Honours" },
+          { label: "Minor in Computer Science", queryName: "Minor in Computer Science" },
+        ],
+      },
       { name: "Data Science", description: "Statistics, machine learning, and big data analysis" },
-      { name: "Earth Sciences", description: "Geology, geophysics, and earth systems" },
+      {
+        name: "Earth Sciences",
+        description: "Geology, geophysics, and earth systems",
+        streams: [
+          { label: "B.Sc. Honours", queryName: "Earth Sciences B.Sc. Honours" },
+          { label: "B.Sc. Honours — Concentration in Environmental Geosciences", queryName: "Earth Sciences with Concentration in Environmental Geosciences B.Sc. Honours" },
+          { label: "B.Sc. Major", queryName: "Earth Sciences B.Sc. Major" },
+          { label: "B.Sc.", queryName: "Earth Sciences B.Sc." },
+          { label: "Vertebrate Paleontology and Paleoecology — B.Sc. Honours", queryName: "Earth Sciences in Vertebrate Paleontology and Paleoecology B.Sc. Honours" },
+          { label: "Vertebrate Paleontology and Paleoecology — B.Sc. Major", queryName: "Earth Sciences in Vertebrate Paleontology and Paleoecology B.Sc. Major" },
+          { label: "Combined Honours — Earth Sciences and Physical Geography", queryName: "Earth Sciences and Physical Geography B.Sc. Combined Honours" },
+          { label: "Combined Honours — Biology and Earth Sciences", queryName: "Biology and Earth Sciences B.Sc. Combined Honours" },
+          { label: "Combined Honours — Chemistry and Earth Sciences", queryName: "Chemistry and Earth Sciences B.Sc. Combined Honours" },
+          { label: "Minor in Earth Sciences", queryName: "Minor in Earth Sciences: Earth Resources and Processes" },
+        ],
+      },
       { name: "Environmental Science", description: "Environmental systems, ecology, and sustainability" },
       { name: "Food Science and Nutrition", description: "Food chemistry, safety, and human nutrition" },
       { name: "Mathematics", description: "Pure and applied mathematics" },
@@ -105,7 +138,22 @@ const FACULTIES: {
       { name: "Art History", description: "Visual arts, architecture, and cultural heritage" },
       { name: "Canadian Studies", description: "Canadian history, culture, politics, and society" },
       { name: "Cognitive Science", description: "Mind, intelligence, and information processing" },
-      { name: "Communication and Media Studies", description: "Media theory, journalism, and digital communication" },
+      {
+        name: "Communication and Media Studies",
+        description: "Media theory, journalism, and digital communication",
+        streams: [
+          { label: "B.Co.M.S. Honours", queryName: "Communication and Media Studies B.Co.M.S. Honours" },
+          { label: "B.Co.M.S. Honours — Concentration in Government and Professional Communication", queryName: "Concentration in Government and Professional Communication" },
+          { label: "B.Co.M.S. Honours — Concentration in Media and Entertainment Industries", queryName: "Concentration in Media and Entertainment Industries" },
+          { label: "B.Co.M.S. Honours — Concentration in Public Engagement and Civic Culture", queryName: "Concentration in Public Engagement and Civic Culture" },
+          { label: "B.Co.M.S. Combined Honours", queryName: "Communication and Media Studies B.Co.M.S. Combined Honours" },
+          { label: "B.Co.M.S. (General)", queryName: "Communication and Media Studies B.Co.M.S." },
+          { label: "Specialization in Global Media and Communication — B.G.In.S. Honours", queryName: "Specialization in Global Media and Communication B.G.In.S. Honours" },
+          { label: "Stream in Global Media and Communication — B.G.In.S.", queryName: "Stream in Global Media and Communication B.G.In.S." },
+          { label: "Minor in Communication and Media Studies", queryName: "Minor in Communication and Media Studies" },
+          { label: "Journalism and Communication and Media Studies B.J. Combined Honours", queryName: "Journalism and Communication and Media Studies B.J. Combined Honours" },
+        ],
+      },
       { name: "Criminology and Criminal Justice", description: "Crime, law, and the justice system" },
       { name: "Economics", description: "Microeconomics, macroeconomics, and economic policy" },
       { name: "English Language and Literature", description: "Literary analysis, writing, and cultural criticism" },
@@ -132,14 +180,96 @@ const FACULTIES: {
     color: "text-orange-600 dark:text-orange-400",
     bgColor: "bg-orange-50 dark:bg-orange-950/30",
     programs: [
-      { name: "Accounting", description: "Financial reporting, auditing, and taxation" },
-      { name: "Business (BCom)", description: "Core business fundamentals across all disciplines" },
-      { name: "Finance", description: "Investment, financial markets, and corporate finance" },
-      { name: "Human Resources Management", description: "People management, organizational behaviour" },
-      { name: "International Business", description: "Global trade, multinational strategy" },
-      { name: "Management", description: "Organizational leadership, strategy, and operations" },
-      { name: "Marketing", description: "Consumer behaviour, branding, and digital marketing" },
-      { name: "Supply Chain Management", description: "Logistics, procurement, and operations" },
+      {
+        name: "Accounting",
+        description: "Financial reporting, auditing, and taxation",
+        streams: [
+          { label: "Bachelor of Accounting Honours", queryName: "Bachelor of Accounting Honours" },
+          { label: "Post-Baccalaureate Diploma in Accounting", queryName: "Post-Baccalaureate Diploma in Accounting" },
+        ],
+      },
+      {
+        name: "Business (BCom)",
+        description: "Core business fundamentals across all disciplines",
+        streams: [
+          { label: "B.Com. Honours (General — no concentration)", queryName: "Bachelor of Commerce Honours" },
+          { label: "B.Com. Honours — Concentration in Accounting", queryName: "Concentration in Accounting" },
+          { label: "B.Com. Honours — Concentration in Business Analytics", queryName: "Concentration in Business Analytics" },
+          { label: "B.Com. Honours — Concentration in Entrepreneurship", queryName: "Concentration in Entrepreneurship" },
+          { label: "B.Com. Honours — Concentration in Finance", queryName: "Concentration in Finance" },
+          { label: "B.Com. Honours — Concentration in Information Systems", queryName: "Concentration in Information Systems" },
+          { label: "B.Com. Honours — Concentration in International Business", queryName: "Concentration in International Business" },
+          { label: "B.Com. Honours — Concentration in Management", queryName: "Concentration in Management" },
+          { label: "B.Com. Honours — Concentration in Marketing", queryName: "Concentration in Marketing" },
+          { label: "B.Com. Honours — Concentration in Supply Chain Management", queryName: "Concentration in Supply Chain Management" },
+          { label: "Bachelor of Commerce (Non-Honours)", queryName: "Bachelor of Commerce" },
+          { label: "Minor in Business", queryName: "Minor in Business" },
+          { label: "Minor in Business (for Bachelor of Engineering)", queryName: "Minor in Business for Bachelor of Engineering" },
+          { label: "Minor in Arts Management", queryName: "Minor in Arts Management" },
+        ],
+      },
+      {
+        name: "Finance",
+        description: "Investment, financial markets, and corporate finance",
+        streams: [
+          { label: "B.Com. Honours — Concentration in Finance", queryName: "Concentration in Finance" },
+          { label: "Stream in Corporate Finance", queryName: "Stream in Corporate Finance" },
+          { label: "Stream in Investments", queryName: "Stream in Investments" },
+          { label: "Stream in Financial Planning", queryName: "Stream in Financial Planning" },
+          { label: "Minor in Business (Finance)", queryName: "Minor in Business (Finance)" },
+        ],
+      },
+      {
+        name: "Human Resources Management",
+        description: "People management, organizational behaviour",
+        streams: [
+          { label: "B.Com. Honours — Concentration in Management", queryName: "Concentration in Management" },
+          { label: "Minor in Human Resources and Management (for B.A. Psychology Honours)", queryName: "Minor in Human Resources and Management for B.A. Honours Psychology" },
+        ],
+      },
+      {
+        name: "International Business",
+        description: "Global trade, multinational strategy",
+        streams: [
+          { label: "Bachelor of International Business Honours", queryName: "Bachelor of International Business Honours" },
+          { label: "B.Com. Honours — Concentration in International Business", queryName: "Concentration in International Business" },
+          { label: "Stream in International Business (B.Acc / B.Com)", queryName: "Stream in International Business" },
+          { label: "Stream in International Management (B.Acc / B.Com)", queryName: "Stream in International Management" },
+          { label: "Minor in Business (International Business)", queryName: "Minor in Business (International Business)" },
+        ],
+      },
+      {
+        name: "Management",
+        description: "Organizational leadership, strategy, and operations",
+        streams: [
+          { label: "B.Com. Honours — Concentration in Management", queryName: "Concentration in Management" },
+          { label: "Stream in Entrepreneurship", queryName: "Stream in Entrepreneurship" },
+          { label: "Stream in Sustainability", queryName: "Stream in Sustainability" },
+          { label: "Minor in Business (Entrepreneurship)", queryName: "Minor in Business (Entrepreneurship)" },
+          { label: "Minor in Business (Sustainability)", queryName: "Minor in Business (Sustainability)" },
+        ],
+      },
+      {
+        name: "Marketing",
+        description: "Consumer behaviour, branding, and digital marketing",
+        streams: [
+          { label: "B.Com. Honours — Concentration in Marketing", queryName: "Concentration in Marketing" },
+          { label: "Stream in Marketing", queryName: "Stream in Marketing" },
+          { label: "Minor in Business (Marketing)", queryName: "Minor in Business (Marketing)" },
+        ],
+      },
+      {
+        name: "Supply Chain Management",
+        description: "Logistics, procurement, and operations",
+        streams: [
+          { label: "B.Com. Honours — Concentration in Supply Chain Management", queryName: "Concentration in Supply Chain Management" },
+          { label: "Stream in Supply Chain Management", queryName: "Stream in Supply Chain Management" },
+          { label: "Stream in Business Analytics", queryName: "Stream in Business Analytics" },
+          { label: "Stream in Information Systems", queryName: "Stream in Information Systems" },
+          { label: "Minor in Business (Supply Chain Management)", queryName: "Minor in Business (Supply Chain Management)" },
+          { label: "Minor in Business (Information Systems)", queryName: "Minor in Business (Information Systems)" },
+        ],
+      },
     ],
   },
   {
@@ -239,13 +369,16 @@ export function ProgramExplorer() {
   }
 
   const goBack = () => {
-    if (view.screen === "detail" && (view as any).program?.streams?.length > 0) {
-      const program = (view as any).program as Program
-      const faculty = FACULTIES.find((f) => f.name === program.faculty)!
-      setView({ screen: "streams", program, faculty })
-    } else {
-      setView({ screen: "directory" })
+    if (view.screen === "detail") {
+      const program = (view as { program: Program }).program
+      if (program.streams && program.streams.length > 0) {
+        const faculty = FACULTIES.find((f) => f.name === program.faculty)!
+        setView({ screen: "streams", program, faculty })
+        setResult("")
+        return
+      }
     }
+    setView({ screen: "directory" })
     setResult("")
   }
 
@@ -255,7 +388,7 @@ export function ProgramExplorer() {
     return (
       <div className="flex flex-col gap-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setView({ screen: "directory" })}>
+          <Button variant="ghost" size="icon" onClick={() => { setView({ screen: "directory" }); setResult("") }}>
             <ArrowLeft className="size-4" />
           </Button>
           <div>
@@ -267,10 +400,10 @@ export function ProgramExplorer() {
         <div className={cn("rounded-xl p-4 border border-border", faculty.bgColor)}>
           <div className="flex items-center gap-2 mb-1">
             <Layers className={cn("size-4", faculty.color)} />
-            <p className="text-sm font-semibold">Select your stream</p>
+            <p className="text-sm font-semibold">Select your stream or degree</p>
           </div>
           <p className="text-xs text-muted-foreground">
-            This program has multiple specialization streams. Each has a different course sequence.
+            This program has multiple degree options and specializations. Each has different requirements.
           </p>
         </div>
 
@@ -428,7 +561,7 @@ function ProgramCard({
               facultyColor,
               "bg-current/10"
             )}>
-              {program.streams!.length} streams
+              {program.streams!.length} options
             </span>
           )}
         </div>

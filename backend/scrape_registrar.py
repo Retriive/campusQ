@@ -148,6 +148,13 @@ URLS = [
     ("Exemption from Out-of-Province Fees", "https://carleton.ca/registrar/out-of-province-fees/"),
     ("Parental Leave Request",          "https://carleton.ca/registrar/parental-leave-request/"),
     ("Third Party Authorization",       "https://carleton.ca/registrar/third-party/"),
+
+    # Academic Advising
+    ("Changing Your Major",             "https://carleton.ca/academicadvising/changing-your-major/"),
+    ("Changing Your Degree",            "https://carleton.ca/academicadvising/changing-your-degree/"),
+    ("Adding or Dropping Minors / Concentrations", "https://carleton.ca/academicadvising/adding-or-dropping-minorsconcentration/"),
+    ("Reduced Course Load",             "https://carleton.ca/academicadvising/reduced-course-load/"),
+    ("Academic Advising FAQ",           "https://carleton.ca/academicadvising/audit-faqs/"),
 ]
 
 # ── Academic Glossary (provided manually) ────────────────────────────────────

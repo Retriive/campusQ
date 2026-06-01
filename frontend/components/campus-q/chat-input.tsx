@@ -112,7 +112,7 @@ export function ChatInput({ value, onChange, onSubmit, disabled, isHome }: ChatI
 
           <button
             type="button"
-            onClick={onSubmit}
+            onClick={() => onSubmit()}
             disabled={!canSubmit}
             className={cn(
               "absolute right-2.5 bottom-2.5 size-8 rounded-xl flex items-center justify-center transition-all duration-150",

@@ -185,6 +185,7 @@ export function ChatContainer() {
     const formData = new FormData()
     formData.append("question", queryText)
     formData.append("history", JSON.stringify(messages.map((m) => ({ role: m.role, content: m.content }))))
+    formData.append("session_id", sessionId)
 
     try {
       const response = await fetch(`${API_URL}/api/chat/stream`, {

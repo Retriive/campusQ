@@ -3,7 +3,12 @@ import json
 import re
 import time
 import uuid
+import contextvars
 from datetime import datetime
+
+# Request-scoped session id — set once per request, read by log_query.
+# Avoids threading session_id through every log call site.
+_current_session: contextvars.ContextVar[str] = contextvars.ContextVar("session_id", default="none")
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -27,20 +32,84 @@ def _log(filename: str, data: dict):
     with open(path, "a", encoding="utf-8") as f:
         f.write(line)
 
+# Maps the most common course-code prefixes to a readable department/subject.
+# Used for analytics — what subject areas are students asking about?
+DEPT_BY_PREFIX = {
+    "COMP": "Computer Science", "SYSC": "Systems Engineering", "BUSI": "Business",
+    "MATH": "Mathematics", "STAT": "Statistics", "PSYC": "Psychology",
+    "ECON": "Economics", "BIOL": "Biology", "CHEM": "Chemistry", "PHYS": "Physics",
+    "ERTH": "Earth Sciences", "ENGL": "English", "HIST": "History", "LAWS": "Law",
+    "COMS": "Communication & Media", "JOUR": "Journalism", "PSCI": "Political Science",
+    "SOCI": "Sociology", "PHIL": "Philosophy", "ELEC": "Electrical Eng",
+    "MECH": "Mechanical Eng", "CIVE": "Civil Eng", "AERO": "Aerospace Eng",
+    "ARCH": "Architecture", "NURS": "Nursing", "HLTH": "Health Sciences",
+    "NEUR": "Neuroscience", "FILM": "Film Studies", "MUSI": "Music",
+    "GEOG": "Geography", "CRCJ": "Criminology", "BIT":  "Information Technology",
+    "DATA": "Data Science", "GINS": "Global & International Studies",
+}
+
+# Keyword fallbacks when no course code is present in the query.
+DEPT_BY_KEYWORD = [
+    ("computer science", "Computer Science"), ("cybersecurity", "Computer Science"),
+    ("business", "Business"), ("commerce", "Business"), ("b.com", "Business"),
+    ("engineering", "Engineering"), ("psychology", "Psychology"),
+    ("economics", "Economics"), ("biology", "Biology"), ("chemistry", "Chemistry"),
+    ("physics", "Physics"), ("nursing", "Nursing"), ("journalism", "Journalism"),
+    ("communication", "Communication & Media"), ("law", "Law"),
+    ("data science", "Data Science"), ("math", "Mathematics"),
+]
+
+# Question-intent classification (what KIND of thing is being asked) — separate
+# from query_type (which is the retrieval path). This is what advising cares about.
+def classify_intent(query: str) -> str:
+    q = query.lower()
+    if any(k in q for k in ["prerequisite", "prereq", "before taking", "without taking"]):
+        return "prerequisites"
+    if any(k in q for k in ["deadline", "last day", "when is", "when do", "when does", "what date"]):
+        return "deadlines"
+    if any(k in q for k in ["cgpa", "gpa", "good standing", "fail", "repeat", "withdraw", "ace ", "academic standing"]):
+        return "regulations"
+    if any(k in q for k in ["register", "registration", "add a course", "drop", "override", "waitlist", "time ticket"]):
+        return "registration"
+    if any(k in q for k in ["required courses", "graduate", "degree", "program", "stream", "concentration", "minor", "credits to"]):
+        return "program_requirements"
+    if any(k in q for k in ["co-op", "transcript", "financial aid", "bursary", "scholarship", "defer", "enrolment"]):
+        return "services"
+    if re.search(r'[a-zA-Z]{4}\s*\d{4}', query):
+        return "course_lookup"
+    return "general"
+
+
+def detect_department(query: str, course_codes: list[str]) -> str:
+    """Best-effort subject/department for analytics."""
+    if course_codes:
+        prefix = course_codes[0].split()[0].upper()
+        return DEPT_BY_PREFIX.get(prefix, prefix)
+    q = query.lower()
+    for kw, dept in DEPT_BY_KEYWORD:
+        if kw in q:
+            return dept
+    return "general"
+
+
 def log_query(
     query: str,
-    query_type: str,          # "course_lookup" | "rag" | "stream_course" | "stream_rag"
+    query_type: str,          # retrieval path: "course_lookup" | "rag" | "stream_course" | "stream_rag"
     chunks_retrieved: int,
     top_score: float | None,
     course_codes_found: list[str],
     response_ms: int,
     had_context: bool,
     user_id: str = "anonymous",
+    session_id: str | None = None,
 ):
     _log("queries.log", {
         "ts": datetime.utcnow().isoformat(),
         "id": str(uuid.uuid4())[:8],
+        "session": session_id or _current_session.get(),
         "user": user_id,
+        "department": detect_department(query, course_codes_found),
+        "intent": classify_intent(query),
         "type": query_type,
         "query": query[:300],
         "chunks": chunks_retrieved,
@@ -287,8 +356,10 @@ async def submit_feedback(
 async def chat_endpoint(
     question: str = Form(...),
     history: str = Form("[]"),
+    session_id: str = Form("none"),
     file: UploadFile = File(None),
 ):
+    _current_session.set(session_id)
     user_query = question
     t_start = time.time()
     print(f"Searching database for: {user_query}")
@@ -524,7 +595,9 @@ STUDENT-UPLOADED DOCUMENT:
 async def chat_stream(
     question: str = Form(...),
     history: str = Form("[]"),
+    session_id: str = Form("none"),
 ):
+    _current_session.set(session_id)
     user_query = question
 
     t_start = time.time()

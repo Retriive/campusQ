@@ -345,6 +345,7 @@ export function ProgramExplorer() {
       const formData = new FormData()
       formData.append("question", question)
       formData.append("history", "[]")
+      formData.append("session_id", "program-explorer")
       const response = await fetch(`${API_URL}/api/chat/stream`, { method: "POST", body: formData })
       if (!response.body) throw new Error()
       const reader = response.body.getReader()

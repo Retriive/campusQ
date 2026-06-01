@@ -112,7 +112,7 @@ export default function LandingPage() {
             </div>
 
             <p className="mt-5 text-xs text-zinc-400">
-              Free · No signup required to try · Built on official Carleton documents
+              Free to sign up · Built on official Carleton documents
             </p>
           </div>
 

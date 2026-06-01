@@ -722,7 +722,7 @@ CONTEXT:
                     sources_list.append({"url": url, "title": title})
 
             if sources_list:
-                yield f"data: {json.dumps({'type': 'sources', 'data': sources_list[:5]})}\n\n"
+                yield f"data: {json.dumps({'type': 'sources', 'data': sources_list[:3]})}\n\n"
 
             # Log after stream completes
             ms = int((time.time() - t_start) * 1000)

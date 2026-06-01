@@ -30,48 +30,43 @@ function TypingCursor() {
 function Sources({ sources }: { sources: Source[] }) {
   if (!sources.length) return null
 
-  const formatTitle = (source: Source) => {
-    if (source.title && source.title.length > 3) return source.title
+  const formatTitle = (source: Source): string => {
+    if (source.title && source.title.length > 3) {
+      return source.title.length > 48 ? source.title.slice(0, 48) + "…" : source.title
+    }
     try {
       const parts = new URL(source.url).pathname.split("/").filter(Boolean)
-      return parts[parts.length - 1]?.replace(/-/g, " ") || source.url
+      return (parts[parts.length - 1]?.replace(/-/g, " ") || "Source")
     } catch {
-      return source.url
+      return "Source"
     }
   }
 
-  const formatDomain = (url: string) => {
+  const formatDomain = (url: string): string => {
     try {
       return new URL(url).hostname.replace("www.", "")
     } catch {
-      return url
+      return ""
     }
   }
 
   return (
-    <div className="mt-4 pt-3 border-t border-border/40">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50 mb-2">
+    <div className="mt-3 flex items-center gap-2 flex-wrap">
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40 shrink-0">
         Sources
-      </p>
-      <div className="flex flex-col gap-1.5">
-        {sources.map((s, i) => (
-          <a
-            key={i}
-            href={s.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex items-start gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ExternalLink className="size-3 mt-0.5 shrink-0 opacity-40 group-hover:opacity-70 transition-opacity" />
-            <span className="flex flex-col min-w-0">
-              <span className="truncate font-medium group-hover:underline underline-offset-2 capitalize">
-                {formatTitle(s)}
-              </span>
-              <span className="text-[10px] text-muted-foreground/50">{formatDomain(s.url)}</span>
-            </span>
-          </a>
-        ))}
-      </div>
+      </span>
+      {sources.map((s, i) => (
+        <a
+          key={i}
+          href={s.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-secondary/50 hover:bg-secondary hover:border-border/80 transition-all text-xs text-muted-foreground hover:text-foreground"
+        >
+          <span className="truncate max-w-[160px] capitalize">{formatTitle(s)}</span>
+          <ExternalLink className="size-2.5 shrink-0 opacity-40 group-hover:opacity-70 transition-opacity" />
+        </a>
+      ))}
     </div>
   )
 }

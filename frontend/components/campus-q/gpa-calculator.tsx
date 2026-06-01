@@ -25,11 +25,11 @@ const GRADE_SCALE = [
 const CREDIT_OPTIONS = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0]
 
 const STANDING_LABELS = [
-  { min: 11, label: "High Distinction", color: "text-emerald-500" },
-  { min: 9,  label: "Distinction",      color: "text-blue-500"    },
-  { min: 7,  label: "Good Standing",    color: "text-foreground"  },
-  { min: 4,  label: "Passing",          color: "text-amber-500"   },
-  { min: 0,  label: "Below Average",    color: "text-red-400"     },
+  { min: 10, label: "A- or above (Dean's List range)", color: "text-emerald-500" },
+  { min: 8,  label: "B or above",                      color: "text-blue-500"    },
+  { min: 6,  label: "C+ or above",                     color: "text-foreground"  },
+  { min: 4,  label: "C- or above (passing)",           color: "text-amber-500"   },
+  { min: 0,  label: "Below C-",                        color: "text-red-400"     },
 ]
 
 interface CourseRow {
@@ -292,7 +292,7 @@ function TargetHelper({ currentGpa, completedCredits }: { currentGpa: number | n
     needed = ((targetNum * (completedCredits + futureNum)) - (currentGpa * completedCredits)) / futureNum
   }
 
-  const neededGrade = needed !== null ? GRADE_SCALE.slice().reverse().find((g) => g.points <= Math.ceil(needed!)) : null
+  const neededGrade = needed !== null ? GRADE_SCALE.slice().reverse().find((g) => g.points >= needed!) : null
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">

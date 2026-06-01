@@ -1,2 +1,11 @@
 tests/eval_results.csv
 *.log
+# Old PDF and local vectorstore artifacts
+archive/
+archive_eng/
+pdfs/
+pdfs_eng/
+docs/
+vectorstore/
+engineering_debug.txt
+policy_preview.json

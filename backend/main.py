@@ -674,6 +674,26 @@ CONTEXT:
                     content = chunk.choices[0].delta.content
                     yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
 
+            # Emit sources
+            sources_list = []
+            seen_urls = set()
+            for match in all_matches:
+                if match.score < SIMILARITY_THRESHOLD:
+                    continue
+                url = match.metadata.get("source", "")
+                title = (
+                    match.metadata.get("title") or
+                    match.metadata.get("program") or
+                    match.metadata.get("heading") or
+                    match.metadata.get("section") or ""
+                )
+                if url and url not in seen_urls and "Unknown" not in url:
+                    seen_urls.add(url)
+                    sources_list.append({"url": url, "title": title})
+
+            if sources_list:
+                yield f"data: {json.dumps({'type': 'sources', 'data': sources_list[:5]})}\n\n"
+
             # Log after stream completes
             ms = int((time.time() - t_start) * 1000)
             log_query(

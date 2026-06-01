@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart2, BookOpen } from "lucide-react"
+import { BarChart2, BookOpen, Calculator } from "lucide-react"
 import { useCampus, campusThemes } from "./campus-context"
 import { cn } from "@/lib/utils"
 
@@ -34,19 +34,25 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
       </div>
 
       {/* Tool cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-lg">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full max-w-xl">
         {[
           {
             icon: BookOpen,
             label: "Program Explorer",
-            sub: "Browse requirements for any Carleton program",
+            sub: "Browse requirements for any program",
             action: "programs",
           },
           {
             icon: BarChart2,
             label: "Compare Courses",
-            sub: "Side-by-side comparison of up to 3 courses",
+            sub: "Side-by-side comparison of courses",
             action: "compare",
+          },
+          {
+            icon: Calculator,
+            label: "GPA Calculator",
+            sub: "Calculate CGPA with what-if scenarios",
+            action: "gpa",
           },
         ].map((item) => {
           const Icon = item.icon

@@ -1,10 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, BookOpen, ArrowLeft, Search, ChevronRight, Layers } from "lucide-react"
+import { Loader2, BookOpen, ArrowLeft, Search, ChevronRight, Layers, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import ReactMarkdown from "react-markdown"
 import { cn } from "@/lib/utils"
+import { useCampus } from "./campus-context"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -22,14 +23,18 @@ interface Program {
 
 const FACULTIES: {
   name: string
+  short: string
   color: string
   bgColor: string
+  dotColor: string
   programs: Omit<Program, "faculty">[]
 }[] = [
   {
     name: "Engineering & Design",
+    short: "Eng",
     color: "text-blue-600 dark:text-blue-400",
-    bgColor: "bg-blue-50 dark:bg-blue-950/30",
+    bgColor: "bg-blue-500",
+    dotColor: "bg-blue-500",
     programs: [
       {
         name: "Aerospace Engineering",
@@ -75,8 +80,10 @@ const FACULTIES: {
   },
   {
     name: "Science",
+    short: "Sci",
     color: "text-emerald-600 dark:text-emerald-400",
-    bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
+    bgColor: "bg-emerald-500",
+    dotColor: "bg-emerald-500",
     programs: [
       { name: "Biochemistry", description: "Chemistry of biological processes and living systems" },
       { name: "Bioinformatics", description: "Computational approaches to biological data" },
@@ -131,8 +138,10 @@ const FACULTIES: {
   },
   {
     name: "Arts & Social Sciences",
+    short: "Arts",
     color: "text-purple-600 dark:text-purple-400",
-    bgColor: "bg-purple-50 dark:bg-purple-950/30",
+    bgColor: "bg-purple-500",
+    dotColor: "bg-purple-500",
     programs: [
       { name: "Anthropology", description: "Human cultures, evolution, and social organization" },
       { name: "Art History", description: "Visual arts, architecture, and cultural heritage" },
@@ -176,9 +185,11 @@ const FACULTIES: {
     ],
   },
   {
-    name: "Sprott School of Business",
+    name: "Sprott Business",
+    short: "Biz",
     color: "text-orange-600 dark:text-orange-400",
-    bgColor: "bg-orange-50 dark:bg-orange-950/30",
+    bgColor: "bg-orange-500",
+    dotColor: "bg-orange-500",
     programs: [
       {
         name: "Accounting",
@@ -192,7 +203,7 @@ const FACULTIES: {
         name: "Business (BCom)",
         description: "Core business fundamentals across all disciplines",
         streams: [
-          { label: "B.Com. Honours (General — no concentration)", queryName: "Bachelor of Commerce Honours" },
+          { label: "B.Com. Honours (General)", queryName: "Bachelor of Commerce Honours" },
           { label: "B.Com. Honours — Concentration in Accounting", queryName: "Concentration in Accounting" },
           { label: "B.Com. Honours — Concentration in Business Analytics", queryName: "Concentration in Business Analytics" },
           { label: "B.Com. Honours — Concentration in Entrepreneurship", queryName: "Concentration in Entrepreneurship" },
@@ -274,8 +285,10 @@ const FACULTIES: {
   },
   {
     name: "Public Affairs",
+    short: "PA",
     color: "text-yellow-600 dark:text-yellow-500",
-    bgColor: "bg-yellow-50 dark:bg-yellow-950/30",
+    bgColor: "bg-yellow-500",
+    dotColor: "bg-yellow-500",
     programs: [
       { name: "Human Rights", description: "International human rights law and advocacy" },
       { name: "Public Administration", description: "Government management, policy, and public service" },
@@ -285,8 +298,10 @@ const FACULTIES: {
   },
   {
     name: "Information Technology",
+    short: "IT",
     color: "text-cyan-600 dark:text-cyan-400",
-    bgColor: "bg-cyan-50 dark:bg-cyan-950/30",
+    bgColor: "bg-cyan-500",
+    dotColor: "bg-cyan-500",
     programs: [
       { name: "Information Technology (BIT)", description: "IT systems, databases, networking, and software" },
       { name: "Interactive Multimedia and Design", description: "Web, game, and interactive media design" },
@@ -294,8 +309,10 @@ const FACULTIES: {
   },
   {
     name: "Health Sciences",
+    short: "Health",
     color: "text-red-500 dark:text-red-400",
-    bgColor: "bg-red-50 dark:bg-red-950/30",
+    bgColor: "bg-red-500",
+    dotColor: "bg-red-500",
     programs: [
       { name: "Health Sciences", description: "Health systems, policy, and interdisciplinary health studies" },
       { name: "Nursing", description: "Collaborative nursing program with health and patient care" },
@@ -313,10 +330,12 @@ type ViewState =
   | { screen: "detail"; program: Program; streamLabel?: string; queryName: string }
 
 export function ProgramExplorer() {
+  const { theme } = useCampus()
   const [view, setView] = React.useState<ViewState>({ screen: "directory" })
   const [result, setResult] = React.useState("")
   const [loading, setLoading] = React.useState(false)
   const [search, setSearch] = React.useState("")
+  const [activeFaculty, setActiveFaculty] = React.useState<string>("All")
 
   const loadRequirements = async (queryName: string) => {
     setResult("")
@@ -382,39 +401,43 @@ export function ProgramExplorer() {
     setResult("")
   }
 
-  // ── Stream picker ────────────────────────────────────────────────────────
+  // ── Stream picker ─────────────────────────────────────────────────────────
   if (view.screen === "streams") {
     const { program, faculty } = view
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => { setView({ screen: "directory" }); setResult("") }}>
             <ArrowLeft className="size-4" />
           </Button>
           <div>
-            <p className={cn("text-xs font-medium mb-0.5", faculty.color)}>{faculty.name}</p>
-            <h2 className="text-lg font-semibold">{program.name}</h2>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className={cn("text-[10px] font-semibold uppercase tracking-widest", faculty.color)}>
+                {faculty.name}
+              </span>
+            </div>
+            <h2 className="text-lg font-semibold leading-tight">{program.name}</h2>
           </div>
         </div>
 
-        <div className={cn("rounded-xl p-4 border border-border", faculty.bgColor)}>
+        <div className={cn("rounded-xl p-4 border border-border/50", `bg-${faculty.bgColor.split("-")[1]}-500/5`)}>
           <div className="flex items-center gap-2 mb-1">
             <Layers className={cn("size-4", faculty.color)} />
-            <p className="text-sm font-semibold">Select your stream or degree</p>
+            <p className="text-sm font-semibold">Select degree or option</p>
           </div>
           <p className="text-xs text-muted-foreground">
-            This program has multiple degree options and specializations. Each has different requirements.
+            {program.streams!.length} options available — Honours, Combined, Minors, and more.
           </p>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {program.streams!.map((stream) => (
             <button
               key={stream.queryName}
               onClick={() => handleStreamClick(program, stream)}
-              className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl border border-border bg-card hover:bg-secondary/40 hover:border-border/80 transition-all text-left group"
+              className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-secondary/40 hover:border-border/60 transition-all text-left group"
             >
-              <span className="text-sm font-medium text-foreground">{stream.label}</span>
+              <span className="text-sm text-foreground">{stream.label}</span>
               <ChevronRight className="size-3.5 text-muted-foreground/30 shrink-0 group-hover:text-muted-foreground transition-colors" />
             </button>
           ))}
@@ -423,27 +446,29 @@ export function ProgramExplorer() {
     )
   }
 
-  // ── Detail view ──────────────────────────────────────────────────────────
+  // ── Detail view ───────────────────────────────────────────────────────────
   if (view.screen === "detail") {
     const { program, streamLabel } = view as { program: Program; streamLabel?: string; queryName: string }
     const faculty = FACULTIES.find((f) => f.name === program.faculty)
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={goBack}>
             <ArrowLeft className="size-4" />
           </Button>
-          <div>
-            <p className={cn("text-xs font-medium mb-0.5", faculty?.color)}>{program.faculty}</p>
-            <h2 className="text-lg font-semibold leading-tight">{program.name}</h2>
+          <div className="flex-1 min-w-0">
+            <p className={cn("text-[10px] font-semibold uppercase tracking-widest mb-0.5", faculty?.color)}>
+              {program.faculty}
+            </p>
+            <h2 className="text-base font-semibold leading-tight truncate">{program.name}</h2>
             {streamLabel && (
-              <p className="text-xs text-muted-foreground mt-0.5">{streamLabel}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">{streamLabel}</p>
             )}
           </div>
         </div>
 
         {loading && (
-          <div className="flex items-center gap-2.5 text-muted-foreground py-8 justify-center text-sm">
+          <div className="flex items-center gap-2.5 text-muted-foreground py-12 justify-center text-sm">
             <Loader2 className="size-4 animate-spin" />
             Loading requirements…
           </div>
@@ -464,66 +489,112 @@ export function ProgramExplorer() {
     )
   }
 
-  // ── Directory ────────────────────────────────────────────────────────────
-  const searchResults = search.trim()
+  // ── Directory ─────────────────────────────────────────────────────────────
+  const isSearching = search.trim().length > 0
+  const searchResults = isSearching
     ? ALL_PROGRAMS.filter(
         (p) =>
           p.name.toLowerCase().includes(search.toLowerCase()) ||
-          p.description.toLowerCase().includes(search.toLowerCase())
+          p.description.toLowerCase().includes(search.toLowerCase()) ||
+          p.faculty.toLowerCase().includes(search.toLowerCase())
       )
     : null
 
+  const displayFaculties = activeFaculty === "All"
+    ? FACULTIES
+    : FACULTIES.filter((f) => f.name === activeFaculty)
+
+  const totalCount = ALL_PROGRAMS.length
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
+      {/* Header */}
       <div>
         <h2 className="text-lg font-semibold mb-0.5">Programs</h2>
-        <p className="text-sm text-muted-foreground">
-          {ALL_PROGRAMS.length} Carleton programs — click any to see requirements
-        </p>
+        <p className="text-sm text-muted-foreground">{totalCount} Carleton programs — click any to see requirements</p>
       </div>
 
+      {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/40" />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search programs…"
-          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50"
+          placeholder="Search any program…"
+          className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/40"
         />
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+          >
+            <X className="size-3.5" />
+          </button>
+        )}
       </div>
 
-      {searchResults ? (
+      {/* Faculty tabs — only show when not searching */}
+      {!isSearching && (
+        <div className="flex gap-1.5 flex-wrap">
+          {["All", ...FACULTIES.map((f) => f.name)].map((name) => {
+            const faculty = FACULTIES.find((f) => f.name === name)
+            const isActive = activeFaculty === name
+            return (
+              <button
+                key={name}
+                onClick={() => setActiveFaculty(name)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                  isActive
+                    ? "bg-foreground text-background"
+                    : "border border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
+                )}
+              >
+                {faculty ? faculty.short : "All"}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Search results */}
+      {isSearching ? (
         <div>
-          {searchResults.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">No programs found</p>
+          {!searchResults?.length ? (
+            <div className="text-center py-12 text-sm text-muted-foreground">No programs found for "{search}"</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground mb-3">{searchResults.length} result{searchResults.length !== 1 ? "s" : ""}</p>
               {searchResults.map((p) => {
-                const faculty = FACULTIES.find((f) => f.name === p.faculty)
+                const faculty = FACULTIES.find((f) => f.name === p.faculty)!
                 return (
-                  <ProgramCard key={p.name} program={p} facultyColor={faculty?.color} onClick={() => handleProgramClick(p)} />
+                  <ProgramCard
+                    key={p.name}
+                    program={p}
+                    faculty={faculty}
+                    onClick={() => handleProgramClick(p)}
+                  />
                 )
               })}
             </div>
           )}
         </div>
       ) : (
-        <div className="space-y-8">
-          {FACULTIES.map((faculty) => (
+        <div className="space-y-6">
+          {displayFaculties.map((faculty) => (
             <div key={faculty.name}>
-              <div className="flex items-center gap-2 mb-3">
-                <h3 className={cn("text-xs font-semibold uppercase tracking-widest", faculty.color)}>
-                  {faculty.name}
-                </h3>
+              <div className="flex items-center gap-2 mb-2.5">
+                <span className={cn("size-2 rounded-full", faculty.bgColor)} />
+                <h3 className="text-xs font-semibold text-muted-foreground">{faculty.name}</h3>
                 <span className="text-xs text-muted-foreground/40">({faculty.programs.length})</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {faculty.programs.map((p) => (
                   <ProgramCard
                     key={p.name}
                     program={{ ...p, faculty: faculty.name }}
-                    facultyColor={faculty.color}
+                    faculty={faculty}
                     onClick={() => handleProgramClick({ ...p, faculty: faculty.name })}
                   />
                 ))}
@@ -538,35 +609,35 @@ export function ProgramExplorer() {
 
 function ProgramCard({
   program,
-  facultyColor,
+  faculty,
   onClick,
 }: {
   program: Program
-  facultyColor?: string
+  faculty: typeof FACULTIES[number]
   onClick: () => void
 }) {
   const hasStreams = !!program.streams?.length
   return (
     <button
       onClick={onClick}
-      className="group flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-secondary/40 hover:border-border/80 transition-all text-left"
+      className="group flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-secondary/30 hover:border-border/60 transition-all text-left"
     >
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-foreground truncate">{program.name}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <p className="text-xs text-muted-foreground truncate">{program.description}</p>
-          {hasStreams && (
-            <span className={cn(
-              "shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md",
-              facultyColor,
-              "bg-current/10"
-            )}>
-              {program.streams!.length} options
-            </span>
-          )}
-        </div>
+        <p className="text-xs text-muted-foreground truncate mt-0.5">{program.description}</p>
       </div>
-      <ChevronRight className="size-3.5 text-muted-foreground/30 shrink-0 group-hover:text-muted-foreground transition-colors" />
+      <div className="flex items-center gap-2 shrink-0">
+        {hasStreams && (
+          <span className={cn(
+            "text-[10px] font-semibold px-1.5 py-0.5 rounded-md",
+            faculty.color,
+            "bg-current/10"
+          )}>
+            {program.streams!.length}
+          </span>
+        )}
+        <ChevronRight className="size-3.5 text-muted-foreground/20 group-hover:text-muted-foreground/60 transition-colors" />
+      </div>
     </button>
   )
 }

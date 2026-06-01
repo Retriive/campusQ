@@ -3,7 +3,7 @@
 import * as React from "react"
 import { track } from "@vercel/analytics"
 import { cn } from "@/lib/utils"
-import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2 as BarChart2Icon } from "lucide-react"
+import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2 as BarChart2Icon, Calculator as CalculatorIcon } from "lucide-react"
 import { Header } from "./header"
 import { Sidebar, type View, type ChatSession } from "./sidebar"
 import { ChatMessage } from "./chat-message"
@@ -14,6 +14,7 @@ import { FeedbackModal } from "./feedback-modal"
 import { PrereqVisualizer } from "./prereq-visualizer"
 import { CourseCompare } from "./course-compare"
 import { ProgramExplorer } from "./program-explorer"
+import { GpaCalculator } from "./gpa-calculator"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 const SESSIONS_KEY = "campusq-sessions"
@@ -27,11 +28,17 @@ interface CourseCardData {
   prerequisites: string[]
 }
 
+interface Source {
+  url: string
+  title: string
+}
+
 interface Message {
   id: string
   role: "user" | "assistant"
   content: string
   courseCards?: CourseCardData[]
+  sources?: Source[]
 }
 
 interface Suggestion {
@@ -219,6 +226,12 @@ export function ChatContainer() {
                   m.id === assistantId ? { ...m, courseCards: parsed.data } : m
                 )
               )
+            } else if (parsed.type === "sources") {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId ? { ...m, sources: parsed.data } : m
+                )
+              )
             }
           } catch {}
         }
@@ -251,6 +264,7 @@ export function ChatContainer() {
   const renderView = () => {
     if (currentView === "programs") return <ProgramExplorer />
     if (currentView === "compare") return <CourseCompare />
+    if (currentView === "gpa") return <GpaCalculator />
     return null
   }
 
@@ -323,7 +337,7 @@ export function ChatContainer() {
 
                     return (
                       <div key={message.id}>
-                        <ChatMessage role={message.role} content={message.content}>
+                        <ChatMessage role={message.role} content={message.content} sources={message.sources}>
                           {message.courseCards && message.courseCards.length > 0 && (
                             <div className="flex flex-col gap-4 mt-3">
                               {message.courseCards.map((card, idx) => (
@@ -372,18 +386,6 @@ export function ChatContainer() {
                     )
                   })}
 
-                  {isLoading && (
-                    <div className="flex gap-3 items-start">
-                      <div className={cn("shrink-0 size-7 rounded-lg flex items-center justify-center font-bold text-xs text-white bg-primary")}>
-                        Q
-                      </div>
-                      <div className="flex items-center gap-1.5 pt-2">
-                        <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:-0.3s]" />
-                        <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:-0.15s]" />
-                        <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce" />
-                      </div>
-                    </div>
-                  )}
                   <div ref={messagesEndRef} />
                 </div>
               )}
@@ -403,9 +405,10 @@ export function ChatContainer() {
         {/* Mobile bottom nav */}
         <nav className="md:hidden flex border-t border-border/40 bg-card safe-area-pb">
           {[
-            { view: "chat" as View, label: "Chat", Icon: MessageSquareIcon },
-            { view: "programs" as View, label: "Programs", Icon: BookOpenIcon },
-            { view: "compare" as View, label: "Compare", Icon: BarChart2Icon },
+            { view: "chat"     as View, label: "Chat",    Icon: MessageSquareIcon },
+            { view: "programs" as View, label: "Programs", Icon: BookOpenIcon     },
+            { view: "compare"  as View, label: "Compare",  Icon: BarChart2Icon    },
+            { view: "gpa"      as View, label: "GPA",      Icon: CalculatorIcon   },
           ].map(({ view, label, Icon }) => (
             <button
               key={view}

@@ -434,10 +434,10 @@ export function ChatContainer() {
         {/* Mobile bottom nav */}
         <nav className="md:hidden flex items-center justify-around border-t border-border/40 bg-card safe-area-pb px-2">
           {[
-            { view: "chat"      as View, label: "Chat",      Icon: MessageSquareIcon  },
             { view: "programs"  as View, label: "Programs",  Icon: BookOpenIcon       },
-            { view: "compare"   as View, label: "Compare",   Icon: BarChart2Icon      },
             { view: "gpa"       as View, label: "GPA",       Icon: CalculatorIcon     },
+            { view: "chat"      as View, label: "Chat",      Icon: MessageSquareIcon  },
+            { view: "compare"   as View, label: "Compare",   Icon: BarChart2Icon      },
             { view: "deadlines" as View, label: "Dates",     Icon: CalendarDaysIcon   },
           ].map(({ view, label, Icon }) => {
             const active = currentView === view

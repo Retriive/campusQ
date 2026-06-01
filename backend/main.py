@@ -529,8 +529,24 @@ async def chat_stream(
 
     t_start = time.time()
 
+    # Keywords that indicate the user is asking a question *about* courses,
+    # not just looking them up. These queries need a full AI answer.
+    QUESTION_INDICATORS = [
+        "can i", "should i", "do i need", "will i", "is it", "are there",
+        "difference between", "compare", "better", "which is", "or ", "without",
+        "how ", "why ", "what happens", "explain", "tell me",
+        "prerequisite", "require", "needed for", "before taking", "instead of",
+        "vs ", "versus", "substitute", "count toward", "count for",
+        "transfer", "equivalent", "replace", "satisfy",
+    ]
+
     async def generate():
         course_matches = re.findall(r'([a-zA-Z]{4})\s*(\d{4})', user_query, re.IGNORECASE)
+
+        # Determine whether this is a question that mentions courses (needs AI answer)
+        # or a pure course lookup (fast card path is sufficient)
+        query_lower = user_query.lower()
+        is_question_about_courses = any(ind in query_lower for ind in QUESTION_INDICATORS)
 
         if course_matches:
             structured_courses = []
@@ -557,7 +573,8 @@ async def chat_stream(
                     print(f"Stream interceptor error: {e}")
                     missed_codes.append(clean_code)
 
-            if structured_courses:
+            # Pure lookup (e.g. "What is COMP 1005?") — fast card path, no AI needed
+            if structured_courses and not is_question_about_courses:
                 ms = int((time.time() - t_start) * 1000)
                 log_query(
                     query=user_query,
@@ -568,12 +585,11 @@ async def chat_stream(
                     response_ms=ms,
                     had_context=True,
                 )
-                count = len(structured_courses)
-                text = f"Here {'are' if count > 1 else 'is'} the {'courses' if count > 1 else 'course'} you asked about."
-                yield f"data: {json.dumps({'type': 'token', 'content': text})}\n\n"
                 yield f"data: {json.dumps({'type': 'courses', 'data': structured_courses})}\n\n"
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
                 return
+
+            # Question about courses — fall through to RAG, attach cards at end
 
         try:
             search_query = rewrite_query_for_embedding(user_query)
@@ -621,6 +637,16 @@ async def chat_stream(
                 doc_source = metadata.get("source", "Unknown Source")
                 context_text += f"\n--- Source: {doc_source} (relevance: {match.score:.2f}) ---\n{doc_text}\n"
                 chunks_used += 1
+
+            # If course cards were fetched, add their data directly to context
+            if course_matches and structured_courses:
+                course_context = "\n--- Course Data (fetched directly) ---\n"
+                for c in structured_courses:
+                    course_context += f"{c['courseCode']} — {c['courseName']} [{c['credits']} credits]\n"
+                    course_context += f"Description: {c['description']}\n"
+                    prereqs = ", ".join(c['prerequisites']) if c['prerequisites'] else "None"
+                    course_context += f"Prerequisites: {prereqs}\n\n"
+                context_text = course_context + context_text
 
             if not context_text:
                 log_no_context(user_query, "stream_rag")
@@ -673,6 +699,10 @@ CONTEXT:
                 if chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
+
+            # Emit course cards as supplementary (for question-about-courses path)
+            if course_matches and structured_courses and is_question_about_courses:
+                yield f"data: {json.dumps({'type': 'courses', 'data': structured_courses})}\n\n"
 
             # Emit sources
             sources_list = []

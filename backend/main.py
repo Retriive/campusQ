@@ -862,19 +862,13 @@ async def feedback_endpoint(
     return {"ok": True}
 
 
-# ── Advisor Dashboard (read-only, anonymized, password-gated) ─────────────────
+# ── Advisor Dashboard (read-only, anonymized — open access) ───────────────────
 from dashboard import build_dashboard_data, build_digest_text
 
-DASHBOARD_KEY = os.getenv("DASHBOARD_KEY", "campusq-advisor")
-
 @app.get("/api/dashboard")
-async def dashboard_data(key: str = ""):
-    if key != DASHBOARD_KEY:
-        return {"ok": False, "error": "unauthorized"}
+async def dashboard_data():
     return {"ok": True, "data": build_dashboard_data(LOG_DIR)}
 
 @app.get("/api/dashboard/digest")
-async def dashboard_digest(key: str = ""):
-    if key != DASHBOARD_KEY:
-        return {"ok": False, "error": "unauthorized"}
+async def dashboard_digest():
     return {"ok": True, "digest": build_digest_text(LOG_DIR)}

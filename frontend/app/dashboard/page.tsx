@@ -1,10 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { ArrowUp, ArrowDown, Minus, Lock, RefreshCw, AlertTriangle, ThumbsDown } from "lucide-react"
+import { ArrowUp, ArrowDown, Minus, RefreshCw, AlertTriangle, ThumbsDown, Loader2 } from "lucide-react"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-const KEY_STORAGE = "campusq-dashboard-key"
 
 interface IntentRow { intent: string; label: string; count: number; example: string; trend: "up" | "down" | "flat"; prev_count: number }
 interface UnansweredGroup { theme: string; count: number; examples: string[] }
@@ -33,20 +32,17 @@ function Trend({ t }: { t: "up" | "down" | "flat" }) {
 }
 
 export default function DashboardPage() {
-  const [key, setKey] = React.useState("")
   const [data, setData] = React.useState<DashboardData | null>(null)
-  const [loading, setLoading] = React.useState(false)
+  const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState("")
-  const [authed, setAuthed] = React.useState(false)
 
-  const load = async (k: string) => {
+  const load = async () => {
     setLoading(true); setError("")
     try {
-      const res = await fetch(`${API_URL}/api/dashboard?key=${encodeURIComponent(k)}`)
+      const res = await fetch(`${API_URL}/api/dashboard`)
       const json = await res.json()
-      if (!json.ok) { setError("Incorrect access key."); setAuthed(false); return }
-      setData(json.data); setAuthed(true)
-      localStorage.setItem(KEY_STORAGE, k)
+      if (!json.ok) { setError("Couldn't load dashboard data."); return }
+      setData(json.data)
     } catch {
       setError("Couldn't reach the server. Is the backend running?")
     } finally {
@@ -54,38 +50,24 @@ export default function DashboardPage() {
     }
   }
 
-  React.useEffect(() => {
-    const saved = localStorage.getItem(KEY_STORAGE)
-    if (saved) { setKey(saved); load(saved) }
-  }, [])
+  React.useEffect(() => { load() }, [])
 
-  // ── Gate ────────────────────────────────────────────────────────────────
-  if (!authed) {
+  if (loading && !data) {
+    return (
+      <div className="min-h-screen bg-[#F7F5F0] flex items-center justify-center">
+        <div className="flex items-center gap-2 text-zinc-400 text-sm">
+          <Loader2 className="size-4 animate-spin" /> Loading dashboard…
+        </div>
+      </div>
+    )
+  }
+
+  if (error && !data) {
     return (
       <div className="min-h-screen bg-[#F7F5F0] flex items-center justify-center px-5">
-        <div className="w-full max-w-sm bg-white border border-zinc-200 rounded-2xl p-8">
-          <div className="size-10 rounded-xl bg-zinc-900 flex items-center justify-center mb-5">
-            <Lock className="size-4 text-white" />
-          </div>
-          <h1 className="text-lg font-semibold text-zinc-900 mb-1">Advisor Dashboard</h1>
-          <p className="text-sm text-zinc-500 mb-5">Enter your access key to view anonymized student question insights.</p>
-          <form onSubmit={(e) => { e.preventDefault(); load(key) }}>
-            <input
-              type="password"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              placeholder="Access key"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900/10 mb-3"
-            />
-            <button
-              type="submit"
-              disabled={loading || !key}
-              className="w-full bg-zinc-900 hover:bg-zinc-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-xl transition-colors"
-            >
-              {loading ? "Checking…" : "View dashboard"}
-            </button>
-          </form>
-          {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
+        <div className="text-center">
+          <p className="text-sm text-zinc-600 mb-3">{error}</p>
+          <button onClick={load} className="text-sm text-zinc-900 underline underline-offset-2">Retry</button>
         </div>
       </div>
     )
@@ -114,7 +96,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <button
-            onClick={() => load(key)}
+            onClick={load}
             className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors"
           >
             <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh

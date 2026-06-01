@@ -8,13 +8,21 @@ export const metadata: Metadata = {
 }
 
 const CAPABILITIES = [
-  "Look up any course — description, prerequisites, and credit value",
-  "Answer questions about program requirements for any Carleton program",
-  "Show the full prerequisite chain for any course",
-  "Help you understand graduation and credit requirements",
-  "Compare courses side by side to help you choose",
-  "Explain university policies in plain language",
-  "Browse all Carleton programs and streams by faculty",
+  "Ask anything about courses, programs, prerequisites, or policies — get a real answer in seconds",
+  "Browse all 84 Carleton programs across every faculty, with every degree variant and stream",
+  "View the full prerequisite chain for any course visually",
+  "Compare up to 3 courses side by side — credits, prereqs, descriptions",
+  "Calculate your CGPA using Carleton's 12-point scale with what-if scenarios",
+  "Track every key academic deadline for Summer 2026, Fall 2026, and Winter 2027",
+  "Ask about registration procedures, tuition, financial aid, co-op, PMC, CSAS, library, and more",
+  "Upload a document and ask questions about it",
+]
+
+const STATS = [
+  { value: "3,782", label: "courses indexed" },
+  { value: "498",   label: "degree variants" },
+  { value: "90%",   label: "answer accuracy" },
+  { value: "0%",    label: "hallucination rate" },
 ]
 
 export default function AboutPage() {
@@ -45,9 +53,20 @@ export default function AboutPage() {
             What is CampusQ?
           </h1>
           <p className="text-zinc-500 leading-relaxed text-base">
-            CampusQ is an AI-powered academic assistant built for Carleton University students.
-            It makes the official academic calendar searchable and conversational — so you can get answers in seconds instead of hours.
+            CampusQ is an independent AI academic assistant built for Carleton University students.
+            Ask it anything about courses, programs, deadlines, tuition, financial aid, or campus services
+            — and get a real answer in seconds, sourced directly from official Carleton documents.
           </p>
+        </section>
+
+        {/* Stats */}
+        <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {STATS.map((s) => (
+            <div key={s.label} className="flex flex-col gap-1 p-4 rounded-xl border border-zinc-200 bg-white">
+              <span className="text-2xl font-bold text-zinc-900 tabular-nums">{s.value}</span>
+              <span className="text-xs text-zinc-500">{s.label}</span>
+            </div>
+          ))}
         </section>
 
         {/* Origin */}
@@ -59,12 +78,14 @@ export default function AboutPage() {
             that should take 30 seconds. The information is all there — it's just completely inaccessible.
           </p>
           <p className="text-zinc-500 leading-relaxed text-sm">
-            We indexed the entire Carleton academic calendar — every course, every program, every policy —
+            We indexed everything — 3,782 courses, 498 degree variants, every academic regulation,
+            registration procedure, tuition policy, financial aid page, library service, and campus resource —
             and built an AI that answers questions from it directly. No fluff, no guessing, no Reddit threads from 2019.
           </p>
           <p className="text-zinc-500 leading-relaxed text-sm">
             Built for Carleton students, by Carleton students. We know the problem because we lived it.
-            CampusQ is currently in beta — we're testing it with real students, collecting feedback, and improving it every week.
+            CampusQ is currently in beta — we're testing with real students, running structured accuracy evaluations,
+            and improving every week.
           </p>
         </section>
 
@@ -79,6 +100,47 @@ export default function AboutPage() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* Knowledge base */}
+        <section className="flex flex-col gap-4">
+          <h2 className="text-xl font-semibold text-zinc-900">What's indexed</h2>
+          <p className="text-zinc-500 leading-relaxed text-sm">
+            CampusQ searches across 9 knowledge bases simultaneously on every question:
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {[
+              { name: "Courses", detail: "3,782 courses across 110 departments" },
+              { name: "Programs", detail: "498 degree variants across 84 programs" },
+              { name: "Academic Regulations", detail: "Grading, CGPA, examinations, misconduct" },
+              { name: "Registration & Advising", detail: "98 pages — procedures, overrides, LOP, audits" },
+              { name: "Academic Dates", detail: "38 structured deadlines with live countdowns" },
+              { name: "Tuition & Fees", detail: "Payments, refunds, financial holds, fee assessment" },
+              { name: "Campus Services", detail: "PMC, CSAS, Awards, OSAP, Co-op, AI tools, TLS" },
+              { name: "Library", detail: "Hours, study rooms, borrowing, accessibility, reserves" },
+              { name: "Structured Facts", detail: "High-frequency policies: repeat policy, GPA scale, WDN" },
+            ].map((item) => (
+              <div key={item.name} className="flex flex-col gap-0.5 p-3.5 rounded-xl border border-zinc-200 bg-white">
+                <span className="text-sm font-semibold text-zinc-900">{item.name}</span>
+                <span className="text-xs text-zinc-500">{item.detail}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Accuracy */}
+        <section className="flex flex-col gap-4">
+          <h2 className="text-xl font-semibold text-zinc-900">How accurate is it?</h2>
+          <p className="text-zinc-500 leading-relaxed text-sm">
+            We run structured evaluations against 65 real student questions across 7 categories.
+            Current results: <span className="text-zinc-900 font-medium">90% accuracy, 0% hallucination rate.</span> When
+            CampusQ doesn't know something, it says so — it never invents course codes, credit values,
+            or requirements. Every answer includes clickable sources so you can verify.
+          </p>
+          <p className="text-zinc-500 leading-relaxed text-sm">
+            We measure accuracy, run targeted fixes, and re-evaluate — a continuous improvement loop
+            that gets better the more it's used.
+          </p>
         </section>
 
         {/* Disclaimer */}

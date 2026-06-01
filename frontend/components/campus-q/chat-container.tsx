@@ -432,26 +432,39 @@ export function ChatContainer() {
         )}
 
         {/* Mobile bottom nav */}
-        <nav className="md:hidden flex border-t border-border/40 bg-card safe-area-pb">
+        <nav className="md:hidden flex items-center justify-around border-t border-border/40 bg-card safe-area-pb px-2">
           {[
             { view: "chat"      as View, label: "Chat",      Icon: MessageSquareIcon  },
             { view: "programs"  as View, label: "Programs",  Icon: BookOpenIcon       },
             { view: "compare"   as View, label: "Compare",   Icon: BarChart2Icon      },
             { view: "gpa"       as View, label: "GPA",       Icon: CalculatorIcon     },
             { view: "deadlines" as View, label: "Dates",     Icon: CalendarDaysIcon   },
-          ].map(({ view, label, Icon }) => (
-            <button
-              key={view}
-              onClick={() => setCurrentView(view)}
-              className={cn(
-                "flex-1 flex flex-col items-center pt-3 pb-4 gap-1 transition-colors",
-                currentView === view ? "text-primary" : "text-muted-foreground/60"
-              )}
-            >
-              <Icon className={cn("size-5", currentView === view && "text-primary")} />
-              <span className="text-[10px] font-medium">{label}</span>
-            </button>
-          ))}
+          ].map(({ view, label, Icon }) => {
+            const active = currentView === view
+            return (
+              <button
+                key={view}
+                onClick={() => setCurrentView(view)}
+                className="flex-1 flex flex-col items-center pt-2 pb-3 gap-1 transition-colors"
+              >
+                <div className={cn(
+                  "flex items-center justify-center rounded-2xl transition-all duration-200",
+                  active
+                    ? "bg-primary/10 px-4 py-1.5"
+                    : "px-3 py-1.5"
+                )}>
+                  <Icon className={cn(
+                    "transition-all duration-200",
+                    active ? "size-5 text-primary" : "size-5 text-muted-foreground/50"
+                  )} />
+                </div>
+                <span className={cn(
+                  "text-[10px] font-medium transition-colors",
+                  active ? "text-primary" : "text-muted-foreground/40"
+                )}>{label}</span>
+              </button>
+            )
+          })}
         </nav>
       </div>
 

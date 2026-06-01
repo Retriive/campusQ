@@ -3,8 +3,8 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pinecone import Pinecone
 
-# Load keys
-load_dotenv()
+# Load keys — .env lives in backend/ (one level up from tests/)
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index(os.getenv("PINECONE_INDEX_NAME"))

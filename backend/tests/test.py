@@ -2,7 +2,8 @@ from pinecone import Pinecone
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+# .env lives in backend/ (one level up from tests/)
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index("knowledge-base")
 

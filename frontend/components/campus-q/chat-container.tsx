@@ -16,7 +16,6 @@ import { CourseCompare } from "./course-compare"
 import { ProgramExplorer } from "./program-explorer"
 import { GpaCalculator } from "./gpa-calculator"
 import { DeadlineTracker } from "./deadline-tracker"
-import { DegreePlanner } from "./degree-planner"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 const SESSIONS_KEY = "campusq-sessions"
@@ -288,7 +287,6 @@ export function ChatContainer() {
     if (currentView === "compare")   return <CourseCompare />
     if (currentView === "gpa")       return <GpaCalculator />
     if (currentView === "deadlines") return <DeadlineTracker />
-    if (currentView === "planner")   return <DegreePlanner />
     return null
   }
 

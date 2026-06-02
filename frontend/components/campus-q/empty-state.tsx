@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart2, BookOpen, Calculator, CalendarDays, Map as MapIcon } from "lucide-react"
+import { BarChart2, BookOpen, Calculator, CalendarDays } from "lucide-react"
 import { useCampus, campusThemes } from "./campus-context"
 import { cn } from "@/lib/utils"
 
@@ -34,7 +34,7 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
       </div>
 
       {/* Tool cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 w-full max-w-3xl">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full max-w-2xl">
         {[
           {
             icon: BookOpen,
@@ -43,10 +43,10 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
             action: "programs",
           },
           {
-            icon: MapIcon,
-            label: "Planner",
-            sub: "Map your degree, term by term",
-            action: "planner",
+            icon: BarChart2,
+            label: "Compare",
+            sub: "Side-by-side course comparison",
+            action: "compare",
           },
           {
             icon: Calculator,
@@ -59,12 +59,6 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
             label: "Deadlines",
             sub: "Key dates with countdowns",
             action: "deadlines",
-          },
-          {
-            icon: BarChart2,
-            label: "Compare",
-            sub: "Side-by-side course comparison",
-            action: "compare",
           },
         ].map((item) => {
           const Icon = item.icon

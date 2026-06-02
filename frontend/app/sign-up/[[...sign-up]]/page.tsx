@@ -1,7 +1,7 @@
-import { SignIn } from "@clerk/nextjs"
+import { SignUp } from "@clerk/nextjs"
 import Link from "next/link"
 
-export default function SignInPage() {
+export default function SignUpPage() {
   return (
     <div style={{ minHeight: "100vh", background: "#fafaf9", display: "flex", flexDirection: "column", fontFamily: "inherit" }}>
 
@@ -24,15 +24,15 @@ export default function SignInPage() {
             </span>
           </div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: "#18181b", letterSpacing: "-0.02em", margin: 0 }}>
-            Welcome to CampusQ
+            Create your account
           </h1>
           <p style={{ fontSize: 14, color: "#71717a", marginTop: 6 }}>
-            Sign in to access your AI academic assistant
+            Sign up free to start using your AI academic assistant
           </p>
         </div>
 
-        <SignIn
-          signUpUrl="/sign-up"
+        <SignUp
+          signInUrl="/sign-in"
           forceRedirectUrl="/chat"
           appearance={{
             variables: {
@@ -55,10 +55,7 @@ export default function SignInPage() {
               showOptionalFields: false,
             },
             elements: {
-              rootBox: {
-                width: "100%",
-                maxWidth: "400px",
-              },
+              rootBox: { width: "100%", maxWidth: "400px" },
               card: {
                 boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
                 border: "1px solid #e4e4e7",
@@ -81,12 +78,7 @@ export default function SignInPage() {
               },
               dividerLine: { background: "#e4e4e7" },
               dividerText: { color: "#a1a1aa", fontSize: "12px" },
-              formFieldLabel: {
-                fontSize: "12px",
-                fontWeight: 500,
-                color: "#3f3f46",
-                marginBottom: "4px",
-              },
+              formFieldLabel: { fontSize: "12px", fontWeight: 500, color: "#3f3f46", marginBottom: "4px" },
               formFieldInput: {
                 border: "1px solid #e4e4e7",
                 borderRadius: "10px",
@@ -108,17 +100,10 @@ export default function SignInPage() {
                 cursor: "pointer",
                 transition: "background 0.15s",
               },
-              footerActionLink: {
-                color: "#dc2626",
-                fontWeight: 500,
-              },
+              footerActionLink: { color: "#dc2626", fontWeight: 500 },
               identityPreviewEditButton: { color: "#dc2626" },
               formFieldErrorText: { color: "#dc2626", fontSize: "12px" },
-              footer: {
-                background: "transparent",
-                borderTop: "none",
-                paddingTop: "16px",
-              },
+              footer: { background: "transparent", borderTop: "none", paddingTop: "16px" },
             },
           }}
         />

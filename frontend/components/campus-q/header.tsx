@@ -1,7 +1,7 @@
 "use client"
 
 import { Moon, Sun } from "lucide-react"
-import { SignInButton, UserButton, useUser } from "@clerk/nextjs"
+import { SignUpButton, UserButton, useUser } from "@clerk/nextjs"
 import { useCampus } from "./campus-context"
 import { cn } from "@/lib/utils"
 
@@ -39,11 +39,11 @@ export function Header({ isDark, onToggleDark }: HeaderProps) {
           isSignedIn ? (
             <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: "size-7" } }} />
           ) : (
-            <SignInButton mode="redirect" redirectUrl="/sign-in">
+            <SignUpButton mode="redirect">
               <button className="text-xs font-medium px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-                Sign in
+                Sign up
               </button>
-            </SignInButton>
+            </SignUpButton>
           )
         )}
       </div>

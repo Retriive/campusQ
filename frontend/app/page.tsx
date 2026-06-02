@@ -65,7 +65,7 @@ export default function LandingPage() {
               About
             </Link>
             <Link
-              href="/chat"
+              href="/sign-up"
               className="inline-flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
               Open app <ArrowRight className="size-3.5" />
@@ -100,7 +100,7 @@ export default function LandingPage() {
 
             <div className="flex items-center gap-3 mt-8">
               <Link
-                href="/chat"
+                href="/sign-up"
                 className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors shadow-sm shadow-red-200"
               >
                 Try it free
@@ -152,10 +152,10 @@ export default function LandingPage() {
 
               {/* Fake input */}
               <div className="bg-white border-t border-zinc-100 px-4 py-3 flex items-center gap-2.5">
-                <Link href="/chat" className="flex-1 bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-zinc-400 hover:bg-zinc-100 transition-colors">
+                <Link href="/sign-up" className="flex-1 bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2 text-xs text-zinc-400 hover:bg-zinc-100 transition-colors">
                   Ask anything about Carleton…
                 </Link>
-                <Link href="/chat" className="size-8 bg-red-600 hover:bg-red-700 rounded-xl flex items-center justify-center shrink-0 transition-colors">
+                <Link href="/sign-up" className="size-8 bg-red-600 hover:bg-red-700 rounded-xl flex items-center justify-center shrink-0 transition-colors">
                   <ArrowRight className="size-3.5 text-white" />
                 </Link>
               </div>
@@ -229,7 +229,7 @@ export default function LandingPage() {
 
             <div className="flex items-center gap-3 mt-8">
               <Link
-                href="/chat"
+                href="/sign-up"
                 className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors"
               >
                 Open CampusQ free

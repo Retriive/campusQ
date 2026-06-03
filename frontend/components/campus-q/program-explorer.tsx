@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, BookOpen, ArrowLeft, Search, ChevronRight, ChevronDown, Layers, X, GraduationCap } from "lucide-react"
+import { Loader2, BookOpen, ArrowLeft, Search, ChevronRight, ChevronDown, X, GraduationCap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import ReactMarkdown from "react-markdown"
 import { cn } from "@/lib/utils"
@@ -388,6 +388,30 @@ function totalCredits(variant: string): string | null {
   return m ? m[1] : null
 }
 
+// Classify a stream/option into a type bucket for the grouped picker.
+const STREAM_TYPE_ORDER = ["Degrees", "Concentrations", "Streams", "Specializations", "Combined Honours", "Minors", "Diplomas", "Certificates"]
+function streamType(label: string): string {
+  const t = label.toLowerCase()
+  if (/combined/.test(t)) return "Combined Honours"
+  if (/concentration/.test(t)) return "Concentrations"
+  if (/specialization/.test(t)) return "Specializations"
+  if (/\bstream\b/.test(t)) return "Streams"
+  if (/\bminor\b/.test(t)) return "Minors"
+  if (/diploma|post-bacc/.test(t)) return "Diplomas"
+  if (/certificate/.test(t)) return "Certificates"
+  return "Degrees"
+}
+function groupStreams(streams: Stream[]): [string, Stream[]][] {
+  const buckets: Record<string, Stream[]> = {}
+  for (const s of streams) {
+    const type = streamType(s.label)
+    ;(buckets[type] ||= []).push(s)
+  }
+  return STREAM_TYPE_ORDER
+    .filter((t) => buckets[t])
+    .map((t) => [t, buckets[t]] as [string, Stream[]])
+}
+
 // Turn a raw calendar area header into a friendly section title + color band.
 function friendlySection(instruction: string): { title: string; tone: string } {
   const t = instruction.toLowerCase()
@@ -646,45 +670,46 @@ export function ProgramExplorer() {
     setStructured(null)
   }
 
-  // ── Stream picker ─────────────────────────────────────────────────────────
+  // ── Stream picker (grouped by option type) ─────────────────────────────────
   if (view.screen === "streams") {
     const { program, faculty } = view
+    const grouped = groupStreams(program.streams!)
     return (
       <div className="flex flex-col gap-5">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => { setView({ screen: "directory" }); setResult("") }}>
             <ArrowLeft className="size-4" />
           </Button>
-          <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className={cn("text-[10px] font-semibold uppercase tracking-widest", faculty.color)}>
-                {faculty.name}
-              </span>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className={cn("w-1 h-9 rounded-full shrink-0", faculty.bgColor)} />
+            <div className="min-w-0">
+              <span className={cn("text-[10px] font-semibold uppercase tracking-widest", faculty.color)}>{faculty.name}</span>
+              <h2 className="text-lg font-semibold leading-tight truncate">{program.name}</h2>
             </div>
-            <h2 className="text-lg font-semibold leading-tight">{program.name}</h2>
           </div>
         </div>
 
-        <div className={cn("rounded-xl p-4 border border-border/50", `bg-${faculty.bgColor.split("-")[1]}-500/5`)}>
-          <div className="flex items-center gap-2 mb-1">
-            <Layers className={cn("size-4", faculty.color)} />
-            <p className="text-sm font-semibold">Select degree or option</p>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {program.streams!.length} options available — Honours, Combined, Minors, and more.
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground -mt-1">
+          {program.streams!.length} options available — pick one to see its requirements.
+        </p>
 
-        <div className="space-y-1.5">
-          {program.streams!.map((stream) => (
-            <button
-              key={stream.queryName}
-              onClick={() => handleStreamClick(program, stream)}
-              className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-secondary/40 hover:border-border/60 transition-all text-left group"
-            >
-              <span className="text-sm text-foreground">{stream.label}</span>
-              <ChevronRight className="size-3.5 text-muted-foreground/30 shrink-0 group-hover:text-muted-foreground transition-colors" />
-            </button>
+        <div className="space-y-5">
+          {grouped.map(([type, streams]) => (
+            <div key={type}>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50 mb-2">{type}</p>
+              <div className="space-y-1.5">
+                {streams.map((stream) => (
+                  <button
+                    key={stream.queryName}
+                    onClick={() => handleStreamClick(program, stream)}
+                    className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-secondary/40 hover:border-border/60 hover:-translate-y-px transition-all text-left group"
+                  >
+                    <span className="text-sm text-foreground">{stream.label}</span>
+                    <ChevronRight className="size-3.5 text-muted-foreground/30 shrink-0 group-hover:text-muted-foreground transition-colors" />
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -865,24 +890,21 @@ function ProgramCard({
   faculty: typeof FACULTIES[number]
   onClick: () => void
 }) {
-  const hasStreams = !!program.streams?.length
+  const count = program.streams?.length ?? 0
   return (
     <button
       onClick={onClick}
-      className="group flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-secondary/30 hover:border-border/60 transition-all text-left"
+      className="group flex items-stretch gap-3 rounded-xl border border-border bg-card hover:border-border/60 hover:shadow-sm hover:-translate-y-px transition-all text-left overflow-hidden"
     >
-      <div className="min-w-0 flex-1">
+      <span className={cn("w-1 shrink-0", faculty.bgColor)} />
+      <div className="min-w-0 flex-1 py-3 pr-3">
         <p className="text-sm font-medium text-foreground truncate">{program.name}</p>
         <p className="text-xs text-muted-foreground truncate mt-0.5">{program.description}</p>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {hasStreams && (
-          <span className={cn(
-            "text-[10px] font-semibold px-1.5 py-0.5 rounded-md",
-            faculty.color,
-            "bg-current/10"
-          )}>
-            {program.streams!.length}
+      <div className="flex items-center gap-2 shrink-0 pr-3">
+        {count > 0 && (
+          <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md whitespace-nowrap", faculty.color, "bg-current/10")}>
+            {count} options
           </span>
         )}
         <ChevronRight className="size-3.5 text-muted-foreground/20 group-hover:text-muted-foreground/60 transition-colors" />

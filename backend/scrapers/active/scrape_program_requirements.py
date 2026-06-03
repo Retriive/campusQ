@@ -29,7 +29,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.
 OUT_FILE = os.path.join(DATA_DIR, "program_requirements.json")
 
 DEGREE_RE = re.compile(
-    r"(B\.[A-Za-z.]+\b|Bachelor of|Honours|Combined Honours|\bMajor\b|Minor in|"
+    r"(B\.[A-Za-z.]+\b|Bachelor of|Honours|Combined Honours|\bMajor\b|Minor in|\(Minors?\)|"
     r"Stream in|Concentration in|Specialization in|Post-Baccalaureate|Diploma in|Certificate in)",
     re.IGNORECASE,
 )
@@ -124,8 +124,18 @@ def parse_requirement_table(table) -> list[dict]:
 
 
 def parse_program_page(url: str) -> dict:
-    r = requests.get(url, timeout=20)
-    r.raise_for_status()
+    # retry transient network failures
+    last_err = None
+    for attempt in range(3):
+        try:
+            r = requests.get(url, timeout=30)
+            r.raise_for_status()
+            break
+        except Exception as e:
+            last_err = e
+            time.sleep(1.5 * (attempt + 1))
+    else:
+        raise last_err
     soup = BeautifulSoup(r.text, "html.parser")
     main = soup.find("div", class_="pageblock") or soup.find("main") or soup.find("body")
 
@@ -135,7 +145,7 @@ def parse_program_page(url: str) -> dict:
     # Walk the content in document order: headings define variants,
     # sc_courselist tables under them are that variant's requirements.
     for el in main.descendants:
-        if getattr(el, "name", None) in ("h2", "h3", "h4"):
+        if getattr(el, "name", None) in ("h1", "h2", "h3", "h4"):
             name = clean(el.get_text(" ", strip=True))
             if is_variant_heading(name):
                 current_variant = name

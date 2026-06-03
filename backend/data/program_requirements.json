@@ -53066,6 +53066,1187 @@
       ]
     }
   },
+  "foodscience": {
+    "source": "https://calendar.carleton.ca/undergrad/undergradprograms/foodscience",
+    "variants": {
+      "Food Science B.Sc. Honours (20.0 credits)": [
+        {
+          "instruction": "A. Credits Included in the Major CGPA (9.5 credits)",
+          "credits": 9.5,
+          "courses": []
+        },
+        {
+          "instruction": "1. 6.0 credits in: 6.0",
+          "credits": 6.0,
+          "courses": [
+            {
+              "code": "FOOD 1001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 2001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 2002",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 2003",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 2004",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 3001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 3002",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 3005",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 4001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 4102",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 4103",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 4201",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "2. 1.0 credit from: 1.0",
+          "credits": 1.0,
+          "courses": [
+            {
+              "code": "FOOD 3003",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 3006",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 4002",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 4202",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 4203",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "3. 1.0 credit from: 1.0",
+          "credits": 1.0,
+          "courses": [
+            {
+              "code": "FOOD 4905",
+              "title": "",
+              "credits": 1.0
+            },
+            {
+              "code": "FOOD 4907",
+              "title": "",
+              "credits": 1.0
+            },
+            {
+              "code": "FOOD 4908",
+              "title": "",
+              "credits": 1.0
+            }
+          ]
+        },
+        {
+          "instruction": "4. 1.5 credits in: 1.5",
+          "credits": 1.5,
+          "courses": [
+            {
+              "code": "BIOC 2200",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOC 3101",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOC 4708",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "B. Credits Not Included in the Major CGPA (10.5 credits)",
+          "credits": 10.5,
+          "courses": []
+        },
+        {
+          "instruction": "5. 0.5 credit from: 0.5",
+          "credits": 0.5,
+          "courses": [
+            {
+              "code": "PHIL 1550",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHIL 2408",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "6. 1.0 credit in: 1.0",
+          "credits": 1.0,
+          "courses": [
+            {
+              "code": "ECON 1001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ECON 1002",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "7. 0.5 credit from: 0.5",
+          "credits": 0.5,
+          "courses": []
+        },
+        {
+          "instruction": "0.5 credit in ECON at the 3000 level, or",
+          "credits": 0.5,
+          "courses": [
+            {
+              "code": "BUSI 2204",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "8. 2.5 credits in: 2.5",
+          "credits": 2.5,
+          "courses": [
+            {
+              "code": "CHEM 1001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 1002",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 2203",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 2204",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 2303",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "9. 2.0 credits in: 2.0",
+          "credits": 2.0,
+          "courses": [
+            {
+              "code": "BIOL 1103",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOL 1104",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOL 2104",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOL 2303",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "10. 1.5 credits in: 1.5",
+          "credits": 1.5,
+          "courses": [
+            {
+              "code": "MATH 1007",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "STAT 2507",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "STAT 2509",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "11. 0.5 credit in: 0.5",
+          "credits": 0.5,
+          "courses": [
+            {
+              "code": "PHYS 1007",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "12. 0.5 credit from: 0.5",
+          "credits": 0.5,
+          "courses": [
+            {
+              "code": "BIOC 3102",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOL 3104",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "13. 0.5 credit from: 0.5",
+          "credits": 0.5,
+          "courses": []
+        },
+        {
+          "instruction": "Courses listed in but not used to fulfill item 12 above, one of:",
+          "credits": null,
+          "courses": [
+            {
+              "code": "BIOC 3102",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOC 3203",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOC 4004",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOL 3104",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOL 4106",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 3201",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "14. 1.0 credit in free electives 1.0",
+          "credits": 1.0,
+          "courses": []
+        }
+      ],
+      "Minor in Food Science (4.0 credits)": [
+        {
+          "instruction": "Requirements",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "1. 0.5 credit in: 0.5",
+          "credits": 0.5,
+          "courses": [
+            {
+              "code": "FOOD 1001",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "2. 0.5 credit from: 0.5",
+          "credits": 0.5,
+          "courses": [
+            {
+              "code": "FOOD 2001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 2002",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "3. 3.0 credits in FOOD at 2000-level or higher 3.0",
+          "credits": 3.0,
+          "courses": []
+        },
+        {
+          "instruction": "4. The remaining requirements of the major discipline(s) and degree must be satisfied.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Approved Experimental Science Courses",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Biochemistry",
+          "credits": null,
+          "courses": [
+            {
+              "code": "BIOC 2200",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOC 3103",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOC 3104",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOC 4001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOC 4201",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "Biology",
+          "credits": null,
+          "courses": [
+            {
+              "code": "BIOL 1103",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOL 1104",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOL 2001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOL 2002",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOL 2104",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOL 2200",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "BIOL 2600",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "Chemistry",
+          "credits": null,
+          "courses": [
+            {
+              "code": "CHEM 1001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 1002",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 2103",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 2203",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 2204",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 2302",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 2303",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 2800",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "Earth Sciences",
+          "credits": null,
+          "courses": [
+            {
+              "code": "ERTH 1002",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ERTH 2102",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ERTH 2404",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ERTH 2802",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ERTH 3111",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ERTH 3112",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ERTH 3204",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ERTH 3205",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "Food Sciences",
+          "credits": null,
+          "courses": [
+            {
+              "code": "FOOD 3001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 3002",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "FOOD 3005",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "Geography",
+          "credits": null,
+          "courses": [
+            {
+              "code": "GEOG 1010",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 3108",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "Neuroscience",
+          "credits": null,
+          "courses": [
+            {
+              "code": "NEUR 3206",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "NEUR 3207",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "NEUR 4600",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "Physics",
+          "credits": null,
+          "courses": [
+            {
+              "code": "PHYS 1001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 1002",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 1003",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 1004",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 1007",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 1008",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 2007",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 3007",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 3606",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 3608",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "Science Geography Courses",
+          "credits": null,
+          "courses": [
+            {
+              "code": "GEOG 1010",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 2006",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 2013",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 2014",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 3003",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 3010",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 3102",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 3103",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 3104",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 3105",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 3106",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 3108",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 4000",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 4005",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 4013",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 4017",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 4101",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 4103",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 4104",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "GEOG 4108",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "Science Psychology Courses",
+          "credits": null,
+          "courses": [
+            {
+              "code": "PSYC 2001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PSYC 2002",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PSYC 2700",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PSYC 3000",
+              "title": "",
+              "credits": 1.0
+            },
+            {
+              "code": "PSYC 3506",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PSYC 3700",
+              "title": "",
+              "credits": 1.0
+            },
+            {
+              "code": "PSYC 3702",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PSYC 2307",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PSYC 3307",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "Science Continuation Courses",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "A course at the 2000 level or above may be used as a Science Continuation credit in a B.Sc. program if it is not in the student's major discipline, and is chosen from the following:",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "BIOC (Biochemistry)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "BIOL (Biology) except BIOL 4810 which may be used only as a free elective for any B.Sc. program. Biochemistry students may use BIOL 2005 only as a free elective.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "CHEM (Chemistry)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "COMP (Computer Science) A maximum of two half-credits at the 1000-level in COMP, excluding COMP 1001 may be used as Science Continuation credits.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "ERTH (Earth Sciences), except ERTH 2415 which may be used only as a free elective for any B.Sc. program. Students in Earth Sciences programs may use ERTH 2401 , ERTH 2402 , and ERTH 2403 only as free electives.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Engineering. Students wishing to register in Engineering courses must obtain the permission of the Faculty of Engineering and Design.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "ENSC (Environmental Science)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "FOOD (Food Science and Nutrition)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "GEOM (Geomatics)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "HLTH (Health Sciences)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "ISAP (Interdisciplinary Science Practice)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "MATH (Mathematics)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "NEUR (Neuroscience)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "PHYS (Physics), except PHYS 2903",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Science Geography Courses (see list above)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Science Psychology Courses (see list above)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "STAT (Statistics)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "TSES (Technology, Society, Environment) except TSES 2305 . Biology students may use these courses only as free electives. Integrated Science and Environmental Science students may include these courses in their programs but may not count them as part of the Science Sequence.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Science Faculty Electives",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Science Faculty Electives are courses at the 1000-4000 level chosen from:",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "BIOC (Biochemistry) except BIOC 1900 which may be used only as a free elective for any B.Sc. program.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "BIOL (Biology) except BIOL 4810 which may be used only as a free elective for any B.Sc. program. Biology & Biochemistry students may use BIOL 1010 and BIOL 2005 only as free electives.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "CHEM (Chemistry) except CHEM 1003 , CHEM 1004 and CHEM 1007",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "COMP (Computer Science) except COMP 1001",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "ERTH (Earth Sciences) except ERTH 1004 and ERTH 2415 . Earth Sciences students may use ERTH 2401 , ERTH 2402 and ERTH 2403 only as free electives.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Engineering",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "ENSC (Environmental Science)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "FOOD (Food Science and Nutrition)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "GEOM (Geomatics)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "HLTH (Health Science)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "ISAP (Interdisciplinary Science Practice)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "MATH (Mathematics)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "NEUR (Neuroscience)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "PHYS (Physics) except PHYS 1901 , PHYS 1902 , PHYS 1905 , and PHYS 2903",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Science Geography (see list above)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Science Psychology (see list above)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "STAT (Statistics)",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "TSES (Technology, Society, Environment) Biology students may use these courses only as free electives.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Advanced Science Faculty Electives",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Advanced Science Faculty Electives are courses at the 2000-4000 level chosen from the Science Faculty Electives list above.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Approved Courses Outside the Faculties of Science and Engineering and Design (may include ISAP 1000 )",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "All courses offered by the Faculty of Arts and Social Sciences, the Faculty of Public and Global Affairs, and the Sprott School of Business are approved as Arts or Social Sciences courses EXCEPT FOR: All Science Geography courses (see list above), all Geomatics (GEOM) courses, all Science Psychology courses (see list above). ISAP 1000 may be used as an Approved Course Outside the Faculties of Science and Engineering and Design.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Free Electives",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Any course is allowable as a Free Elective providing it is not prohibited (see below). Students are expected to comply with prerequisite requirements and enrolment restrictions for all courses as published in this Calendar.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Courses Allowable Only as Free Electives in any B.Sc. Program",
+          "credits": null,
+          "courses": [
+            {
+              "code": "BIOL 4810",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 1003",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 1004",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "CHEM 1007",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ERTH 1004",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ERTH 2415",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ISCI 1001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ISCI 2000",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ISCI 2002",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 1901",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 1902",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 1905",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "PHYS 2903",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "Prohibited Courses",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "The following courses are not acceptable for credit in any B.Sc. program:",
+          "credits": null,
+          "courses": [
+            {
+              "code": "COMP 1001",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "MATH 1009",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "MATH 1119",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "MATH 1401",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "MATH 1402",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "all 0000-level courses",
+          "credits": null,
+          "courses": []
+        }
+      ]
+    }
+  },
   "french": {
     "source": "https://calendar.carleton.ca/undergrad/undergradprograms/french/",
     "variants": {
@@ -95930,6 +97111,286 @@
           "instruction": "9. 9.5 credits in free electives 9.5",
           "credits": 9.5,
           "courses": []
+        }
+      ]
+    }
+  },
+  "medievalandearlymodernstudies": {
+    "source": "https://calendar.carleton.ca/undergrad/undergradprograms/medievalandearlymodernstudies/",
+    "variants": {
+      "Medieval and Early Modern Studies (Minor)": [
+        {
+          "instruction": "Requirements:",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "1. 1.0 credit in: 1.0",
+          "credits": 1.0,
+          "courses": [
+            {
+              "code": "MEMS 2001 & MEMS 3001",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "2. 2.0 credits from Approved Medieval and Early Modern Studies Electives at the 2000-level or higher, with the exception of 1.0 credit in approved language training which may be at the 1000-level or higher. 2.0",
+          "credits": 2.0,
+          "courses": []
+        },
+        {
+          "instruction": "3. 1.0 credit from Approved Medieval and Early Modern Studies Electives at the 3000-level or higher. 1.0",
+          "credits": 1.0,
+          "courses": []
+        },
+        {
+          "instruction": "4. The remaining requirements of the major discipline(s) and degree must be satisfied.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Approved Medieval and Early Modern Studies Electives",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Note: access to these courses is not guaranteed, and may depend upon space availability and the satisfaction of other requirements such as course prerequisites.",
+          "credits": null,
+          "courses": []
+        },
+        {
+          "instruction": "Art History",
+          "credits": null,
+          "courses": [
+            {
+              "code": "ARTH 2202",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ARTH 2300",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "English",
+          "credits": null,
+          "courses": [
+            {
+              "code": "ENGL 2105",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ENGL 2301",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ENGL 2302",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ENGL 3105",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ENGL 3200",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ENGL 3202",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ENGL 3307",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ENGL 4105",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ENGL 4208",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "ENGL 4301",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "French",
+          "credits": null,
+          "courses": [
+            {
+              "code": "FREN 3212",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "Greek and Roman Studies",
+          "credits": null,
+          "courses": [
+            {
+              "code": "CLCV 2905 / HIST 2905",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "LATN 1005",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "LATN 1006",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "LATN 2200",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "LATN 2201",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "LATN 3900",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "LATN 3901",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "LATN 4900",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "LATN 4901",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
+        },
+        {
+          "instruction": "History",
+          "credits": null,
+          "courses": [
+            {
+              "code": "HIST 2204",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "HIST 3005",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "HIST 3006",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "HIST 3105",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "HIST 3708",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "HIST 4006",
+              "title": "",
+              "credits": 1.0
+            },
+            {
+              "code": "HIST 4100",
+              "title": "",
+              "credits": 1.0
+            }
+          ]
+        },
+        {
+          "instruction": "Humanities",
+          "credits": null,
+          "courses": [
+            {
+              "code": "HUMS 2000",
+              "title": "",
+              "credits": 1.0
+            },
+            {
+              "code": "HUMS 2101",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "HUMS 3000",
+              "title": "",
+              "credits": 1.0
+            },
+            {
+              "code": "HUMS 3200",
+              "title": "",
+              "credits": 1.0
+            }
+          ]
+        },
+        {
+          "instruction": "Religion",
+          "credits": null,
+          "courses": [
+            {
+              "code": "RELI 2310",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "RELI 2330",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "RELI 3220 / HIST 3708",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "RELI 3232",
+              "title": "",
+              "credits": 0.5
+            },
+            {
+              "code": "RELI 3340",
+              "title": "",
+              "credits": 0.5
+            }
+          ]
         }
       ]
     }

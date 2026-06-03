@@ -104,6 +104,9 @@ def parse_requirement_table(table) -> list[dict]:
             text = clean(tr.get_text(" ", strip=True))
             # pull a credit amount if the instruction states one
             cm = re.search(r"(\d+\.?\d*)\s*credit", text, re.IGNORECASE)
+            # strip the trailing hours-column number that gets appended
+            # e.g. "4.5 credits in: 4.5" -> "4.5 credits in:"
+            text = re.sub(r"\s+\d+\.?\d*\s*$", "", text).strip()
             current = {
                 "instruction": text,
                 "credits": float(cm.group(1)) if cm else None,
@@ -142,6 +145,17 @@ def parse_program_page(url: str) -> dict:
     variants = {}
     current_variant = None
 
+    # Headings that mark the END of a variant's requirements — everything after
+    # is reference material (course-category definitions, prohibited lists, etc.)
+    # that must NOT be captured as requirements.
+    STOP_HEADING = re.compile(
+        r"course categories|approved (experimental|courses)|science (continuation|faculty electives|"
+        r"geography|psychology)|advanced science|free electives|prohibited courses|"
+        r"courses allowable|experimental science|breadth requirement|co-operative education|"
+        r"academic regulations|admission",
+        re.IGNORECASE,
+    )
+
     # Walk the content in document order: headings define variants,
     # sc_courselist tables under them are that variant's requirements.
     for el in main.descendants:
@@ -150,6 +164,8 @@ def parse_program_page(url: str) -> dict:
             if is_variant_heading(name):
                 current_variant = name
                 variants.setdefault(current_variant, [])
+            elif STOP_HEADING.search(name):
+                current_variant = None  # entered a reference section — stop capturing
         elif getattr(el, "name", None) == "table" and "sc_courselist" in (el.get("class") or []):
             if current_variant is None:
                 continue

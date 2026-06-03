@@ -12,6 +12,7 @@ import {
   BarChart2,
   Calculator,
   CalendarDays,
+  GraduationCap,
   Info,
   Clock,
   Trash2,
@@ -20,7 +21,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useCampus } from "./campus-context"
 
-export type View = "chat" | "programs" | "compare" | "gpa" | "deadlines"
+export type View = "chat" | "programs" | "compare" | "gpa" | "deadlines" | "tracker"
 
 export interface ChatSession {
   id: string
@@ -44,6 +45,7 @@ interface SidebarProps {
 const NAV_ITEMS: { view: View; icon: React.ElementType; label: string }[] = [
   { view: "chat",      icon: MessageSquare, label: "Chat"           },
   { view: "programs",  icon: BookOpen,      label: "Programs"       },
+  { view: "tracker",   icon: GraduationCap, label: "My Degree"      },
   { view: "compare",   icon: BarChart2,     label: "Compare"        },
   { view: "gpa",       icon: Calculator,    label: "GPA Calculator" },
   { view: "deadlines", icon: CalendarDays,  label: "Deadlines"      },

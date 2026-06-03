@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart2, BookOpen, Calculator, CalendarDays } from "lucide-react"
+import { BarChart2, BookOpen, Calculator, CalendarDays, GraduationCap } from "lucide-react"
 import { useCampus, campusThemes } from "./campus-context"
 import { cn } from "@/lib/utils"
 
@@ -34,19 +34,19 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
       </div>
 
       {/* Tool cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full max-w-2xl">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 w-full max-w-3xl">
         {[
+          {
+            icon: GraduationCap,
+            label: "My Degree",
+            sub: "Track your progress to graduation",
+            action: "tracker",
+          },
           {
             icon: BookOpen,
             label: "Programs",
             sub: "Browse degree requirements",
             action: "programs",
-          },
-          {
-            icon: BarChart2,
-            label: "Compare",
-            sub: "Side-by-side course comparison",
-            action: "compare",
           },
           {
             icon: Calculator,
@@ -59,6 +59,12 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
             label: "Deadlines",
             sub: "Key dates with countdowns",
             action: "deadlines",
+          },
+          {
+            icon: BarChart2,
+            label: "Compare",
+            sub: "Side-by-side course comparison",
+            action: "compare",
           },
         ].map((item) => {
           const Icon = item.icon

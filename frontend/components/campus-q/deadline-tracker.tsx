@@ -3,7 +3,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { useCampus } from "./campus-context"
-import { CalendarDays, Clock, ChevronDown, ChevronUp, CalendarPlus, AlertTriangle, X } from "lucide-react"
+import { CalendarDays, Clock, ChevronDown, ChevronUp, CalendarPlus, X } from "lucide-react"
 
 type Term = "Summer 2026" | "Fall 2026" | "Winter 2027"
 type Category = "registration" | "withdrawal" | "exams" | "payment" | "classes" | "holiday"
@@ -36,10 +36,10 @@ const DEADLINES: Deadline[] = [
   { id: "su26-final-exams",       title: "Full/late summer final exams begin",                date: "2026-08-17", term: "Summer 2026", category: "exams" },
 
   // ── Fall 2026 ──────────────────────────────────────────────────────────────
-  { id: "fa26-timetickets",       title: "Time tickets available in Carleton Central",        date: "2026-06-17", term: "Fall 2026", category: "registration" },
-  { id: "fa26-reg-new",           title: "Registration opens — new first-year students",      date: "2026-07-06", term: "Fall 2026", category: "registration" },
-  { id: "fa26-reg-returning",     title: "Registration opens — returning students",           date: "2026-07-10", term: "Fall 2026", category: "registration" },
-  { id: "fa26-reg-special",       title: "Registration opens — special/visiting students",    date: "2026-08-05", term: "Fall 2026", category: "registration" },
+  { id: "fa26-timetickets",       title: "Fall time tickets available in Carleton Central",    date: "2026-06-17", term: "Summer 2026", category: "registration" },
+  { id: "fa26-reg-new",           title: "Fall registration opens — new first-year students",  date: "2026-07-06", term: "Summer 2026", category: "registration" },
+  { id: "fa26-reg-returning",     title: "Fall registration opens — returning students",       date: "2026-07-10", term: "Summer 2026", category: "registration" },
+  { id: "fa26-reg-special",       title: "Fall registration opens — special/visiting students",date: "2026-08-05", term: "Summer 2026", category: "registration" },
   { id: "fa26-payment",           title: "Fall payment deadline",                             date: "2026-08-25", term: "Fall 2026", category: "payment" },
   { id: "fa26-labour-day",        title: "Labour Day — University closed",                    date: "2026-09-07", term: "Fall 2026", category: "holiday" },
   { id: "fa26-term-begins",       title: "Fall term begins",                                  date: "2026-09-09", term: "Fall 2026", category: "classes" },
@@ -85,24 +85,7 @@ const CATEGORY_CONFIG: Record<Category, { label: string; color: string; bg: stri
 
 const TERM_ORDER: Term[] = ["Summer 2026", "Fall 2026", "Winter 2027"]
 
-// Plain-language "what happens if you miss this" — hand-written, grounded in
-// Carleton's real rules. A wrong consequence is worse than none, so these are
-// intentionally not AI-generated.
-const CONSEQUENCE: Record<Category, string> = {
-  registration:
-    "After this date you can't add the course through Carleton Central on your own. You'd need a Registration Override Request approved by the department — not guaranteed, and you may have already missed coursework.",
-  withdrawal:
-    "Miss the full-refund date and you stay enrolled owing tuition. After the later academic-withdrawal deadline, you can no longer withdraw — you'll receive whatever final grade you earn, and a WDN notation only applies if you withdrew in time.",
-  payment:
-    "Late payment triggers interest charges and a financial hold on your account — which blocks registration, transcripts, and adding more courses until it's cleared.",
-  exams:
-    "Exams run on a fixed schedule. If you can't write due to illness or an emergency, you must apply for a deferral through the Registrar's Office within about 3 business days with documentation — you can't simply reschedule.",
-  classes:
-    "This marks the start or end of the teaching term. Good to know for planning, but no direct penalty attached.",
-  holiday:
-    "The University is closed — no classes or exams. Plan around it, but nothing to action.",
-}
-
+// Question piped into chat when a student taps "Ask CampusQ about this".
 const ASK_PROMPT: Partial<Record<Category, string>> = {
   registration: "What happens if I miss the last day to add a course?",
   withdrawal: "What's the difference between dropping and withdrawing from a course at Carleton?",
@@ -303,15 +286,9 @@ function DeadlineModal({
           </div>
         </div>
 
-        {/* Consequence */}
+        {/* Actions */}
         <div className="p-5">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className={cn("size-3.5 mt-0.5 shrink-0",
-              CRITICAL_CATEGORIES.includes(deadline.category) ? "text-amber-500" : "text-muted-foreground/40")} />
-            <p className="text-xs text-muted-foreground leading-relaxed">{CONSEQUENCE[deadline.category]}</p>
-          </div>
-
-          <div className="flex flex-wrap gap-2 mt-4">
+          <div className="flex flex-wrap gap-2">
             <a
               href={googleCalUrl(deadline.title, deadline.date)}
               target="_blank" rel="noopener noreferrer"
@@ -524,11 +501,6 @@ export function DeadlineTracker({ onAsk }: { onAsk?: (question: string) => void 
                       {/* Expanded detail */}
                       {open && (
                         <div className="px-4 pb-4 pt-1 bg-secondary/20">
-                          <div className="flex items-start gap-2 mb-3">
-                            <AlertTriangle className={cn("size-3.5 mt-0.5 shrink-0",
-                              CRITICAL_CATEGORIES.includes(d.category) ? "text-amber-500" : "text-muted-foreground/40")} />
-                            <p className="text-xs text-muted-foreground leading-relaxed">{CONSEQUENCE[d.category]}</p>
-                          </div>
                           <div className="flex flex-wrap gap-2">
                             <a
                               href={googleCalUrl(d.title, d.date)}

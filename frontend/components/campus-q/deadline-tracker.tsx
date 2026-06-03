@@ -85,12 +85,10 @@ const CATEGORY_CONFIG: Record<Category, { label: string; color: string; bg: stri
 
 const TERM_ORDER: Term[] = ["Summer 2026", "Fall 2026", "Winter 2027"]
 
-// Question piped into chat when a student taps "Ask CampusQ about this".
-const ASK_PROMPT: Partial<Record<Category, string>> = {
-  registration: "What happens if I miss the last day to add a course?",
-  withdrawal: "What's the difference between dropping and withdrawing from a course at Carleton?",
-  payment: "What happens if I pay my tuition late at Carleton?",
-  exams: "How do I defer an exam at Carleton?",
+// Build the chat question from the SPECIFIC deadline so it's always relevant
+// (a time ticket and an add deadline are both "registration" but very different).
+function askQuestion(d: Deadline): string {
+  return `At Carleton, what does this academic deadline mean and what should I know about it: "${d.title}"? What happens if I miss it?`
 }
 
 function parseDate(dateStr: string): Date {
@@ -284,9 +282,9 @@ function DeadlineModal({
             >
               <CalendarPlus className="size-3.5" /> Add to calendar
             </a>
-            {onAsk && ASK_PROMPT[deadline.category] && (
+            {onAsk && (
               <button
-                onClick={() => { onAsk(ASK_PROMPT[deadline.category]!); onClose() }}
+                onClick={() => { onAsk(askQuestion(deadline)); onClose() }}
                 className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
               >
                 Ask CampusQ about this →
@@ -498,9 +496,9 @@ export function DeadlineTracker({ onAsk }: { onAsk?: (question: string) => void 
                             >
                               <CalendarPlus className="size-3" /> Add to calendar
                             </a>
-                            {onAsk && ASK_PROMPT[d.category] && (
+                            {onAsk && (
                               <button
-                                onClick={() => onAsk(ASK_PROMPT[d.category]!)}
+                                onClick={() => onAsk(askQuestion(d))}
                                 className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                               >
                                 Ask CampusQ about this →

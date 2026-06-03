@@ -339,6 +339,78 @@ const ALL_PROGRAMS: Program[] = FACULTIES.flatMap((f) =>
   f.programs.map((p) => ({ ...p, faculty: f.name }))
 )
 
+// ── Structured requirements types + matching ──────────────────────────────────
+interface ReqCourse { code: string; title: string; credits: number | null }
+interface ReqGroup { instruction: string; credits: number | null; courses: ReqCourse[] }
+interface ProgIndexEntry { slug: string; variants: string[] }
+
+function normalize(s: string): string {
+  return s.toLowerCase().replace(/\(.*?\)/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim()
+}
+
+// Find the (slug, variantKey) whose heading best matches a queryName.
+function matchVariant(queryName: string, index: ProgIndexEntry[]): { slug: string; variant: string } | null {
+  const nq = normalize(queryName)
+  let exact: { slug: string; variant: string } | null = null
+  let startsWith: { slug: string; variant: string; len: number } | null = null
+  let includes: { slug: string; variant: string; len: number } | null = null
+  for (const entry of index) {
+    for (const variant of entry.variants) {
+      const nv = normalize(variant)
+      if (nv === nq) exact = { slug: entry.slug, variant }
+      else if (nv.startsWith(nq) && (!startsWith || nv.length < startsWith.len)) startsWith = { slug: entry.slug, variant, len: nv.length }
+      else if (nv.includes(nq) && (!includes || nv.length < includes.len)) includes = { slug: entry.slug, variant, len: nv.length }
+    }
+  }
+  if (exact) return exact
+  if (startsWith) return { slug: startsWith.slug, variant: startsWith.variant }
+  if (includes) return { slug: includes.slug, variant: includes.variant }
+  return null
+}
+
+function totalCredits(variant: string): string | null {
+  const m = variant.match(/\((\d+\.?\d*)\s*credits?\)/i)
+  return m ? m[1] : null
+}
+
+// Clean, instant render of structured requirement groups (no AI).
+function StructuredRequirements({ groups, variant }: { groups: ReqGroup[]; variant: string }) {
+  const total = totalCredits(variant)
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/50 bg-secondary/20">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <BookOpen className="size-4 text-primary" />
+          Course Requirements
+        </div>
+        {total && <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-secondary text-muted-foreground">{total} credits</span>}
+      </div>
+      <div className="divide-y divide-border/40">
+        {groups.map((g, i) => (
+          <div key={i} className="px-5 py-4">
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <p className="text-sm font-medium text-foreground leading-snug">{g.instruction || "Required courses"}</p>
+              {g.credits != null && (
+                <span className="shrink-0 text-[11px] font-mono px-1.5 py-0.5 rounded-md bg-primary/10 text-primary">{g.credits} cr</span>
+              )}
+            </div>
+            {g.courses.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 mt-2">
+                {g.courses.map((c, j) => (
+                  <div key={j} className="flex items-baseline gap-2 text-sm py-0.5">
+                    <span className="font-mono font-semibold text-foreground shrink-0">{c.code}</span>
+                    {c.title && <span className="text-muted-foreground/80 text-xs truncate">{c.title}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 type ViewState =
   | { screen: "directory" }
   | { screen: "streams"; program: Program; faculty: typeof FACULTIES[number] }
@@ -348,39 +420,73 @@ export function ProgramExplorer() {
   const { theme } = useCampus()
   const [view, setView] = React.useState<ViewState>({ screen: "directory" })
   const [result, setResult] = React.useState("")
+  const [structured, setStructured] = React.useState<{ groups: ReqGroup[]; variant: string } | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [search, setSearch] = React.useState("")
   const [activeFaculty, setActiveFaculty] = React.useState<string>("All")
+  const progIndex = React.useRef<ProgIndexEntry[] | null>(null)
+
+  const getIndex = async (): Promise<ProgIndexEntry[]> => {
+    if (progIndex.current) return progIndex.current
+    let list: ProgIndexEntry[] = []
+    try {
+      const d = await fetch(`${API_URL}/api/program-requirements`).then((r) => r.json())
+      list = d.programs || []
+    } catch {
+      list = []
+    }
+    progIndex.current = list
+    return list
+  }
+
+  // AI fallback — only used when structured data can't be matched
+  const loadFromAI = async (queryName: string) => {
+    const question = `What are all the required courses for ${queryName} at Carleton University? Please list them organized by year with course codes and credit values. Include any stream-specific requirements.`
+    const formData = new FormData()
+    formData.append("question", question)
+    formData.append("history", "[]")
+    formData.append("session_id", "program-explorer")
+    const response = await fetch(`${API_URL}/api/chat/stream`, { method: "POST", body: formData })
+    if (!response.body) throw new Error()
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    let fullText = ""
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() || ""
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue
+        try {
+          const parsed = JSON.parse(line.slice(6))
+          if (parsed.type === "token") { fullText += parsed.content; setResult(fullText) }
+        } catch {}
+      }
+    }
+  }
 
   const loadRequirements = async (queryName: string) => {
     setResult("")
+    setStructured(null)
     setLoading(true)
-    const question = `What are all the required courses for ${queryName} at Carleton University? Please list them organized by year with course codes and credit values. Include any stream-specific requirements.`
     try {
-      const formData = new FormData()
-      formData.append("question", question)
-      formData.append("history", "[]")
-      formData.append("session_id", "program-explorer")
-      const response = await fetch(`${API_URL}/api/chat/stream`, { method: "POST", body: formData })
-      if (!response.body) throw new Error()
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ""
-      let fullText = ""
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split("\n")
-        buffer = lines.pop() || ""
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue
-          try {
-            const parsed = JSON.parse(line.slice(6))
-            if (parsed.type === "token") { fullText += parsed.content; setResult(fullText) }
-          } catch {}
+      // 1) Try structured data — instant, accurate, consistent
+      const index = await getIndex()
+      const match = matchVariant(queryName, index)
+      if (match) {
+        const data = await fetch(`${API_URL}/api/program-requirements?slug=${encodeURIComponent(match.slug)}`).then((r) => r.json())
+        const groups: ReqGroup[] = data?.variants?.[match.variant]
+        if (groups && groups.length > 0) {
+          setStructured({ groups, variant: match.variant })
+          setLoading(false)
+          return
         }
       }
+      // 2) Fall back to AI when no structured match
+      await loadFromAI(queryName)
     } catch {
       setResult("Failed to load. Make sure the backend is running.")
     } finally {
@@ -410,11 +516,13 @@ export function ProgramExplorer() {
         const faculty = FACULTIES.find((f) => f.name === program.faculty)!
         setView({ screen: "streams", program, faculty })
         setResult("")
+        setStructured(null)
         return
       }
     }
     setView({ screen: "directory" })
     setResult("")
+    setStructured(null)
   }
 
   // ── Stream picker ─────────────────────────────────────────────────────────
@@ -490,7 +598,11 @@ export function ProgramExplorer() {
           </div>
         )}
 
-        {result && (
+        {/* Structured (instant, accurate) — preferred */}
+        {structured && <StructuredRequirements groups={structured.groups} variant={structured.variant} />}
+
+        {/* AI fallback — only when structured data couldn't be matched */}
+        {result && !structured && (
           <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-center gap-2 mb-4 text-sm font-medium">
               <BookOpen className="size-4 text-primary" />

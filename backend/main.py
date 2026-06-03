@@ -337,7 +337,7 @@ async def get_documents():
         return {"count": 0}
 
 
-# ── Structured program requirements (for the interactive tracker) ─────────────
+# ── Structured program requirements ──────────────────────────────────────────
 _PROGRAM_REQS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "program_requirements.json")
 _PROGRAM_REQS_CACHE: dict | None = None
 
@@ -353,7 +353,7 @@ def _load_program_reqs() -> dict:
 
 @app.get("/api/program-requirements")
 async def program_requirements(slug: str = ""):
-    """Structured requirements. No slug -> list of available programs; slug -> that program's variants."""
+    """No slug -> index of programs+variants; slug -> that program's structured requirements."""
     data = _load_program_reqs()
     if not slug:
         return {"programs": [{"slug": k, "variants": list(v["variants"].keys())} for k, v in data.items()]}

@@ -3,7 +3,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { useCampus } from "./campus-context"
-import { CalendarDays, Clock, ChevronDown, ChevronUp, CalendarPlus, AlertTriangle } from "lucide-react"
+import { CalendarDays, Clock, ChevronDown, ChevronUp, CalendarPlus, AlertTriangle, X } from "lucide-react"
 
 type Term = "Summer 2026" | "Fall 2026" | "Winter 2027"
 type Category = "registration" | "withdrawal" | "exams" | "payment" | "classes" | "holiday"
@@ -217,15 +217,17 @@ function UrgencyDot({ days }: { days: number }) {
   return <span className="size-2 rounded-full bg-emerald-500/60 shrink-0" />
 }
 
-function HeroCard({ deadline }: { deadline: Deadline & { days: number } }) {
+function HeroCard({ deadline, onClick }: { deadline: Deadline & { days: number }; onClick: () => void }) {
   const cat = CATEGORY_CONFIG[deadline.category]
   const { theme } = useCampus()
 
   return (
-    <div className={cn(
-      "flex-1 min-w-0 rounded-2xl border border-border p-4 flex flex-col gap-3",
-      deadline.days <= 7 ? "border-red-500/30 bg-red-500/5" : "bg-card"
-    )}>
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex-1 min-w-0 rounded-2xl border border-border p-4 flex flex-col gap-3 text-left hover:border-border/80 hover:shadow-sm transition-all",
+        deadline.days <= 7 ? "border-red-500/30 bg-red-500/5" : "bg-card"
+      )}>
       <div className="flex items-start justify-between gap-2">
         <span className={cn("text-[10px] font-semibold uppercase tracking-widest", cat.color)}>
           {cat.label}
@@ -243,6 +245,91 @@ function HeroCard({ deadline }: { deadline: Deadline & { days: number } }) {
       </div>
       <p className="text-sm font-semibold text-foreground leading-snug">{deadline.title}</p>
       <p className="text-xs text-muted-foreground">{formatDate(deadline.date)}</p>
+    </button>
+  )
+}
+
+// ── Detail modal (for hero cards) ─────────────────────────────────────────────
+function DeadlineModal({
+  deadline, onClose, onAsk,
+}: {
+  deadline: Deadline & { days: number }
+  onClose: () => void
+  onAsk?: (q: string) => void
+}) {
+  const { theme } = useCampus()
+  const cat = CATEGORY_CONFIG[deadline.category]
+
+  // close on Escape
+  React.useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", h)
+    return () => window.removeEventListener("keydown", h)
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+      >
+        {/* Header */}
+        <div className="p-5 border-b border-border/50">
+          <div className="flex items-start justify-between gap-3">
+            <span className={cn("text-[10px] font-semibold uppercase tracking-widest", cat.color)}>{cat.label}</span>
+            <button onClick={onClose} className="text-muted-foreground/40 hover:text-foreground transition-colors">
+              <X className="size-4" />
+            </button>
+          </div>
+          <div className="flex items-center gap-3 mt-3">
+            <div className={cn(
+              "flex flex-col items-center justify-center rounded-xl px-3.5 py-2 shrink-0",
+              deadline.days <= 7 ? "bg-red-500 text-white" : "bg-secondary text-foreground"
+            )}>
+              <span className="text-xl font-bold leading-none tabular-nums">
+                {deadline.days === 0 ? "!" : deadline.days}
+              </span>
+              <span className="text-[9px] uppercase tracking-wider mt-0.5">
+                {deadline.days === 0 ? "today" : deadline.days === 1 ? "day" : "days"}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground leading-snug">{deadline.title}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{formatDate(deadline.date)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Consequence */}
+        <div className="p-5">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className={cn("size-3.5 mt-0.5 shrink-0",
+              CRITICAL_CATEGORIES.includes(deadline.category) ? "text-amber-500" : "text-muted-foreground/40")} />
+            <p className="text-xs text-muted-foreground leading-relaxed">{CONSEQUENCE[deadline.category]}</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mt-4">
+            <a
+              href={googleCalUrl(deadline.title, deadline.date)}
+              target="_blank" rel="noopener noreferrer"
+              className={cn("inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg text-white hover:opacity-90 transition-opacity", theme.bgClass)}
+            >
+              <CalendarPlus className="size-3.5" /> Add to calendar
+            </a>
+            {onAsk && ASK_PROMPT[deadline.category] && (
+              <button
+                onClick={() => { onAsk(ASK_PROMPT[deadline.category]!); onClose() }}
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                Ask CampusQ about this →
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -256,6 +343,8 @@ export function DeadlineTracker({ onAsk }: { onAsk?: (question: string) => void 
   const [showPast, setShowPast] = React.useState(false)
   const [activeCat, setActiveCat] = React.useState<Category | "All">("All")
   const [expandedId, setExpandedId] = React.useState<string | null>(null)
+  const [modalId, setModalId] = React.useState<string | null>(null)
+  const modalDeadline = withDays.find((d) => d.id === modalId) || null
 
   // The single most urgent CRITICAL deadline — the big countdown
   const nextCritical = withDays
@@ -342,7 +431,7 @@ export function DeadlineTracker({ onAsk }: { onAsk?: (question: string) => void 
         <div className="flex flex-col gap-2">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">Coming up</p>
           <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-            {heroDeadlines.map((d) => <HeroCard key={d.id} deadline={d} />)}
+            {heroDeadlines.map((d) => <HeroCard key={d.id} deadline={d} onClick={() => setModalId(d.id)} />)}
           </div>
         </div>
       )}
@@ -476,6 +565,10 @@ export function DeadlineTracker({ onAsk }: { onAsk?: (question: string) => void 
         {showPast ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
         {showPast ? "Hide" : "Show"} past deadlines ({pastCount})
       </button>
+
+      {modalDeadline && (
+        <DeadlineModal deadline={modalDeadline} onClose={() => setModalId(null)} onAsk={onAsk} />
+      )}
     </div>
   )
 }

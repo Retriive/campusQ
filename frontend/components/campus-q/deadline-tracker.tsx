@@ -36,10 +36,10 @@ const DEADLINES: Deadline[] = [
   { id: "su26-final-exams",       title: "Full/late summer final exams begin",                date: "2026-08-17", term: "Summer 2026", category: "exams" },
 
   // ── Fall 2026 ──────────────────────────────────────────────────────────────
-  { id: "fa26-timetickets",       title: "Fall time tickets available in Carleton Central",    date: "2026-06-17", term: "Summer 2026", category: "registration" },
-  { id: "fa26-reg-new",           title: "Fall registration opens — new first-year students",  date: "2026-07-06", term: "Summer 2026", category: "registration" },
-  { id: "fa26-reg-returning",     title: "Fall registration opens — returning students",       date: "2026-07-10", term: "Summer 2026", category: "registration" },
-  { id: "fa26-reg-special",       title: "Fall registration opens — special/visiting students",date: "2026-08-05", term: "Summer 2026", category: "registration" },
+  { id: "fa26-timetickets",       title: "Time tickets available in Carleton Central",        date: "2026-06-17", term: "Summer 2026", category: "registration" },
+  { id: "fa26-reg-new",           title: "Registration opens — new first-year students",      date: "2026-07-06", term: "Summer 2026", category: "registration" },
+  { id: "fa26-reg-returning",     title: "Registration opens — returning students",           date: "2026-07-10", term: "Summer 2026", category: "registration" },
+  { id: "fa26-reg-special",       title: "Registration opens — special/visiting students",    date: "2026-08-05", term: "Summer 2026", category: "registration" },
   { id: "fa26-payment",           title: "Fall payment deadline",                             date: "2026-08-25", term: "Fall 2026", category: "payment" },
   { id: "fa26-labour-day",        title: "Labour Day — University closed",                    date: "2026-09-07", term: "Fall 2026", category: "holiday" },
   { id: "fa26-term-begins",       title: "Fall term begins",                                  date: "2026-09-09", term: "Fall 2026", category: "classes" },
@@ -211,21 +211,9 @@ function HeroCard({ deadline, onClick }: { deadline: Deadline & { days: number }
         "flex-1 min-w-0 rounded-2xl border border-border p-4 flex flex-col gap-3 text-left hover:border-border/80 hover:shadow-sm transition-all",
         deadline.days <= 7 ? "border-red-500/30 bg-red-500/5" : "bg-card"
       )}>
-      <div className="flex items-start justify-between gap-2">
-        <span className={cn("text-[10px] font-semibold uppercase tracking-widest", cat.color)}>
-          {cat.label}
-        </span>
-        <span className={cn(
-          "text-[10px] font-semibold px-2 py-0.5 rounded-full",
-          deadline.days <= 7 ? "bg-red-500/15 text-red-500" :
-          deadline.days <= 30 ? "bg-amber-500/15 text-amber-600" :
-          "bg-secondary text-muted-foreground"
-        )}>
-          {deadline.days === 0 ? "Today" :
-           deadline.days === 1 ? "Tomorrow" :
-           `${deadline.days} days`}
-        </span>
-      </div>
+      <span className={cn("text-[10px] font-semibold uppercase tracking-widest", cat.color)}>
+        {cat.label}
+      </span>
       <p className="text-sm font-semibold text-foreground leading-snug">{deadline.title}</p>
       <p className="text-xs text-muted-foreground">{formatDate(deadline.date)}</p>
     </button>

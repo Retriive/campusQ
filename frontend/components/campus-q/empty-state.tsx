@@ -25,9 +25,17 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
 
       {/* Wordmark */}
       <div className="text-center select-none">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-none">
-          Campus<span className={theme.textClass}>Q</span>
-        </h1>
+        <div className="inline-flex items-start gap-2">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-none">
+            Campus<span className={theme.textClass}>Q</span>
+          </h1>
+          <span className={cn(
+            "mt-1 text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full border",
+            "text-muted-foreground border-border bg-secondary/60"
+          )}>
+            beta
+          </span>
+        </div>
         <p className="mt-2 text-sm text-muted-foreground">
           AI academic assistant for <span className="text-foreground font-medium">{campusName}</span>
         </p>

@@ -17,14 +17,24 @@ export function Header({ isDark, onToggleDark }: HeaderProps) {
   return (
     <header className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-border/40 bg-card">
       {/* Wordmark — hidden on mobile (bottom nav handles nav) */}
-      <span className="hidden md:block text-sm font-semibold tracking-tight text-foreground select-none">
-        Campus<span className={theme.textClass}>Q</span>
-      </span>
+      <div className="hidden md:flex items-center gap-1.5">
+        <span className="text-sm font-semibold tracking-tight text-foreground select-none">
+          Campus<span className={theme.textClass}>Q</span>
+        </span>
+        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground select-none">
+          beta
+        </span>
+      </div>
 
       {/* Mobile: just the wordmark centered */}
-      <span className="md:hidden text-sm font-semibold tracking-tight text-foreground select-none">
-        Campus<span className={theme.textClass}>Q</span>
-      </span>
+      <div className="md:hidden flex items-center gap-1.5">
+        <span className="text-sm font-semibold tracking-tight text-foreground select-none">
+          Campus<span className={theme.textClass}>Q</span>
+        </span>
+        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground select-none">
+          beta
+        </span>
+      </div>
 
       {/* Actions */}
       <div className="flex items-center gap-1">

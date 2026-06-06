@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { track } from "@vercel/analytics"
+import { useUser } from "@clerk/nextjs"
 import { cn } from "@/lib/utils"
 import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2 as BarChart2Icon, Calculator as CalculatorIcon, CalendarDays as CalendarDaysIcon } from "lucide-react"
 import { Header } from "./header"
@@ -69,6 +70,7 @@ function extractCourseCodes(text: string): string[] {
 }
 
 export function ChatContainer() {
+  const { user } = useUser()
   const [messages, setMessages] = React.useState<Message[]>([])
   const [sessions, setSessions] = React.useState<ChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = React.useState<string>("")
@@ -187,8 +189,19 @@ export function ChatContainer() {
 
     const formData = new FormData()
     formData.append("question", queryText)
-    formData.append("history", JSON.stringify(messages.map((m) => ({ role: m.role, content: m.content }))))
+    formData.append("history", JSON.stringify(messages.map((m) => {
+      // When assistant replied with course cards but no text, synthesize content
+      // so follow-up questions like "tell me about it" have context
+      if (m.role === "assistant" && !m.content && m.courseCards?.length) {
+        const summary = m.courseCards.map((c) =>
+          `${c.courseCode} — ${c.courseName} (${c.credits} credits). Prerequisites: ${c.prerequisites.join(", ") || "None"}. ${c.description}`
+        ).join("\n\n")
+        return { role: m.role, content: `[Course details]\n${summary}` }
+      }
+      return { role: m.role, content: m.content }
+    })))
     formData.append("session_id", sessionId)
+    formData.append("user_id", user?.id ?? "anonymous")
 
     try {
       const response = await fetch(`${API_URL}/api/chat/stream`, {

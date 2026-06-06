@@ -164,6 +164,42 @@ def build_dashboard_data(log_dir: str) -> dict:
         for f in fb_week if f.get("rating") == "down"
     ][:20]
 
+    # ── Section 4: retention ──────────────────────────────────────────────────
+    # Only count real users (exclude anonymous)
+    all_queries_with_users = [q for q in queries if q.get("user") and q["user"] != "anonymous"]
+
+    # Group query dates by user
+    from collections import defaultdict
+    user_days: dict[str, set[str]] = defaultdict(set)
+    user_sessions: dict[str, set[str]] = defaultdict(set)
+    for q in all_queries_with_users:
+        dt = _parse_ts(q)
+        if dt:
+            user_days[q["user"]].add(dt.strftime("%Y-%m-%d"))
+        if q.get("session"):
+            user_sessions[q["user"]].add(q["session"])
+
+    # Day-1 → Day-2 retention: users who came back on a second distinct day
+    total_users = len(user_days)
+    returned_users = sum(1 for days in user_days.values() if len(days) >= 2)
+    day1_retention = round(100 * returned_users / total_users) if total_users else None
+
+    # Sessions per user
+    session_counts = [len(s) for s in user_sessions.values()]
+    avg_sessions = round(sum(session_counts) / len(session_counts), 1) if session_counts else 0
+
+    # Daily usage trend over the pilot (last 16 days)
+    pilot_start = now - timedelta(days=16)
+    daily_counts: dict[str, int] = Counter()
+    for q in queries:
+        dt = _parse_ts(q)
+        if dt and dt >= pilot_start:
+            daily_counts[dt.strftime("%Y-%m-%d")] += 1
+    daily_trend = [
+        {"date": d, "queries": daily_counts.get(d, 0)}
+        for d in sorted(daily_counts.keys())
+    ]
+
     return {
         "generated_at": now.isoformat(),
         "week_start": week_start.isoformat(),
@@ -175,6 +211,13 @@ def build_dashboard_data(log_dir: str) -> dict:
             "deflections": deflections,
             "deflection_factor": DEFLECTION_FACTOR,
             "top_department": top_department,
+        },
+        "retention": {
+            "total_users": total_users,
+            "returned_day2": returned_users,
+            "day1_retention_pct": day1_retention,   # null until enough data
+            "avg_sessions_per_user": avg_sessions,
+            "daily_trend": daily_trend,
         },
         "intents": intent_rows,
         "unanswered": unanswered,

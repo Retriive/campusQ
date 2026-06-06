@@ -398,6 +398,7 @@ async def chat_endpoint(
     question: str = Form(...),
     history: str = Form("[]"),
     session_id: str = Form("none"),
+    user_id: str = Form("anonymous"),
     file: UploadFile = File(None),
 ):
     _current_session.set(session_id)
@@ -451,6 +452,7 @@ async def chat_endpoint(
                 course_codes_found=[c["courseCode"] for c in structured_courses],
                 response_ms=ms,
                 had_context=True,
+                user_id=user_id,
             )
             found_msg = f"Found {len(structured_courses)} course(s) for you."
             if not_found_codes:
@@ -542,6 +544,7 @@ async def chat_endpoint(
                 course_codes_found=[],
                 response_ms=ms,
                 had_context=False,
+                user_id=user_id,
             )
             return {
                 "answer": (
@@ -615,6 +618,7 @@ STUDENT-UPLOADED DOCUMENT:
             course_codes_found=[],
             response_ms=ms,
             had_context=True,
+            user_id=user_id,
         )
         return {"answer": response.choices[0].message.content, "sources": sources}
 
@@ -638,6 +642,7 @@ async def chat_stream(
     question: str = Form(...),
     history: str = Form("[]"),
     session_id: str = Form("none"),
+    user_id: str = Form("anonymous"),
 ):
     _current_session.set(session_id)
     user_query = question
@@ -699,6 +704,7 @@ async def chat_stream(
                     course_codes_found=[c["courseCode"] for c in structured_courses],
                     response_ms=ms,
                     had_context=True,
+                    user_id=user_id,
                 )
                 yield f"data: {json.dumps({'type': 'courses', 'data': structured_courses})}\n\n"
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
@@ -850,6 +856,7 @@ CONTEXT:
                 course_codes_found=[],
                 response_ms=ms,
                 had_context=bool(context_text),
+                user_id=user_id,
             )
 
             yield f"data: {json.dumps({'type': 'done'})}\n\n"

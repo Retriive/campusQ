@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, BookOpen, ArrowLeft, ChevronRight, ChevronDown, GraduationCap } from "lucide-react"
+import { Loader2, BookOpen, ArrowLeft, ChevronRight, ChevronDown, GraduationCap, Map } from "lucide-react"
+import { DegreePlan } from "./degree-plan"
 import { Button } from "@/components/ui/button"
 import ReactMarkdown from "react-markdown"
 import { cn } from "@/lib/utils"
@@ -590,11 +591,15 @@ const ALL_PROGRAMS_SORTED = [...ALL_PROGRAMS].sort((a, b) => a.name.localeCompar
 
 export function ProgramExplorer() {
   useCampus()
+  const [tab, setTab] = React.useState<"browse" | "plan">("browse")
   const [view, setView] = React.useState<ViewState>({ screen: "directory" })
   const [result, setResult] = React.useState("")
   const [structured, setStructured] = React.useState<{ groups: ReqGroup[]; variant: string } | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [selectedDept, setSelectedDept] = React.useState<Program | null>(null)
+  // plan state — tracks chosen slug+variant for DegreePlan
+  const [planSlug, setPlanSlug]       = React.useState("")
+  const [planVariant, setPlanVariant] = React.useState("")
   const progIndex = React.useRef<ProgIndexEntry[] | null>(null)
 
   const getIndex = async (): Promise<ProgIndexEntry[]> => {
@@ -642,9 +647,10 @@ export function ProgramExplorer() {
   const loadRequirements = async (queryName: string) => {
     setResult("")
     setStructured(null)
+    setPlanSlug("")
+    setPlanVariant("")
     setLoading(true)
     try {
-      // 1) Try structured data — instant, accurate, consistent
       const index = await getIndex()
       const match = matchVariant(queryName, index)
       if (match) {
@@ -652,11 +658,12 @@ export function ProgramExplorer() {
         const groups: ReqGroup[] = data?.variants?.[match.variant]
         if (groups && groups.length > 0) {
           setStructured({ groups, variant: match.variant })
+          setPlanSlug(match.slug)
+          setPlanVariant(match.variant)
           setLoading(false)
           return
         }
       }
-      // 2) Fall back to AI when no structured match
       await loadFromAI(queryName)
     } catch {
       setResult("Failed to load. Make sure the backend is running.")
@@ -685,8 +692,11 @@ export function ProgramExplorer() {
   if (view.screen === "detail") {
     const { program, streamLabel } = view as { program: Program; streamLabel?: string; queryName: string }
     const faculty = FACULTIES.find((f) => f.name === program.faculty)
+    const hasPlan = !!planSlug && !!planVariant
+
     return (
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
+        {/* Back + title */}
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={goBack}>
             <ArrowLeft className="size-4" />
@@ -702,26 +712,61 @@ export function ProgramExplorer() {
           </div>
         </div>
 
-        {loading && (
-          <div className="flex items-center gap-2.5 text-muted-foreground py-12 justify-center text-sm">
-            <Loader2 className="size-4 animate-spin" />
-            Loading requirements…
-          </div>
+        {/* Sub-tabs: Requirements | My Plan */}
+        <div className="flex gap-1 p-1 rounded-xl bg-secondary/50 w-fit">
+          <button
+            onClick={() => setTab("browse")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+              tab === "browse" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <BookOpen className="size-3.5" /> Requirements
+          </button>
+          <button
+            onClick={() => setTab("plan")}
+            disabled={!hasPlan && !loading}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+              tab === "plan" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+              !hasPlan && !loading && "opacity-40 cursor-not-allowed"
+            )}
+          >
+            <Map className="size-3.5" /> My Plan
+          </button>
+        </div>
+
+        {/* Requirements tab */}
+        {tab === "browse" && (
+          <>
+            {loading && (
+              <div className="flex items-center gap-2.5 text-muted-foreground py-12 justify-center text-sm">
+                <Loader2 className="size-4 animate-spin" />
+                Loading requirements…
+              </div>
+            )}
+            {structured && <StructuredRequirements groups={structured.groups} variant={structured.variant} />}
+            {result && !structured && (
+              <div className="rounded-xl border border-border bg-card p-5">
+                <div className="flex items-center gap-2 mb-4 text-sm font-medium">
+                  <BookOpen className="size-4 text-primary" />
+                  Course Requirements
+                </div>
+                <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
+                  <ReactMarkdown>{result}</ReactMarkdown>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
-        {/* Structured (instant, accurate) — preferred */}
-        {structured && <StructuredRequirements groups={structured.groups} variant={structured.variant} />}
-
-        {/* AI fallback — only when structured data couldn't be matched */}
-        {result && !structured && (
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-4 text-sm font-medium">
-              <BookOpen className="size-4 text-primary" />
-              Course Requirements
-            </div>
-            <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
-              <ReactMarkdown>{result}</ReactMarkdown>
-            </div>
+        {/* My Plan tab */}
+        {tab === "plan" && hasPlan && (
+          <DegreePlan slug={planSlug} variant={planVariant} />
+        )}
+        {tab === "plan" && !hasPlan && loading && (
+          <div className="flex items-center gap-2.5 text-muted-foreground py-12 justify-center text-sm">
+            <Loader2 className="size-4 animate-spin" /> Loading…
           </div>
         )}
       </div>

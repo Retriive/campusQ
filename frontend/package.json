@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.4.2",
+    "@dagrejs/dagre": "^3.0.0",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "1.2.12",
     "@radix-ui/react-alert-dialog": "1.1.15",
@@ -56,6 +57,7 @@
     "react-hook-form": "^7.54.1",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.1.7",
+    "reactflow": "^11.11.4",
     "recharts": "2.15.0",
     "sonner": "^1.7.1",
     "tailwind-merge": "^3.6.0",

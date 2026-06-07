@@ -363,6 +363,75 @@ async def program_requirements(slug: str = ""):
     return {"found": True, "slug": slug, **prog}
 
 
+@app.get("/api/degree-plan")
+async def degree_plan(slug: str = "", variant: str = ""):
+    """
+    Returns all required course nodes + prerequisite edges for a program variant.
+    Used by the My Plan tree view.
+    """
+    data = _load_program_reqs()
+    prog = data.get(slug)
+    if not prog or not variant:
+        return {"courses": [], "edges": []}
+
+    groups = prog.get("variants", {}).get(variant)
+    if not groups:
+        return {"courses": [], "edges": []}
+
+    # Collect all unique course codes required by this variant
+    COURSE_RE = re.compile(r'\b([A-Z]{3,4}[\xa0 ]+\d{4}[A-Z]?)\b')
+    required_codes: list[str] = []
+    seen: set[str] = set()
+    for group in groups:
+        for c in group.get("courses", []):
+            raw = c.get("code", "")
+            for m in COURSE_RE.findall(raw):
+                code = m.replace('\xa0', ' ').strip()
+                if code not in seen:
+                    seen.add(code)
+                    required_codes.append(code)
+
+    required_set = set(required_codes)
+
+    # Fetch each course from Pinecone to get name, credits, prereqs
+    course_nodes = []
+    prereq_map: dict[str, list[str]] = {}
+
+    for code in required_codes:
+        course_id = code.replace(" ", "")
+        try:
+            result = index.fetch(ids=[course_id], namespace="courses")
+            if result and "vectors" in result and course_id in result["vectors"]:
+                meta = result["vectors"][course_id]["metadata"]
+                parsed = parse_course_from_metadata(meta, code)
+                course_nodes.append({
+                    "code": code,
+                    "name": parsed.get("courseName", code),
+                    "credits": parsed.get("credits", 0.5),
+                })
+                prereq_map[code] = parsed.get("prerequisites", [])
+            else:
+                course_nodes.append({"code": code, "name": code, "credits": 0.5})
+                prereq_map[code] = []
+        except Exception:
+            course_nodes.append({"code": code, "name": code, "credits": 0.5})
+            prereq_map[code] = []
+
+    # Build edges — only between courses in the required set
+    edges = []
+    seen_edges: set[tuple] = set()
+    for target, prereqs in prereq_map.items():
+        for src in prereqs:
+            src_norm = src.replace('\xa0', ' ').strip()
+            if src_norm in required_set and src_norm != target:
+                key = (src_norm, target)
+                if key not in seen_edges:
+                    seen_edges.add(key)
+                    edges.append({"source": src_norm, "target": target})
+
+    return {"courses": course_nodes, "edges": edges}
+
+
 @app.get("/api/course/{course_code}")
 async def course_lookup(course_code: str):
     clean_code = course_code.upper().strip()

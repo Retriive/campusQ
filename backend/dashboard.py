@@ -16,7 +16,6 @@ import json
 from collections import Counter
 from datetime import datetime, timedelta
 
-DEFLECTION_FACTOR = 0.7  # est. share of answered questions that avoided an advisor touch
 
 INTENT_LABELS = {
     "prerequisites":        "Prerequisites & Course Requirements",
@@ -107,8 +106,6 @@ def build_dashboard_data(log_dir: str) -> dict:
     ups = sum(1 for f in fb_week if f.get("rating") == "up")
     downs = sum(1 for f in fb_week if f.get("rating") == "down")
     accuracy = round(100 * ups / (ups + downs)) if (ups + downs) else None
-    deflections = round(answered * DEFLECTION_FACTOR)
-
     dept_counts = Counter(
         q.get("department") for q in this_week
         if q.get("department") and q.get("department") != "general"
@@ -208,8 +205,6 @@ def build_dashboard_data(log_dir: str) -> dict:
             "accuracy": accuracy,           # null if no feedback yet
             "thumbs_up": ups,
             "thumbs_down": downs,
-            "deflections": deflections,
-            "deflection_factor": DEFLECTION_FACTOR,
             "top_department": top_department,
         },
         "retention": {

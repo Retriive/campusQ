@@ -16,8 +16,6 @@ interface DashboardData {
     accuracy: number | null
     thumbs_up: number
     thumbs_down: number
-    deflections: number
-    deflection_factor: number
     top_department: string
   }
   intents: IntentRow[]
@@ -79,7 +77,6 @@ export default function DashboardPage() {
   const STATS = [
     { label: "Questions this week", value: s.total_questions.toLocaleString(), sub: "across all students" },
     { label: "Helpfulness rate",    value: s.accuracy !== null ? `${s.accuracy}%` : "—", sub: s.accuracy !== null ? `${s.thumbs_up}👍 ${s.thumbs_down}👎` : "no ratings yet" },
-    { label: "Est. advisor deflections", value: s.deflections.toLocaleString(), sub: `answered × ${s.deflection_factor}` },
     { label: "Top department",      value: s.top_department, sub: "by question volume" },
   ]
 
@@ -104,7 +101,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Section 1 — Snapshot */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-10">
           {STATS.map((st) => (
             <div key={st.label} className="bg-white border border-zinc-200 rounded-2xl p-5">
               <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400 mb-2">{st.label}</p>

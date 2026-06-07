@@ -553,11 +553,16 @@ async def chat_endpoint(
                     )
                     for m in _sched.matches:
                         if m.id not in _existing_ids:
-                            m.score = max(m.score, 0.85)
-                            all_matches.append(m)
+                            # Wrap in a simple object to avoid mutating frozen Pydantic ScoredVector
+                            class _SM:
+                                def __init__(self, src):
+                                    self.id = src.id
+                                    self.score = 0.85
+                                    self.metadata = src.metadata
+                            all_matches.append(_SM(m))
                             _existing_ids.add(m.id)
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"Schedule filter error: {e}")
 
         all_matches.sort(key=lambda m: m.score, reverse=True)
         all_matches = all_matches[:keep_total]

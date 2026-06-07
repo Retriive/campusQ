@@ -210,12 +210,11 @@ def build_dashboard_data(log_dir: str, days: int | None = 7) -> dict:
     session_counts = [len(s) for s in user_sessions.values()]
     avg_sessions = round(sum(session_counts) / len(session_counts), 1) if session_counts else 0
 
-    # Daily usage trend over the pilot (last 16 days)
-    pilot_start = now - timedelta(days=16)
+    # Daily usage trend — use the selected window (this_week queries)
     daily_counts: dict[str, int] = Counter()
-    for q in queries:
+    for q in this_week:
         dt = _parse_ts(q)
-        if dt and dt >= pilot_start:
+        if dt:
             daily_counts[dt.strftime("%Y-%m-%d")] += 1
     daily_trend = [
         {"date": d, "queries": daily_counts.get(d, 0)}
@@ -233,12 +232,12 @@ def build_dashboard_data(log_dir: str, days: int | None = 7) -> dict:
             "thumbs_down": downs,
             "top_department": top_department,
         },
+        "daily_trend": daily_trend,
         "retention": {
             "total_users": total_users,
             "returned_day2": returned_users,
-            "day1_retention_pct": day1_retention,   # null until enough data
+            "day1_retention_pct": day1_retention,
             "avg_sessions_per_user": avg_sessions,
-            "daily_trend": daily_trend,
         },
         "intents": intent_rows,
         "top_questions": top_questions,

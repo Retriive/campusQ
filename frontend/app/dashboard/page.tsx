@@ -31,9 +31,7 @@ interface DashboardData {
     thumbs_down: number
     top_department: string
   }
-  retention: {
-    daily_trend: DailyPoint[]
-  }
+  daily_trend: DailyPoint[]
   intents: IntentRow[]
   top_questions: TopQuestion[]
   unanswered: UnansweredGroup[]
@@ -46,25 +44,25 @@ function Trend({ t }: { t: "up" | "down" | "flat" }) {
   return <Minus className="size-3 text-zinc-300" />
 }
 
-function MiniBarChart({ data }: { data: DailyPoint[] }) {
+function BarChart({ data }: { data: DailyPoint[] }) {
   if (!data || data.length === 0) return (
-    <p className="text-xs text-zinc-400 text-center py-6">No trend data yet.</p>
+    <div className="flex items-center justify-center h-24 text-xs text-zinc-400">No activity data yet.</div>
   )
   const max = Math.max(...data.map(d => d.queries), 1)
   return (
-    <div className="flex items-end gap-1 h-16 w-full">
+    <div className="flex items-end gap-[3px] h-24 w-full pt-2">
       {data.map((d) => {
         const pct = d.queries / max
-        const date = new Date(d.date)
+        const date = new Date(d.date + "T12:00:00")
         const label = date.toLocaleDateString("en-CA", { month: "short", day: "numeric" })
         return (
-          <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group relative">
-            <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-zinc-900 text-white text-[10px] rounded px-1.5 py-0.5 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+          <div key={d.date} className="flex-1 flex flex-col items-center gap-0.5 group relative">
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-zinc-900 text-white text-[10px] rounded px-1.5 py-0.5 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
               {label}: {d.queries}
             </div>
             <div
-              className="w-full rounded-sm bg-zinc-900 transition-all duration-300"
-              style={{ height: `${Math.max(pct * 100, 4)}%` }}
+              className="w-full rounded-sm bg-zinc-800 hover:bg-zinc-600 transition-colors cursor-default"
+              style={{ height: `${Math.max(pct * 100, 6)}%` }}
             />
           </div>
         )
@@ -123,25 +121,25 @@ export default function DashboardPage() {
 
   if (!data) return null
   const s = data.snapshot
-  const trend = data.retention?.daily_trend ?? []
+  const trend = data.daily_trend ?? []
 
-  // Headline insight
-  const headlineAccuracy = s.accuracy !== null ? `${s.accuracy}% of answers rated helpful` : null
   const headlineParts = [
     `${s.total_questions.toLocaleString()} questions asked`,
-    headlineAccuracy,
+    s.accuracy !== null ? `${s.accuracy}% rated helpful` : null,
     s.top_department !== "—" ? `most from ${s.top_department}` : null,
   ].filter(Boolean).join(" · ")
 
+  const timeLabel = selectedDays === 0 ? "all time" : selectedDays === 1 ? "last 24 hours" : `last ${selectedDays} days`
+
   return (
     <div className="min-h-screen bg-[#F7F5F0] text-zinc-900">
-      <div className="max-w-4xl mx-auto px-5 py-10">
+      <div className="max-w-5xl mx-auto px-5 py-10">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-xl font-bold tracking-tight">CampusQ — Advisor Dashboard</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">Anonymized · aggregated student data</p>
+            <p className="text-sm text-zinc-500 mt-0.5">Anonymized · aggregated student data · {timeLabel}</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
@@ -169,79 +167,101 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Headline insight */}
+        {/* Headline */}
         <div className="bg-zinc-900 text-white rounded-2xl px-6 py-5 mb-6">
-          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-1">Summary</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 mb-1">Summary</p>
           <p className="text-base font-medium leading-snug">{headlineParts || "No data yet for this period."}</p>
         </div>
 
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-          {[
-            { label: "Questions asked", value: s.total_questions.toLocaleString(), sub: selectedDays === 0 ? "all time" : `last ${selectedDays === 1 ? "24 hours" : `${selectedDays} days`}` },
-            { label: "Helpfulness rate", value: s.accuracy !== null ? `${s.accuracy}%` : "—", sub: s.accuracy !== null ? `${s.thumbs_up} up · ${s.thumbs_down} down` : "no ratings yet" },
-            { label: "Top department", value: s.top_department, sub: "by question volume" },
-          ].map((st) => (
-            <div key={st.label} className="bg-white border border-zinc-200 rounded-2xl p-5">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400 mb-2">{st.label}</p>
-              <p className="text-2xl font-bold text-zinc-900 leading-none truncate">{st.value}</p>
-              <p className="text-xs text-zinc-400 mt-1.5">{st.sub}</p>
-            </div>
-          ))}
+        {/* Row: Stats + Chart side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+
+          {/* Left: stat cards stacked */}
+          <div className="flex flex-col gap-3">
+            {[
+              {
+                label: "Questions asked",
+                value: s.total_questions.toLocaleString(),
+                sub: timeLabel,
+              },
+              {
+                label: "Helpfulness rate",
+                value: s.accuracy !== null ? `${s.accuracy}%` : "—",
+                sub: s.accuracy !== null ? `${s.thumbs_up} 👍  ${s.thumbs_down} 👎` : "no ratings yet",
+              },
+              {
+                label: "Top department",
+                value: s.top_department,
+                sub: "by question volume",
+              },
+            ].map((st) => (
+              <div key={st.label} className="bg-white border border-zinc-200 rounded-2xl px-5 py-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">{st.label}</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">{st.sub}</p>
+                </div>
+                <p className="text-2xl font-bold text-zinc-900 tabular-nums">{st.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Right: bar chart */}
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 flex flex-col justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Daily activity</p>
+            <BarChart data={trend} />
+            {trend.length > 0 && (
+              <div className="flex justify-between mt-2">
+                <span className="text-[10px] text-zinc-300">{new Date(trend[0].date + "T12:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</span>
+                <span className="text-[10px] text-zinc-300">{new Date(trend[trend.length - 1].date + "T12:00:00").toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Daily trend graph */}
-        {trend.length > 0 && (
-          <div className="bg-white border border-zinc-200 rounded-2xl p-5 mb-6">
-            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-4">Daily activity</p>
-            <MiniBarChart data={trend} />
-            <div className="flex justify-between mt-2">
-              <span className="text-[10px] text-zinc-300">{trend[0]?.date}</span>
-              <span className="text-[10px] text-zinc-300">{trend[trend.length - 1]?.date}</span>
-            </div>
-          </div>
-        )}
+        {/* Row: Top questions + Categories side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
 
-        {/* Top 5 questions */}
-        {data.top_questions?.length > 0 && (
-          <>
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">Top questions from students</h2>
-            <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden mb-6">
+          {/* Top 5 questions */}
+          {data.top_questions?.length > 0 && (
+            <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden">
+              <div className="px-5 pt-5 pb-3">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Top questions</p>
+              </div>
               {data.top_questions.map((q, i) => (
-                <div key={i} className={`flex items-start gap-3 px-5 py-3.5 ${i < data.top_questions.length - 1 ? "border-b border-zinc-100" : ""}`}>
+                <div key={i} className={`flex items-start gap-3 px-5 py-3 ${i < data.top_questions.length - 1 ? "border-b border-zinc-100" : ""}`}>
                   <MessageSquare className="size-3.5 text-zinc-300 mt-0.5 shrink-0" />
-                  <p className="flex-1 text-sm text-zinc-700 leading-snug">"{q.question}"</p>
-                  {q.count > 1 && (
-                    <span className="text-xs text-zinc-400 shrink-0">×{q.count}</span>
-                  )}
+                  <p className="flex-1 text-sm text-zinc-700 leading-snug line-clamp-2">"{q.question}"</p>
+                  {q.count > 1 && <span className="text-xs text-zinc-400 shrink-0 tabular-nums">×{q.count}</span>}
                 </div>
               ))}
             </div>
-          </>
-        )}
+          )}
 
-        {/* What students are asking by category */}
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">Questions by category</h2>
-        <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden mb-6">
-          {data.intents.length === 0 ? (
-            <p className="text-sm text-zinc-400 p-6 text-center">No questions logged for this period.</p>
-          ) : data.intents.map((r, i) => (
-            <div key={r.intent} className={`flex items-center gap-4 px-5 py-3.5 ${i < data.intents.length - 1 ? "border-b border-zinc-100" : ""}`}>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-zinc-900">{r.label}</span>
-                  <Trend t={r.trend} />
-                </div>
-                {r.example && <p className="text-xs text-zinc-400 truncate mt-0.5">e.g. "{r.example}"</p>}
-              </div>
-              <span className="text-lg font-bold text-zinc-900 tabular-nums shrink-0">{r.count}</span>
+          {/* Categories */}
+          <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden">
+            <div className="px-5 pt-5 pb-3">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">Questions by category</p>
             </div>
-          ))}
+            {data.intents.length === 0 ? (
+              <p className="text-sm text-zinc-400 px-5 pb-5">No questions logged for this period.</p>
+            ) : data.intents.map((r, i) => (
+              <div key={r.intent} className={`flex items-center gap-3 px-5 py-3 ${i < data.intents.length - 1 ? "border-b border-zinc-100" : ""}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-zinc-900">{r.label}</span>
+                    <Trend t={r.trend} />
+                  </div>
+                  {r.example && <p className="text-xs text-zinc-400 truncate mt-0.5">"{r.example}"</p>}
+                </div>
+                <span className="text-base font-bold text-zinc-900 tabular-nums shrink-0">{r.count}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Where CampusQ is failing */}
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">Where CampusQ is failing</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-10">
+        {/* Failing section */}
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 mb-3">Where CampusQ is failing</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-10">
           <div className="bg-white border border-zinc-200 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle className="size-3.5 text-amber-500" />

@@ -101,36 +101,36 @@ export default function DashboardPage() {
       <div className="max-w-4xl mx-auto px-5 py-10">
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-xl font-bold tracking-tight">CampusQ — Advisor Dashboard</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">
-              Anonymized · {selectedDays === 0 ? "all time" : `last ${selectedDays} days`}
-            </p>
+            <p className="text-sm text-zinc-500 mt-0.5">Anonymized · aggregated student data</p>
           </div>
-          <button
-            onClick={() => load()}
-            className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 transition-colors mt-1"
-          >
-            <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </button>
-        </div>
-
-        {/* Timeframe selector */}
-        <div className="flex flex-wrap gap-2 mb-8">
-          {TIMEFRAMES.map((tf) => (
+          <div className="flex items-center gap-2">
+            {/* Timeframe dropdown */}
+            <div className="relative">
+              <select
+                value={selectedDays}
+                onChange={(e) => handleTimeframe(Number(e.target.value))}
+                className="appearance-none bg-white border border-zinc-200 rounded-lg px-3 py-1.5 pr-8 text-sm text-zinc-700 font-medium shadow-sm hover:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-200 cursor-pointer transition-colors"
+              >
+                {TIMEFRAMES.map((tf) => (
+                  <option key={tf.days} value={tf.days}>{tf.label}</option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                <svg className="size-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
             <button
-              key={tf.days}
-              onClick={() => handleTimeframe(tf.days)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                selectedDays === tf.days
-                  ? "bg-zinc-900 text-white border-zinc-900"
-                  : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-400 hover:text-zinc-900"
-              }`}
+              onClick={() => load(selectedDays)}
+              className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-900 bg-white border border-zinc-200 rounded-lg px-3 py-1.5 shadow-sm hover:border-zinc-300 transition-colors"
             >
-              {tf.label}
+              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
             </button>
-          ))}
+          </div>
         </div>
 
         {/* Section 1 — Snapshot */}

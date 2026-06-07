@@ -9,11 +9,12 @@ interface IntentRow { intent: string; label: string; count: number; example: str
 interface UnansweredGroup { theme: string; count: number; examples: string[] }
 interface NegativeItem { question: string; answer: string; department: string }
 const TIMEFRAMES = [
-  { label: "Last week",    days: 7   },
+  { label: "Last 24 hours", days: 1   },
+  { label: "Last week",     days: 7   },
   { label: "Last 3 months", days: 90  },
   { label: "Last 6 months", days: 180 },
-  { label: "Last year",    days: 365 },
-  { label: "All time",     days: 0   },
+  { label: "Last year",     days: 365 },
+  { label: "All time",      days: 0   },
 ]
 
 interface DashboardData {

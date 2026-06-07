@@ -81,7 +81,7 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-[#F7F5F0] flex items-center justify-center px-5">
         <div className="text-center">
           <p className="text-sm text-zinc-600 mb-3">{error}</p>
-          <button onClick={load} className="text-sm text-zinc-900 underline underline-offset-2">Retry</button>
+          <button onClick={() => load(selectedDays)} className="text-sm text-zinc-900 underline underline-offset-2">Retry</button>
         </div>
       </div>
     )

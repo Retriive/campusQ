@@ -675,6 +675,11 @@ async def chat_stream(
         "prerequisite", "require", "needed for", "before taking", "instead of",
         "vs ", "versus", "substitute", "count toward", "count for",
         "transfer", "equivalent", "replace", "satisfy",
+        # Schedule/availability questions — need RAG, not course cards
+        "who teaches", "who is teaching", "instructor", "professor",
+        "open", "closed", "available", "offered", "offering", "waitlist",
+        "section", "crn", "what time", "when is", "schedule",
+        "fall 2026", "winter 2027", "summer 2026",
     ]
 
     async def generate():
@@ -855,7 +860,8 @@ CONTEXT:
                     yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
 
             # Emit course cards as supplementary (for question-about-courses path)
-            if course_matches and structured_courses and is_question_about_courses:
+            # Skip cards for schedule/availability queries — the answer is the schedule data
+            if course_matches and structured_courses and is_question_about_courses and not is_schedule_query:
                 yield f"data: {json.dumps({'type': 'courses', 'data': structured_courses})}\n\n"
 
             # Emit sources

@@ -15,7 +15,6 @@ import ReactFlow, {
   ReactFlowProvider,
 } from "reactflow"
 import "reactflow/dist/style.css"
-import dagre from "@dagrejs/dagre"
 import { Loader2, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -27,20 +26,84 @@ interface CourseEdge  { source: string; target: string }
 
 type NodeStatus = "completed" | "available" | "locked"
 
-// ── Dagre auto-layout ─────────────────────────────────────────────────────────
-const NODE_W = 160
-const NODE_H = 64
+// ── Year-banded layout ────────────────────────────────────────────────────────
+const NODE_W    = 160
+const NODE_H    = 64
+const COL_GAP   = 20
+const ROW_GAP   = 56
+const HEADER_H  = 32  // height of the year label row
 
-function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
-  const g = new dagre.graphlib.Graph()
-  g.setDefaultEdgeLabel(() => ({}))
-  g.setGraph({ rankdir: "TB", ranksep: 60, nodesep: 24 })
-  nodes.forEach((n) => g.setNode(n.id, { width: NODE_W, height: NODE_H }))
-  edges.forEach((e) => g.setEdge(e.source, e.target))
-  dagre.layout(g)
-  return nodes.map((n) => {
-    const { x, y } = g.node(n.id)
-    return { ...n, position: { x: x - NODE_W / 2, y: y - NODE_H / 2 } }
+function courseYear(code: string): number {
+  const m = code.match(/\d{4}/)
+  if (!m) return 5
+  const lvl = parseInt(m[0][0])
+  return lvl >= 1 && lvl <= 4 ? lvl : 5
+}
+
+function applyYearLayout(courseNodes: Node[]): Node[] {
+  // Group by year
+  const groups: Record<number, Node[]> = {}
+  courseNodes.forEach((n) => {
+    const yr = courseYear(n.id)
+    ;(groups[yr] ||= []).push(n)
+  })
+
+  const yearKeys = Object.keys(groups).map(Number).sort()
+  const result: Node[] = []
+
+  yearKeys.forEach((yr, rowIdx) => {
+    const rowY = rowIdx * (NODE_H + HEADER_H + ROW_GAP)
+    const nodes = groups[yr]
+    const totalW = nodes.length * NODE_W + (nodes.length - 1) * COL_GAP
+    const startX = -totalW / 2
+
+    nodes.forEach((n, colIdx) => {
+      result.push({
+        ...n,
+        position: {
+          x: startX + colIdx * (NODE_W + COL_GAP),
+          y: rowY + HEADER_H,
+        },
+      })
+    })
+  })
+
+  return result
+}
+
+// Year header node — non-interactive label
+function YearHeaderNode({ data }: NodeProps) {
+  return (
+    <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 pointer-events-none select-none">
+      {data.label}
+    </div>
+  )
+}
+
+// Build year header nodes to sit above each band
+function buildYearHeaderNodes(courseNodes: Node[]): Node[] {
+  const groups: Record<number, Node[]> = {}
+  courseNodes.forEach((n) => {
+    const yr = courseYear(n.id)
+    ;(groups[yr] ||= []).push(n)
+  })
+
+  const yearKeys = Object.keys(groups).map(Number).sort()
+  const YEAR_LABELS: Record<number, string> = { 1: "Year 1", 2: "Year 2", 3: "Year 3", 4: "Year 4", 5: "Other" }
+
+  return yearKeys.map((yr, rowIdx) => {
+    const rowY = rowIdx * (NODE_H + HEADER_H + ROW_GAP)
+    const nodes = groups[yr]
+    const totalW = nodes.length * NODE_W + (nodes.length - 1) * COL_GAP
+    const startX = -totalW / 2
+    return {
+      id: `__year_${yr}`,
+      type: "yearHeader",
+      position: { x: startX, y: rowY },
+      data: { label: YEAR_LABELS[yr] ?? `Year ${yr}` },
+      selectable: false,
+      draggable: false,
+    }
   })
 }
 
@@ -73,7 +136,7 @@ function CourseNodeCard({ data }: NodeProps) {
   )
 }
 
-const nodeTypes = { course: CourseNodeCard }
+const nodeTypes = { course: CourseNodeCard, yearHeader: YearHeaderNode }
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 function storageKey(slug: string, variant: string) {
@@ -151,8 +214,9 @@ function DegreePlanGraph({
       },
     }))
 
-    const laid = applyDagreLayout(rfNodes, rfEdges)
-    setNodes(laid)
+    const laid = applyYearLayout(rfNodes)
+    const headers = buildYearHeaderNodes(rfNodes)
+    setNodes([...headers, ...laid])
     setEdges(rfEdges)
     // fitView after layout is applied
     setTimeout(() => fitView({ padding: 0.15, duration: 200 }), 50)
@@ -270,7 +334,7 @@ export function DegreePlan({ slug, variant }: { slug: string; variant: string })
       </div>
 
       {/* Graph — explicit pixel height so ReactFlow can measure */}
-      <div className="rounded-xl border border-border overflow-hidden" style={{ height: 520 }}>
+      <div className="rounded-xl border border-border overflow-hidden" style={{ height: 600 }}>
         <ReactFlowProvider>
           <DegreePlanGraph
             courses={courses}

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, BookOpen, ArrowLeft, Search, ChevronRight, ChevronDown, X, GraduationCap } from "lucide-react"
+import { Loader2, BookOpen, ArrowLeft, ChevronRight, ChevronDown, GraduationCap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import ReactMarkdown from "react-markdown"
 import { cn } from "@/lib/utils"
@@ -397,28 +397,6 @@ function totalCredits(variant: string): string | null {
 }
 
 // Classify a stream/option into a type bucket for the grouped picker.
-const STREAM_TYPE_ORDER = ["Degrees", "Concentrations", "Streams", "Specializations", "Combined Honours", "Minors", "Diplomas", "Certificates"]
-function streamType(label: string): string {
-  const t = label.toLowerCase()
-  if (/combined/.test(t)) return "Combined Honours"
-  if (/concentration/.test(t)) return "Concentrations"
-  if (/specialization/.test(t)) return "Specializations"
-  if (/\bstream\b/.test(t)) return "Streams"
-  if (/\bminor\b/.test(t)) return "Minors"
-  if (/diploma|post-bacc/.test(t)) return "Diplomas"
-  if (/certificate/.test(t)) return "Certificates"
-  return "Degrees"
-}
-function groupStreams(streams: Stream[]): [string, Stream[]][] {
-  const buckets: Record<string, Stream[]> = {}
-  for (const s of streams) {
-    const type = streamType(s.label)
-    ;(buckets[type] ||= []).push(s)
-  }
-  return STREAM_TYPE_ORDER
-    .filter((t) => buckets[t])
-    .map((t) => [t, buckets[t]] as [string, Stream[]])
-}
 
 // Turn a raw calendar area header into a friendly section title + color band.
 function friendlySection(instruction: string): { title: string; tone: string } {
@@ -606,8 +584,9 @@ function abbrevColors(ab: string): BadgeColors {
 
 type ViewState =
   | { screen: "directory" }
-  | { screen: "streams"; program: Program; faculty: typeof FACULTIES[number] }
   | { screen: "detail"; program: Program; streamLabel?: string; queryName: string }
+
+const ALL_PROGRAMS_SORTED = [...ALL_PROGRAMS].sort((a, b) => a.name.localeCompare(b.name))
 
 export function ProgramExplorer() {
   useCampus()
@@ -615,8 +594,7 @@ export function ProgramExplorer() {
   const [result, setResult] = React.useState("")
   const [structured, setStructured] = React.useState<{ groups: ReqGroup[]; variant: string } | null>(null)
   const [loading, setLoading] = React.useState(false)
-  const [search, setSearch] = React.useState("")
-  const [selectedFaculty, setSelectedFaculty] = React.useState<typeof FACULTIES[number] | null>(null)
+  const [selectedDept, setSelectedDept] = React.useState<Program | null>(null)
   const progIndex = React.useRef<ProgIndexEntry[] | null>(null)
 
   const getIndex = async (): Promise<ProgIndexEntry[]> => {
@@ -688,13 +666,8 @@ export function ProgramExplorer() {
   }
 
   const handleProgramClick = (program: Program) => {
-    const faculty = FACULTIES.find((f) => f.name === program.faculty)!
-    if (program.streams && program.streams.length > 0) {
-      setView({ screen: "streams", program, faculty })
-    } else {
-      setView({ screen: "detail", program, queryName: program.name })
-      loadRequirements(program.name)
-    }
+    setView({ screen: "detail", program, queryName: program.name })
+    loadRequirements(program.name)
   }
 
   const handleStreamClick = (program: Program, stream: Stream) => {
@@ -703,73 +676,9 @@ export function ProgramExplorer() {
   }
 
   const goBack = () => {
-    if (view.screen === "detail") {
-      const program = (view as { program: Program }).program
-      if (program.streams && program.streams.length > 0) {
-        const faculty = FACULTIES.find((f) => f.name === program.faculty)!
-        setView({ screen: "streams", program, faculty })
-        setResult("")
-        setStructured(null)
-        return
-      }
-    }
     setView({ screen: "directory" })
     setResult("")
     setStructured(null)
-  }
-
-  const goToDirectory = () => {
-    setView({ screen: "directory" })
-    setResult("")
-    setStructured(null)
-    setSelectedFaculty(null)
-    setSearch("")
-  }
-
-  // ── Stream picker (grouped by option type) ─────────────────────────────────
-  if (view.screen === "streams") {
-    const { program, faculty } = view
-    const grouped = groupStreams(program.streams!)
-    return (
-      <div className="flex flex-col gap-5">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={goToDirectory}>
-            <ArrowLeft className="size-4" />
-          </Button>
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className={cn("w-1 h-9 rounded-full shrink-0", faculty.bgColor)} />
-            <div className="min-w-0">
-              <span className={cn("text-[10px] font-semibold uppercase tracking-widest", faculty.color)}>{faculty.name}</span>
-              <h2 className="text-lg font-semibold leading-tight truncate">{program.name}</h2>
-            </div>
-          </div>
-        </div>
-
-        <p className="text-sm text-muted-foreground -mt-1">
-          {program.streams!.length} options available — pick one to see its requirements.
-        </p>
-
-        <div className="space-y-5">
-          {grouped.map(([type, streams]) => (
-            <div key={type}>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50 mb-2">{type}</p>
-              <div className="space-y-1.5">
-                {streams.map((stream) => (
-                  <button
-                    key={stream.queryName}
-                    onClick={() => handleStreamClick(program, stream)}
-                    className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-secondary/40 hover:border-border/60 hover:-translate-y-px transition-all text-left group"
-                  >
-                    <span className="text-sm text-foreground">{stream.label}</span>
-                    <ChevronRight className="size-3.5 text-muted-foreground/30 shrink-0 group-hover:text-muted-foreground transition-colors" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
   }
 
   // ── Detail view ───────────────────────────────────────────────────────────
@@ -820,123 +729,94 @@ export function ProgramExplorer() {
   }
 
   // ── Directory ─────────────────────────────────────────────────────────────
-  const isSearching = search.trim().length > 0
+  const deptFaculty = selectedDept
+    ? FACULTIES.find((f) => f.name === selectedDept.faculty)!
+    : null
 
-  // When drilled into a faculty, search filters programs; otherwise filters faculty names
-  const filteredFaculties = isSearching
-    ? FACULTIES.filter((f) => f.name.toLowerCase().includes(search.toLowerCase()))
-    : FACULTIES
-
-  const filteredPrograms = selectedFaculty
-    ? (isSearching
-        ? selectedFaculty.programs.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
-        : selectedFaculty.programs
-      ).map((p) => ({ ...p, faculty: selectedFaculty.name }))
-    : []
-
-  const isEmpty = selectedFaculty
-    ? isSearching && filteredPrograms.length === 0
-    : isSearching && filteredFaculties.length === 0
+  const handleDeptChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const name = e.target.value
+    if (!name) { setSelectedDept(null); return }
+    const prog = ALL_PROGRAMS_SORTED.find((p) => p.name === name)
+    if (!prog) return
+    setSelectedDept(prog)
+  }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        {selectedFaculty && (
-          <Button variant="ghost" size="icon" className="shrink-0"
-            onClick={() => { setSelectedFaculty(null); setSearch("") }}>
-            <ArrowLeft className="size-4" />
-          </Button>
-        )}
-        <div className="min-w-0">
-          {selectedFaculty ? (
-            <>
-              <p className={cn("text-[10px] font-semibold uppercase tracking-widest", selectedFaculty.color)}>
-                {selectedFaculty.name}
-              </p>
-              <h2 className="text-base font-semibold leading-tight">
-                {selectedFaculty.programs.length} programs
-              </h2>
-            </>
+      <div>
+        <h2 className="text-lg font-semibold mb-0.5">Programs</h2>
+        <p className="text-sm text-muted-foreground">{ALL_PROGRAMS.length} Carleton programs</p>
+      </div>
+
+      {/* Department dropdown */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+          Department
+        </label>
+        <div className="relative">
+          <select
+            value={selectedDept?.name ?? ""}
+            onChange={handleDeptChange}
+            className="w-full appearance-none rounded-xl border border-border bg-card px-4 py-2.5 pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+          >
+            <option value="">Select department…</option>
+            {ALL_PROGRAMS_SORTED.map((p) => (
+              <option key={p.name} value={p.name}>{p.name}</option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/50" />
+        </div>
+      </div>
+
+      {/* Program cards for selected department */}
+      {selectedDept && (
+        <div className="flex flex-col gap-3">
+          {deptFaculty && (
+            <p className={cn("text-[10px] font-semibold uppercase tracking-widest", deptFaculty.color)}>
+              {deptFaculty.name}
+            </p>
+          )}
+          {selectedDept.streams && selectedDept.streams.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2">
+              {selectedDept.streams.map((stream) => {
+                const ab = degreeAbbrev(selectedDept.faculty, stream.label)
+                const colors = abbrevColors(ab)
+                return (
+                  <button
+                    key={stream.queryName}
+                    onClick={() => handleStreamClick(selectedDept, stream)}
+                    className="group flex flex-col items-start gap-2 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-secondary/30 hover:-translate-y-px transition-all text-left p-3"
+                  >
+                    <span className={cn("inline-block text-[10px] font-bold font-mono px-2 py-0.5 rounded tracking-wide", colors.bg, colors.text)}>
+                      {ab}
+                    </span>
+                    <span className="text-xs font-medium text-foreground leading-snug line-clamp-2">{stream.label}</span>
+                  </button>
+                )
+              })}
+            </div>
           ) : (
-            <>
-              <h2 className="text-lg font-semibold mb-0.5">Programs</h2>
-              <p className="text-sm text-muted-foreground">{FACULTIES.length} faculties · {ALL_PROGRAMS.length} programs</p>
-            </>
+            <button
+              onClick={() => handleProgramClick(selectedDept)}
+              className="group flex flex-col items-start gap-2 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-secondary/30 hover:-translate-y-px transition-all text-left p-3 w-full"
+            >
+              {(() => {
+                const ab = degreeAbbrev(selectedDept.faculty, selectedDept.name)
+                const colors = abbrevColors(ab)
+                return (
+                  <>
+                    <span className={cn("inline-block text-[10px] font-bold font-mono px-2 py-0.5 rounded tracking-wide", colors.bg, colors.text)}>
+                      {ab}
+                    </span>
+                    <span className="text-sm font-medium text-foreground">{selectedDept.name}</span>
+                  </>
+                )
+              })()}
+            </button>
           )}
         </div>
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/40" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={selectedFaculty ? "Search programs…" : "Search faculties…"}
-          className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/40"
-        />
-        {search && (
-          <button
-            onClick={() => setSearch("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
-          >
-            <X className="size-3.5" />
-          </button>
-        )}
-      </div>
-
-      {/* Empty state */}
-      {isEmpty && (
-        <div className="text-center py-12 text-sm text-muted-foreground">
-          No results for &ldquo;{search}&rdquo;
-        </div>
       )}
-
-      {/* Faculty rows — top-level view */}
-      {!selectedFaculty && !isEmpty && (
-        <div className="rounded-xl border border-border overflow-hidden">
-          {filteredFaculties.map((faculty, i) => (
-            <button
-              key={faculty.name}
-              onClick={() => { setSelectedFaculty(faculty); setSearch("") }}
-              className={cn(
-                "w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-secondary/40 transition-colors group",
-                i < filteredFaculties.length - 1 && "border-b border-border"
-              )}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className={cn("size-2 rounded-full shrink-0", faculty.bgColor)} />
-                <span className="text-sm text-foreground truncate">{faculty.name}</span>
-                <span className="text-xs text-muted-foreground/50 shrink-0">{faculty.programs.length}</span>
-              </div>
-              <ChevronRight className="size-3.5 text-muted-foreground/30 shrink-0 group-hover:text-muted-foreground/70 transition-colors" />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Program cards — drilled-in view */}
-      {selectedFaculty && !isEmpty && (
-        <div className="grid grid-cols-2 gap-2">
-          {filteredPrograms.map((p) => (
-            <ProgramCard
-              key={p.name}
-              program={p}
-              faculty={selectedFaculty}
-              onClick={() => handleProgramClick(p)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Footer count */}
-      <p className="text-xs text-muted-foreground/50 text-right">
-        {selectedFaculty
-          ? `${filteredPrograms.length} program${filteredPrograms.length !== 1 ? "s" : ""}`
-          : `${filteredFaculties.length} facult${filteredFaculties.length !== 1 ? "ies" : "y"}`}
-      </p>
     </div>
   )
 }

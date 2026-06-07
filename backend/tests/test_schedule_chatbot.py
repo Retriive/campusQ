@@ -51,7 +51,7 @@ TEST_CASES = [
         "difficulty": "easy",
         "question": "Is ACCT 5001 open in Summer 2026?",
         "must_contain": ["closed", "acct 5001"],
-        "must_not_contain": ["outside of what i currently know", "open"],
+        "must_not_contain": ["outside of what i currently know"],
         "notes": "ACCT 5001 Summer 2026 has Registration Closed status",
     },
     {

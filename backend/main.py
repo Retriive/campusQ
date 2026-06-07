@@ -509,7 +509,8 @@ async def chat_endpoint(
             "open", "closed", "available", "offered", "offering",
             "section", "crn", "waitlist", "full",
             "who teaches", "who is teaching", "instructor", "professor",
-            "when is", "what time", "schedule",
+            "when is", "what time", "what day", "what days", "which day",
+            "schedule", "meets", "meeting",
             "what semester", "what term", "which semester", "which term",
             "fall 2026", "winter 2027", "summer 2026",
             "f26", "w27", "su26",
@@ -534,33 +535,26 @@ async def chat_endpoint(
                         m.score = min(1.0, m.score + 0.25)
                 all_matches.extend(ns_results.matches)
 
-        # Direct schedule fetch: if query mentions a course code + term, guarantee that
-        # vector is included regardless of embedding similarity score
+        # Metadata-filtered schedule fetch: for schedule queries mentioning a course code,
+        # query the schedule namespace filtered by course_code to get all terms it exists in.
+        # This avoids hardcoding term slugs and works regardless of what terms are loaded.
         if is_schedule_query and course_matches:
-            _term_slugs = []
-            if "summer 2026" in _q_lower or "su26" in _q_lower or "summer" in _q_lower:
-                _term_slugs.append("SU26")
-            if "fall 2026" in _q_lower or "f26" in _q_lower or "fall" in _q_lower:
-                _term_slugs.append("F26")
-            if "winter 2027" in _q_lower or "w27" in _q_lower or "winter" in _q_lower:
-                _term_slugs.append("W27")
-            if not _term_slugs:
-                _term_slugs = ["F26", "W27", "SU26"]
-            _fetch_ids = []
+            _existing_ids = {m.id for m in all_matches}
             for dept, num in course_matches:
-                code_slug = re.sub(r"[^A-Z0-9]", "", f"{dept}{num}".upper())
-                for slug in _term_slugs:
-                    _fetch_ids.append(f"{code_slug}_{slug}")
-            if _fetch_ids:
+                _code = f"{dept.upper()} {num}"
                 try:
-                    _fetched = index.fetch(ids=_fetch_ids, namespace="schedule")
-                    _existing_ids = {m.id for m in all_matches}
-                    for vec_id, vec in _fetched.vectors.items():
-                        if vec_id not in _existing_ids:
-                            class _FakeMatch:
-                                def __init__(self, id, score, metadata):
-                                    self.id = id; self.score = score; self.metadata = metadata
-                            all_matches.append(_FakeMatch(vec_id, 0.85, vec.metadata))
+                    _sched = index.query(
+                        vector=query_embedding,
+                        top_k=10,
+                        include_metadata=True,
+                        namespace="schedule",
+                        filter={"course_code": {"$eq": _code}},
+                    )
+                    for m in _sched.matches:
+                        if m.id not in _existing_ids:
+                            m.score = max(m.score, 0.85)
+                            all_matches.append(m)
+                            _existing_ids.add(m.id)
                 except Exception:
                     pass
 
@@ -741,7 +735,8 @@ async def chat_stream(
         # Schedule/availability questions — need RAG, not course cards
         "who teaches", "who is teaching", "instructor", "professor",
         "open", "closed", "available", "offered", "offering", "waitlist",
-        "section", "crn", "what time", "when is", "schedule",
+        "section", "crn", "what time", "when is", "what day", "what days",
+        "which day", "meets", "meeting", "schedule",
         "what semester", "what term", "which semester", "which term",
         "fall 2026", "winter 2027", "summer 2026",
     ]
@@ -843,17 +838,11 @@ async def chat_stream(
                             m.score = min(1.0, m.score + 0.25)
                     all_matches.extend(ns_results.matches)
 
-            # Direct schedule fetch: guarantee course+term vector is included
+            # Direct schedule fetch: guarantee course+term vector is included.
+            # Always fetch all three terms so we can answer cross-term questions
+            # (e.g. "offered in Fall?" → context shows Winter 2027 instead).
             if is_schedule_query and course_matches:
-                _term_slugs = []
-                if "summer 2026" in _q_lower or "su26" in _q_lower or "summer" in _q_lower:
-                    _term_slugs.append("SU26")
-                if "fall 2026" in _q_lower or "f26" in _q_lower or "fall" in _q_lower:
-                    _term_slugs.append("F26")
-                if "winter 2027" in _q_lower or "w27" in _q_lower or "winter" in _q_lower:
-                    _term_slugs.append("W27")
-                if not _term_slugs:
-                    _term_slugs = ["F26", "W27", "SU26"]
+                _term_slugs = ["F26", "W27", "SU26"]
                 _fetch_ids = []
                 for dept, num in course_matches:
                     code_slug = re.sub(r"[^A-Z0-9]", "", f"{dept}{num}".upper())

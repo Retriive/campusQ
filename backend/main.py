@@ -548,8 +548,8 @@ async def chat_endpoint(
             )
             return {
                 "answer": (
-                    "I don't have enough information in my knowledge base to answer that confidently. "
-                    "For the most accurate information, please check calendar.carleton.ca or contact your academic advisor."
+                    "That's outside of what I currently know. "
+                    "If you think this should be covered, use the Report a Problem button and we'll add it."
                 ),
                 "sources": [],
             }
@@ -564,7 +564,7 @@ RULES:
 3. For program requirements: list courses by year if the context has them. If context is partial, say so — never guess missing years.
 4. For follow-up questions, use both the context AND the conversation history. Be direct.
 5. NEVER invent course codes, credit values, or requirements not in the context.
-6. If the context doesn't have the answer, say: "I don't have that in my database — check calendar.carleton.ca or speak with your academic advisor."
+6. If the context doesn't have the answer, say: "That's outside of what I currently know. If you think this should be covered, use the Report a Problem button and we'll add it."
 7. Be concise. No walls of text. No unnecessary caveats.
 8. Only mention calendar.carleton.ca when you genuinely can't answer — not as a reflex.
 9. OUT-OF-SCOPE: If asked about professor quality, ratings, or teaching style, say: "I don't have professor ratings — try RateMyProfessors.ca for student reviews." Never redirect these to calendar.carleton.ca.
@@ -782,7 +782,7 @@ RULES:
 3. For program requirements: list courses by year if the context has them. If context is partial, say so — never guess missing years.
 4. For follow-up questions, use both the context AND the conversation history. Be direct.
 5. NEVER invent course codes, credit values, or requirements not in the context.
-6. If the context doesn't have the answer, say: "I don't have that in my database — check calendar.carleton.ca or speak with your academic advisor."
+6. If the context doesn't have the answer, say: "That's outside of what I currently know. If you think this should be covered, use the Report a Problem button and we'll add it."
 7. Be concise. No walls of text. No unnecessary caveats.
 8. Only mention calendar.carleton.ca when you genuinely can't answer — not as a reflex.
 9. OUT-OF-SCOPE: If asked about professor quality, ratings, or teaching style, say: "I don't have professor ratings — try RateMyProfessors.ca for student reviews." Never redirect these to calendar.carleton.ca.
@@ -904,8 +904,10 @@ async def feedback_endpoint(
 from dashboard import build_dashboard_data, build_digest_text
 
 @app.get("/api/dashboard")
-async def dashboard_data():
-    return {"ok": True, "data": build_dashboard_data(LOG_DIR)}
+async def dashboard_data(days: int | None = 7):
+    """days=7,14,30,90 or omit for all-time (days=None via ?days=0)"""
+    d = None if days == 0 else days
+    return {"ok": True, "data": build_dashboard_data(LOG_DIR, days=d)}
 
 @app.get("/api/dashboard/digest")
 async def dashboard_digest():

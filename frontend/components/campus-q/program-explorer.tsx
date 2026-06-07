@@ -725,11 +725,9 @@ export function ProgramExplorer() {
           </button>
           <button
             onClick={() => setTab("plan")}
-            disabled={!hasPlan && !loading}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-              tab === "plan" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
-              !hasPlan && !loading && "opacity-40 cursor-not-allowed"
+              tab === "plan" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
             <Map className="size-3.5" /> My Plan
@@ -761,12 +759,20 @@ export function ProgramExplorer() {
         )}
 
         {/* My Plan tab */}
-        {tab === "plan" && hasPlan && (
-          <DegreePlan slug={planSlug} variant={planVariant} />
-        )}
-        {tab === "plan" && !hasPlan && loading && (
-          <div className="flex items-center gap-2.5 text-muted-foreground py-12 justify-center text-sm">
-            <Loader2 className="size-4 animate-spin" /> Loading…
+        {tab === "plan" && (
+          <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+            <div className="size-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Map className="size-7 text-primary/60" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">My Plan is coming soon</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-[220px] leading-relaxed">
+                An interactive degree map where you track completed courses and see what unlocks next.
+              </p>
+            </div>
+            <span className="text-[10px] font-semibold uppercase tracking-widest px-2.5 py-1 rounded-full bg-primary/10 text-primary/70">
+              In development
+            </span>
           </div>
         )}
       </div>

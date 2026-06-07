@@ -838,26 +838,24 @@ async def chat_stream(
                             m.score = min(1.0, m.score + 0.25)
                     all_matches.extend(ns_results.matches)
 
-            # Direct schedule fetch: guarantee course+term vector is included.
-            # Always fetch all three terms so we can answer cross-term questions
-            # (e.g. "offered in Fall?" → context shows Winter 2027 instead).
+            # Metadata-filtered schedule fetch: find this course in all terms it exists in.
             if is_schedule_query and course_matches:
-                _term_slugs = ["F26", "W27", "SU26"]
-                _fetch_ids = []
+                _existing_ids = {m.id for m in all_matches}
                 for dept, num in course_matches:
-                    code_slug = re.sub(r"[^A-Z0-9]", "", f"{dept}{num}".upper())
-                    for slug in _term_slugs:
-                        _fetch_ids.append(f"{code_slug}_{slug}")
-                if _fetch_ids:
+                    _code = f"{dept.upper()} {num}"
                     try:
-                        _fetched = index.fetch(ids=_fetch_ids, namespace="schedule")
-                        _existing_ids = {m.id for m in all_matches}
-                        for vec_id, vec in _fetched.vectors.items():
-                            if vec_id not in _existing_ids:
-                                class _FakeMatch:
-                                    def __init__(self, id, score, metadata):
-                                        self.id = id; self.score = score; self.metadata = metadata
-                                all_matches.append(_FakeMatch(vec_id, 0.85, vec.metadata))
+                        _sched = index.query(
+                            vector=query_embedding,
+                            top_k=10,
+                            include_metadata=True,
+                            namespace="schedule",
+                            filter={"course_code": {"$eq": _code}},
+                        )
+                        for m in _sched.matches:
+                            if m.id not in _existing_ids:
+                                m.score = max(m.score, 0.85)
+                                all_matches.append(m)
+                                _existing_ids.add(m.id)
                     except Exception:
                         pass
 

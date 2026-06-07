@@ -1,13 +1,16 @@
 "use client"
 
 import * as React from "react"
-import { ArrowUp, ArrowDown, Minus, RefreshCw, AlertTriangle, ThumbsDown, Loader2 } from "lucide-react"
+import { ArrowUp, ArrowDown, Minus, RefreshCw, AlertTriangle, ThumbsDown, Loader2, MessageSquare } from "lucide-react"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 interface IntentRow { intent: string; label: string; count: number; example: string; trend: "up" | "down" | "flat"; prev_count: number }
 interface UnansweredGroup { theme: string; count: number; examples: string[] }
 interface NegativeItem { question: string; answer: string; department: string }
+interface TopQuestion { question: string; count: number }
+interface DailyPoint { date: string; queries: number }
+
 const TIMEFRAMES = [
   { label: "Last 24 hours", days: 1   },
   { label: "Last week",     days: 7   },
@@ -28,15 +31,46 @@ interface DashboardData {
     thumbs_down: number
     top_department: string
   }
+  retention: {
+    daily_trend: DailyPoint[]
+  }
   intents: IntentRow[]
+  top_questions: TopQuestion[]
   unanswered: UnansweredGroup[]
   negative_feedback: NegativeItem[]
 }
 
 function Trend({ t }: { t: "up" | "down" | "flat" }) {
-  if (t === "up")   return <ArrowUp className="size-3 text-emerald-600" />
-  if (t === "down") return <ArrowDown className="size-3 text-red-500" />
-  return <Minus className="size-3 text-zinc-400" />
+  if (t === "up")   return <ArrowUp className="size-3 text-emerald-500" />
+  if (t === "down") return <ArrowDown className="size-3 text-red-400" />
+  return <Minus className="size-3 text-zinc-300" />
+}
+
+function MiniBarChart({ data }: { data: DailyPoint[] }) {
+  if (!data || data.length === 0) return (
+    <p className="text-xs text-zinc-400 text-center py-6">No trend data yet.</p>
+  )
+  const max = Math.max(...data.map(d => d.queries), 1)
+  return (
+    <div className="flex items-end gap-1 h-16 w-full">
+      {data.map((d) => {
+        const pct = d.queries / max
+        const date = new Date(d.date)
+        const label = date.toLocaleDateString("en-CA", { month: "short", day: "numeric" })
+        return (
+          <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group relative">
+            <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-zinc-900 text-white text-[10px] rounded px-1.5 py-0.5 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+              {label}: {d.queries}
+            </div>
+            <div
+              className="w-full rounded-sm bg-zinc-900 transition-all duration-300"
+              style={{ height: `${Math.max(pct * 100, 4)}%` }}
+            />
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 export default function DashboardPage() {
@@ -89,12 +123,15 @@ export default function DashboardPage() {
 
   if (!data) return null
   const s = data.snapshot
+  const trend = data.retention?.daily_trend ?? []
 
-  const STATS = [
-    { label: "Questions this week", value: s.total_questions.toLocaleString(), sub: "across all students" },
-    { label: "Helpfulness rate",    value: s.accuracy !== null ? `${s.accuracy}%` : "—", sub: s.accuracy !== null ? `${s.thumbs_up}👍 ${s.thumbs_down}👎` : "no ratings yet" },
-    { label: "Top department",      value: s.top_department, sub: "by question volume" },
-  ]
+  // Headline insight
+  const headlineAccuracy = s.accuracy !== null ? `${s.accuracy}% of answers rated helpful` : null
+  const headlineParts = [
+    `${s.total_questions.toLocaleString()} questions asked`,
+    headlineAccuracy,
+    s.top_department !== "—" ? `most from ${s.top_department}` : null,
+  ].filter(Boolean).join(" · ")
 
   return (
     <div className="min-h-screen bg-[#F7F5F0] text-zinc-900">
@@ -107,7 +144,6 @@ export default function DashboardPage() {
             <p className="text-sm text-zinc-500 mt-0.5">Anonymized · aggregated student data</p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Timeframe dropdown */}
             <div className="relative">
               <select
                 value={selectedDays}
@@ -133,9 +169,19 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Section 1 — Snapshot */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-10">
-          {STATS.map((st) => (
+        {/* Headline insight */}
+        <div className="bg-zinc-900 text-white rounded-2xl px-6 py-5 mb-6">
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-1">Summary</p>
+          <p className="text-base font-medium leading-snug">{headlineParts || "No data yet for this period."}</p>
+        </div>
+
+        {/* Stat cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+          {[
+            { label: "Questions asked", value: s.total_questions.toLocaleString(), sub: selectedDays === 0 ? "all time" : `last ${selectedDays === 1 ? "24 hours" : `${selectedDays} days`}` },
+            { label: "Helpfulness rate", value: s.accuracy !== null ? `${s.accuracy}%` : "—", sub: s.accuracy !== null ? `${s.thumbs_up} up · ${s.thumbs_down} down` : "no ratings yet" },
+            { label: "Top department", value: s.top_department, sub: "by question volume" },
+          ].map((st) => (
             <div key={st.label} className="bg-white border border-zinc-200 rounded-2xl p-5">
               <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400 mb-2">{st.label}</p>
               <p className="text-2xl font-bold text-zinc-900 leading-none truncate">{st.value}</p>
@@ -144,11 +190,41 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Section 2 — What students are asking */}
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">What students are asking</h2>
-        <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden mb-10">
+        {/* Daily trend graph */}
+        {trend.length > 0 && (
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 mb-6">
+            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-4">Daily activity</p>
+            <MiniBarChart data={trend} />
+            <div className="flex justify-between mt-2">
+              <span className="text-[10px] text-zinc-300">{trend[0]?.date}</span>
+              <span className="text-[10px] text-zinc-300">{trend[trend.length - 1]?.date}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Top 5 questions */}
+        {data.top_questions?.length > 0 && (
+          <>
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">Top questions from students</h2>
+            <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden mb-6">
+              {data.top_questions.map((q, i) => (
+                <div key={i} className={`flex items-start gap-3 px-5 py-3.5 ${i < data.top_questions.length - 1 ? "border-b border-zinc-100" : ""}`}>
+                  <MessageSquare className="size-3.5 text-zinc-300 mt-0.5 shrink-0" />
+                  <p className="flex-1 text-sm text-zinc-700 leading-snug">"{q.question}"</p>
+                  {q.count > 1 && (
+                    <span className="text-xs text-zinc-400 shrink-0">×{q.count}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* What students are asking by category */}
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">Questions by category</h2>
+        <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden mb-6">
           {data.intents.length === 0 ? (
-            <p className="text-sm text-zinc-400 p-6 text-center">No questions logged this week yet.</p>
+            <p className="text-sm text-zinc-400 p-6 text-center">No questions logged for this period.</p>
           ) : data.intents.map((r, i) => (
             <div key={r.intent} className={`flex items-center gap-4 px-5 py-3.5 ${i < data.intents.length - 1 ? "border-b border-zinc-100" : ""}`}>
               <div className="flex-1 min-w-0">
@@ -156,25 +232,23 @@ export default function DashboardPage() {
                   <span className="text-sm font-medium text-zinc-900">{r.label}</span>
                   <Trend t={r.trend} />
                 </div>
-                {r.example && <p className="text-xs text-zinc-400 truncate mt-0.5">“{r.example}”</p>}
+                {r.example && <p className="text-xs text-zinc-400 truncate mt-0.5">e.g. "{r.example}"</p>}
               </div>
               <span className="text-lg font-bold text-zinc-900 tabular-nums shrink-0">{r.count}</span>
             </div>
           ))}
         </div>
 
-        {/* Section 3 — Where CampusQ is failing */}
+        {/* Where CampusQ is failing */}
         <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-3">Where CampusQ is failing</h2>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-10">
-          {/* Unanswered */}
           <div className="bg-white border border-zinc-200 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle className="size-3.5 text-amber-500" />
               <p className="text-sm font-semibold text-zinc-900">Unanswered questions</p>
             </div>
             {data.unanswered.length === 0 ? (
-              <p className="text-xs text-zinc-400">No gaps this week — every question found an answer.</p>
+              <p className="text-xs text-zinc-400">No gaps — every question found an answer.</p>
             ) : (
               <div className="space-y-3">
                 {data.unanswered.map((g) => (
@@ -189,14 +263,13 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Negative feedback */}
           <div className="bg-white border border-zinc-200 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-3">
               <ThumbsDown className="size-3.5 text-red-400" />
               <p className="text-sm font-semibold text-zinc-900">Thumbs-down answers</p>
             </div>
             {data.negative_feedback.length === 0 ? (
-              <p className="text-xs text-zinc-400">No negative feedback this week.</p>
+              <p className="text-xs text-zinc-400">No negative feedback this period.</p>
             ) : (
               <div className="space-y-3">
                 {data.negative_feedback.map((n, i) => (

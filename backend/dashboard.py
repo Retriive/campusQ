@@ -160,6 +160,22 @@ def build_dashboard_data(log_dir: str, days: int | None = 7) -> dict:
         for theme, qs in sorted(unanswered_groups.items(), key=lambda kv: -len(kv[1]))
     ]
 
+    # ── Section 3c: top 5 verbatim questions ──
+    # Filter out junk (< 6 chars, no spaces for single-word gibberish)
+    JUNK_RE = re.compile(r'^[a-z]{1,5}$|^[^a-zA-Z]+$', re.IGNORECASE)
+    real_queries = [
+        q.get("query", "").strip()
+        for q in this_week
+        if q.get("query") and len(q.get("query", "").strip()) >= 8
+        and not JUNK_RE.match(q.get("query", "").strip())
+        and q.get("had_context")
+    ]
+    top_questions_counter = Counter(real_queries)
+    top_questions = [
+        {"question": q[:200], "count": c}
+        for q, c in top_questions_counter.most_common(5)
+    ]
+
     # ── Section 3b: negative feedback ──
     negative = [
         {
@@ -225,6 +241,7 @@ def build_dashboard_data(log_dir: str, days: int | None = 7) -> dict:
             "daily_trend": daily_trend,
         },
         "intents": intent_rows,
+        "top_questions": top_questions,
         "unanswered": unanswered,
         "negative_feedback": negative,
     }

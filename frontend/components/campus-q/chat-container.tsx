@@ -468,6 +468,7 @@ export function ChatContainer() {
           currentSessionId={currentSessionId}
           onSelectSession={handleSelectSession}
           onDeleteSession={handleDeleteSession}
+          onRenameSession={handleRenameSession}
           onOpenFeedback={() => setShowFeedback(true)}
         />
       </div>

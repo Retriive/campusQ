@@ -578,7 +578,7 @@ async def chat_endpoint(
         is_schedule_query = any(kw in _q_lower for kw in [
             "open", "closed", "available", "offered", "offering",
             "section", "crn", "waitlist", "full",
-            "who teaches", "who is teaching", "instructor", "professor",
+            "who teaches", "who is teaching", "instructor", "professor", "prof", "who is teaching", "taught by", "who teach",
             "when is", "what time", "what day", "what days", "which day",
             "schedule", "meets", "meeting",
             "what semester", "what term", "which semester", "which term",
@@ -865,7 +865,7 @@ async def chat_stream(
             is_schedule_query = any(kw in _q_lower for kw in [
                 "open", "closed", "available", "offered", "offering",
                 "section", "crn", "waitlist", "full",
-                "who teaches", "who is teaching", "instructor", "professor",
+                "who teaches", "who is teaching", "instructor", "professor", "prof", "who is teaching", "taught by", "who teach",
                 "when is", "what time", "what day", "what days", "which day",
                 "schedule", "meets", "meeting",
                 "what semester", "what term", "which semester", "which term",

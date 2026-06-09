@@ -10,10 +10,10 @@ interface EmptyStateProps {
 }
 
 const QUICK_ASKS = [
-  "How do I book a study room?",
-  "When is the last day to drop a course this fall?",
-  "How do I apply for OSAP?",
-  "What does WDN mean on my transcript?",
+  "What's the difference between software eng and CS at Carleton?",
+  "Can I take COMP 3000 without COMP 2401?",
+  "What happens if I fail a required course twice?",
+  "Is COMP 1405 or COMP 1005 better to start with?",
 ]
 
 export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps) {

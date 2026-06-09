@@ -804,35 +804,21 @@ async def chat_stream(
         except Exception:
             pass
 
-    # Keywords that indicate the user is asking a question *about* courses,
-    # not just looking them up. These queries need a full AI answer.
-    QUESTION_INDICATORS = [
-        "can i", "should i", "do i need", "will i", "is it", "are there",
-        "difference between", "compare", "better", "which is", "or ", "without",
-        "how ", "why ", "what happens", "explain", "tell me",
-        "prerequisite", "require", "needed for", "before taking", "instead of",
-        "vs ", "versus", "substitute", "count toward", "count for",
-        "transfer", "equivalent", "replace", "satisfy",
-        # Schedule/availability questions — need RAG, not course cards
-        "who teaches", "who is teaching", "instructor", "professor",
-        "open", "closed", "available", "offered", "offering", "waitlist",
-        "section", "crn", "what time", "when is", "what day", "what days",
-        "which day", "meets", "meeting", "schedule",
-        "what semester", "what term", "which semester", "which term",
-        "fall 2026", "winter 2027", "summer 2026",
-    ]
+    # Patterns that indicate the user wants course details directly (pill cards shown)
+    DIRECT_LOOKUP_PATTERNS = re.compile(
+        r'^(what is|what\'s|tell me about|describe|show me|info on|information on|details (on|about)|look up|lookup)\s+[a-zA-Z]{4}\s*\d{4}',
+        re.IGNORECASE
+    )
 
     async def generate():
         _TERM_WORDS = {"fall", "term", "year", "from", "this", "last", "next", "that", "what", "when", "with", "they", "them", "into", "will", "have", "been", "also", "than", "then", "each", "more", "does", "over", "just", "some", "only", "even", "such"}
         course_matches = [(d, n) for d, n in re.findall(r'([a-zA-Z]{4})\s*(\d{4})', user_query, re.IGNORECASE) if d.lower() not in _TERM_WORDS]
 
-        # Determine whether this is a question that mentions courses (needs AI answer)
-        # or a pure course lookup (fast card path is sufficient)
-        query_lower = user_query.lower()
-        is_question_about_courses = any(ind in query_lower for ind in QUESTION_INDICATORS)
+        # Only show pill cards when user is directly asking for course details
+        is_direct_lookup = bool(DIRECT_LOOKUP_PATTERNS.match(user_query.strip()))
 
+        structured_courses = []
         if course_matches:
-            structured_courses = []
             missed_codes = []
             seen_codes = set()
 
@@ -856,24 +842,7 @@ async def chat_stream(
                     print(f"Stream interceptor error: {e}")
                     missed_codes.append(clean_code)
 
-            # Pure lookup (e.g. "What is COMP 1005?") — fast card path, no AI needed
-            if structured_courses and not is_question_about_courses:
-                ms = int((time.time() - t_start) * 1000)
-                log_query(
-                    query=user_query,
-                    query_type="stream_course",
-                    chunks_retrieved=len(structured_courses),
-                    top_score=None,
-                    course_codes_found=[c["courseCode"] for c in structured_courses],
-                    response_ms=ms,
-                    had_context=True,
-                    user_id=user_id,
-                )
-                yield f"data: {json.dumps({'type': 'courses', 'data': structured_courses})}\n\n"
-                yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                return
-
-            # Question about courses — fall through to RAG, attach cards at end
+        # Always fall through to RAG/AI
 
         try:
             search_query = rewrite_query_for_embedding(user_query)
@@ -1031,9 +1000,8 @@ CONTEXT:
                     content = chunk.choices[0].delta.content
                     yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
 
-            # Emit course cards as supplementary (for question-about-courses path)
-            # Skip cards for schedule/availability queries — the answer is the schedule data
-            if course_matches and structured_courses and is_question_about_courses and not is_schedule_query:
+            # Emit pill cards only for direct lookups ("what is COMP 1005")
+            if structured_courses and is_direct_lookup and not is_schedule_query:
                 yield f"data: {json.dumps({'type': 'courses', 'data': structured_courses})}\n\n"
 
             # Emit sources

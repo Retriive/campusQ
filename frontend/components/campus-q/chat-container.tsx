@@ -4,7 +4,7 @@ import * as React from "react"
 import { track } from "@vercel/analytics"
 import { useUser } from "@clerk/nextjs"
 import { cn } from "@/lib/utils"
-import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2 as BarChart2Icon, Calculator as CalculatorIcon, CalendarDays as CalendarDaysIcon, PenLine, Trash2 } from "lucide-react"
+import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2 as BarChart2Icon, Calculator as CalculatorIcon, CalendarDays as CalendarDaysIcon, PenLine, Trash2, Pencil, Check, X } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Header } from "./header"
 import { Sidebar, type View, type ChatSession } from "./sidebar"
@@ -69,6 +69,90 @@ function getSuggestions(message: Message, courseCodes: string[]): Suggestion[] {
 function extractCourseCodes(text: string): string[] {
   const matches = text.match(/\b[A-Z]{4}\s*\d{4}\b/g) || []
   return [...new Set(matches.map((m) => m.replace(/\s+/, " ").trim()))]
+}
+
+function MobileSessionList({
+  sessions,
+  currentSessionId,
+  onSelect,
+  onDelete,
+  onRename,
+}: {
+  sessions: ChatSession[]
+  currentSessionId: string
+  onSelect: (id: string) => void
+  onDelete: (id: string) => void
+  onRename: (id: string, title: string) => void
+}) {
+  const [renamingId, setRenamingId] = React.useState<string | null>(null)
+  const [renameValue, setRenameValue] = React.useState("")
+
+  const startRename = (id: string, currentTitle: string) => {
+    setRenamingId(id)
+    setRenameValue(currentTitle)
+  }
+
+  const commitRename = () => {
+    if (renamingId) onRename(renamingId, renameValue)
+    setRenamingId(null)
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto px-3 pb-4">
+      {sessions.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center pt-6">No past chats yet</p>
+      ) : (
+        <div className="space-y-0.5">
+          {sessions.map((session) => (
+            <div key={session.id} className={cn(
+              "flex items-center gap-1 rounded-lg px-1 py-1 transition-colors",
+              currentSessionId === session.id ? "bg-secondary" : "hover:bg-secondary/50"
+            )}>
+              {renamingId === session.id ? (
+                <>
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null) }}
+                    className="flex-1 bg-background border border-border rounded px-2 py-1 text-xs outline-none"
+                  />
+                  <button onClick={commitRename} className="p-1 text-primary rounded">
+                    <Check className="size-3.5" />
+                  </button>
+                  <button onClick={() => setRenamingId(null)} className="p-1 text-muted-foreground rounded">
+                    <X className="size-3.5" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => onSelect(session.id)}
+                    className="flex-1 text-left px-1.5 py-1 text-xs truncate text-muted-foreground data-[active=true]:text-foreground"
+                    data-active={currentSessionId === session.id}
+                  >
+                    {session.title}
+                  </button>
+                  <button
+                    onClick={() => startRename(session.id, session.title)}
+                    className="p-1 text-muted-foreground/40 hover:text-foreground transition-colors rounded shrink-0"
+                  >
+                    <Pencil className="size-3" />
+                  </button>
+                  <button
+                    onClick={() => onDelete(session.id)}
+                    className="p-1 text-muted-foreground/40 hover:text-red-400 transition-colors rounded shrink-0"
+                  >
+                    <Trash2 className="size-3" />
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function CoursePills({
@@ -191,6 +275,12 @@ export function ChatContainer() {
     setMessages(msgs)
     setCurrentSessionId(id)
     setCurrentView("chat")
+  }
+
+  const handleRenameSession = (id: string, newTitle: string) => {
+    const trimmed = newTitle.trim()
+    if (!trimmed) return
+    persistSessions(sessions.map((s) => s.id === id ? { ...s, title: trimmed } : s))
   }
 
   const handleDeleteSession = (id: string) => {
@@ -532,35 +622,13 @@ export function ChatContainer() {
               <span>New Chat</span>
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-3 pb-4">
-            {sessions.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center pt-6">No past chats yet</p>
-            ) : (
-              <div className="space-y-0.5">
-                {sessions.map((session) => (
-                  <div key={session.id} className="relative group flex items-center">
-                    <button
-                      onClick={() => { handleSelectSession(session.id); setShowHistory(false) }}
-                      className={cn(
-                        "flex-1 text-left px-2.5 py-2 rounded-lg text-xs transition-colors pr-8",
-                        currentSessionId === session.id
-                          ? "bg-secondary text-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-                      )}
-                    >
-                      <span className="truncate block">{session.title}</span>
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id) }}
-                      className="absolute right-1.5 p-1 text-muted-foreground/40 hover:text-red-400 transition-colors rounded opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 className="size-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <MobileSessionList
+            sessions={sessions}
+            currentSessionId={currentSessionId}
+            onSelect={(id) => { handleSelectSession(id); setShowHistory(false) }}
+            onDelete={handleDeleteSession}
+            onRename={handleRenameSession}
+          />
         </SheetContent>
       </Sheet>
 

@@ -935,7 +935,7 @@ async def chat_stream(
                 for c in structured_courses:
                     course_context += f"{c['courseCode']} — {c['courseName']} [{c['credits']} credits]\n"
                     course_context += f"Description: {c['description']}\n"
-                    prereqs = ", ".join(c['prerequisites']) if c['prerequisites'] else "None"
+                    prereqs = c.get('prerequisiteText') or (", ".join(c['prerequisites']) if c['prerequisites'] else "None")
                     course_context += f"Prerequisites: {prereqs}\n\n"
                 context_text = course_context + context_text
 

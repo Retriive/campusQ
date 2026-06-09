@@ -29,6 +29,7 @@ interface CourseCardData {
   credits: number
   description: string
   prerequisites: string[]
+  prerequisiteText?: string
 }
 
 interface Source {

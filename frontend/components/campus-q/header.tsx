@@ -1,6 +1,6 @@
 "use client"
 
-import { Moon, Sun } from "lucide-react"
+import { Moon, Sun, History } from "lucide-react"
 import { SignUpButton, UserButton, useUser } from "@clerk/nextjs"
 import { useCampus } from "./campus-context"
 import { cn } from "@/lib/utils"
@@ -8,9 +8,10 @@ import { cn } from "@/lib/utils"
 interface HeaderProps {
   isDark: boolean
   onToggleDark: () => void
+  onOpenHistory?: () => void
 }
 
-export function Header({ isDark, onToggleDark }: HeaderProps) {
+export function Header({ isDark, onToggleDark, onOpenHistory }: HeaderProps) {
   const { theme } = useCampus()
   const { isSignedIn, isLoaded } = useUser()
 
@@ -38,6 +39,15 @@ export function Header({ isDark, onToggleDark }: HeaderProps) {
 
       {/* Actions */}
       <div className="flex items-center gap-1">
+        {onOpenHistory && (
+          <button
+            onClick={onOpenHistory}
+            className="md:hidden size-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            aria-label="Chat history"
+          >
+            <History className="size-3.5" />
+          </button>
+        )}
         <button
           onClick={onToggleDark}
           className="size-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"

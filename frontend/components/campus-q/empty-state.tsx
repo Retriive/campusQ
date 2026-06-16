@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart2, BookOpen, Calculator, CalendarDays, GitBranch, ShieldAlert, GraduationCap, Lightbulb } from "lucide-react"
+import { BarChart2, BookOpen, CalendarDays, GitBranch, ShieldAlert, GraduationCap, Lightbulb } from "lucide-react"
 import { useCampus, campusThemes } from "./campus-context"
 import { cn } from "@/lib/utils"
 
@@ -71,12 +71,6 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
             label: "Compare",
             sub: "Side-by-side course comparison",
             action: "compare",
-          },
-          {
-            icon: Calculator,
-            label: "GPA",
-            sub: "Calculate with what-if scenarios",
-            action: "gpa",
           },
           {
             icon: CalendarDays,

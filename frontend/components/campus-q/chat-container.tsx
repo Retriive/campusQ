@@ -4,7 +4,7 @@ import * as React from "react"
 import { track } from "@vercel/analytics"
 import { useUser } from "@clerk/nextjs"
 import { cn } from "@/lib/utils"
-import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2 as BarChart2Icon, Calculator as CalculatorIcon, CalendarDays as CalendarDaysIcon, PenLine, Trash2, Pencil, Check, X } from "lucide-react"
+import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2 as BarChart2Icon, CalendarDays as CalendarDaysIcon, PenLine, Trash2, Pencil, Check, X } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Header } from "./header"
 import { Sidebar, type View, type ChatSession } from "./sidebar"
@@ -16,7 +16,6 @@ import { FeedbackModal } from "./feedback-modal"
 import { PrereqVisualizer } from "./prereq-visualizer"
 import { CourseCompare } from "./course-compare"
 import { ProgramExplorer } from "./program-explorer"
-import { GpaCalculator } from "./gpa-calculator"
 import { DeadlineTracker } from "./deadline-tracker"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -443,7 +442,6 @@ export function ChatContainer() {
   const renderView = () => {
     if (currentView === "programs")  return <ProgramExplorer />
     if (currentView === "compare")   return <CourseCompare />
-    if (currentView === "gpa")       return <GpaCalculator />
     if (currentView === "deadlines") return <DeadlineTracker onAsk={(q) => { setCurrentView("chat"); handleSubmit(q) }} />
     return null
   }
@@ -575,7 +573,6 @@ export function ChatContainer() {
         <nav className="md:hidden flex items-center justify-around border-t border-border/40 bg-card safe-area-pb px-2">
           {[
             { view: "programs"  as View, label: "Programs",  Icon: BookOpenIcon       },
-            { view: "gpa"       as View, label: "GPA",       Icon: CalculatorIcon     },
             { view: "chat"      as View, label: "Chat",      Icon: MessageSquareIcon  },
             { view: "compare"   as View, label: "Compare",   Icon: BarChart2Icon      },
             { view: "deadlines" as View, label: "Dates",     Icon: CalendarDaysIcon   },

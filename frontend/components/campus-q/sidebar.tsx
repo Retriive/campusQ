@@ -10,7 +10,6 @@ import {
   MessageSquare,
   BookOpen,
   BarChart2,
-  Calculator,
   CalendarDays,
   Info,
   Clock,
@@ -23,7 +22,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useCampus } from "./campus-context"
 
-export type View = "chat" | "programs" | "compare" | "gpa" | "deadlines"
+export type View = "chat" | "programs" | "compare" | "deadlines"
 
 export interface ChatSession {
   id: string
@@ -49,7 +48,6 @@ const NAV_ITEMS: { view: View; icon: React.ElementType; label: string }[] = [
   { view: "chat",      icon: MessageSquare, label: "Chat"           },
   { view: "programs",  icon: BookOpen,      label: "Programs"       },
   { view: "compare",   icon: BarChart2,     label: "Compare"        },
-  { view: "gpa",       icon: Calculator,    label: "GPA Calculator" },
   { view: "deadlines", icon: CalendarDays,  label: "Deadlines"      },
 ]
 

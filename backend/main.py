@@ -1083,7 +1083,7 @@ async def waitlist_endpoint(
 
 
 # ── Advisor Dashboard (read-only, anonymized — open access) ───────────────────
-from dashboard import build_dashboard_data, build_digest_text
+from dashboard import build_dashboard_data, build_digest_text, build_waitlist_data
 
 @app.get("/api/dashboard")
 async def dashboard_data(days: int | None = 7):
@@ -1094,3 +1094,8 @@ async def dashboard_data(days: int | None = 7):
 @app.get("/api/dashboard/digest")
 async def dashboard_digest():
     return {"ok": True, "digest": build_digest_text(LOG_DIR)}
+
+@app.get("/api/dashboard/waitlist")
+async def dashboard_waitlist(days: int | None = 30):
+    d = None if days == 0 else days
+    return {"ok": True, "data": build_waitlist_data(LOG_DIR, days=d)}

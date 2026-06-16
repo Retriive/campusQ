@@ -246,6 +246,35 @@ def build_dashboard_data(log_dir: str, days: int | None = 7) -> dict:
     }
 
 
+# ── Waitlist signups (multi-university landing pages) ─────────────────────────
+def build_waitlist_data(log_dir: str, days: int | None = 30) -> dict:
+    """days=None means all-time."""
+    now = datetime.utcnow()
+    window_start = datetime(2000, 1, 1) if days is None else now - timedelta(days=days)
+
+    rows = _read_jsonl(os.path.join(log_dir, "waitlist.log"))
+    in_window = [r for r in rows if _in_window(r, window_start, now)]
+
+    by_school = Counter(r.get("school", "unknown") for r in in_window)
+    school_rows = [
+        {"school": school, "count": count}
+        for school, count in by_school.most_common()
+    ]
+
+    recent = sorted(in_window, key=lambda r: r.get("ts", ""), reverse=True)[:50]
+    recent_rows = [
+        {"email": r.get("email", ""), "school": r.get("school", ""), "ts": r.get("ts", "")}
+        for r in recent
+    ]
+
+    return {
+        "generated_at": now.isoformat(),
+        "total": len(in_window),
+        "by_school": school_rows,
+        "recent": recent_rows,
+    }
+
+
 # ── Plain-text weekly digest (reused by the email script) ─────────────────────
 def build_digest_text(log_dir: str) -> str:
     d = build_dashboard_data(log_dir)

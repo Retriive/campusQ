@@ -9,6 +9,7 @@ from retrieval import (
     RankedChunk,
     detect_query_flags,
     is_program_related_query,
+    is_software_eng_vs_cs_comparison,
     namespaces_for_query,
     rerank_chunks,
 )
@@ -30,6 +31,11 @@ def test_action_query_detected():
     flags = detect_query_flags("How do I drop COMP 2402?")
     assert flags.is_action_query
     assert flags.is_deadline_query
+
+
+def test_software_eng_vs_cs_comparison_detected():
+    q = "What's the difference between software eng and CS at Carleton?"
+    assert is_software_eng_vs_cs_comparison(q)
 
 
 def test_rerank_short_circuit():

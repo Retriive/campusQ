@@ -107,6 +107,7 @@ Copy this for every production deploy:
 
 ## Links
 
+- **[How we work on the codebase](HOW_WE_WORK.md)** — rules for cofounders & contributors
 - [How to run tests](QUALITY_GATE.md)
 - [How to set up locally](GETTING_STARTED.md)
 - [How the AI works](HOW_THE_AI_WORKS.md)

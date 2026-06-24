@@ -137,3 +137,4 @@ Scripts that pull Carleton data into Pinecone:
 | [HOW_THE_AI_WORKS.md](HOW_THE_AI_WORKS.md) | Understanding the pipeline |
 | [QUALITY_GATE.md](QUALITY_GATE.md) | Testing before deploy |
 | [TEAM_RULES.md](TEAM_RULES.md) | Ship / no-ship policy |
+| [HOW_WE_WORK.md](HOW_WE_WORK.md) | Contribution rules for the team |

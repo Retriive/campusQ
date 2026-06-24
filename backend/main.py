@@ -90,6 +90,42 @@ def classify_intent(query: str) -> str:
     return "general"
 
 
+ACE_GOOD_STANDING_CONTEXT = """[Authoritative — ACE minimum Overall CGPA for good standing (Eligible to Continue)]
+
+Honours programs:
+- Fewer than 5.5 credits completed: Overall CGPA 4.00
+- 5.5 credits or more completed: Overall CGPA 5.00
+- 15.5+ credits completed: also Major CGPA 6.50
+
+Engineering programs: Overall CGPA 5.00 at all credit levels.
+
+15-credit and 20-credit non-honours programs: Overall CGPA 4.00."""
+
+
+def is_ace_good_standing_query(query: str) -> bool:
+    q = query.lower()
+    if any(k in q for k in ("good standing", "eligible to continue", "academic standing")):
+        return any(k in q for k in ("cgpa", "gpa", "minimum", "ace", "threshold"))
+    return any(
+        k in q
+        for k in (
+            "minimum cgpa",
+            "cgpa for good",
+            "cgpa to stay",
+            "cgpa to remain",
+            "what cgpa do i need",
+        )
+    )
+
+
+def prepend_ace_good_standing_context(context_text: str, query: str) -> str:
+    if not is_ace_good_standing_query(query):
+        return context_text
+    if context_text:
+        return f"{ACE_GOOD_STANDING_CONTEXT}\n\n{context_text}"
+    return ACE_GOOD_STANDING_CONTEXT
+
+
 def detect_department(query: str, course_codes: list[str]) -> str:
     """Best-effort subject/department for analytics."""
     if course_codes:
@@ -367,11 +403,11 @@ For drop, withdraw, register, or add-course questions:
 
 ACE / GOOD STANDING / MINIMUM CGPA — IMPORTANT:
 For questions about minimum CGPA, good standing, or ACE thresholds:
-- Thresholds depend on program type AND credits completed — never answer with only "4.00".
-- Honours: Overall 4.00 if fewer than 5.5 credits; Overall 5.00 if 5.5+ credits (Major 6.50 at 15.5+).
+- Lead with the Honours credit-band rule: Overall 4.00 if fewer than 5.5 credits completed; Overall 5.00 if 5.5 credits or more.
+- Never open with "the minimum CGPA for good standing in most programs is 4.00" — that omits the 5.00 band.
 - Engineering: Overall 5.00 at all credit levels.
 - 15-credit and 20-credit non-honours: typically Overall 4.00.
-- If the student's program is unknown, explain the credit-band distinction (4.00 vs 5.00) and mention Engineering requires 5.00.
+- If the student's program is unknown, state the Honours 4.00 / 5.00 credit-band distinction first, then note Engineering requires 5.00 throughout.
 
 CLARIFYING QUESTIONS — IMPORTANT:
 Some questions are too vague to answer accurately without knowing the student's program. If the question is program-dependent and the student hasn't specified their program, ask ONE short clarifying question instead of guessing.
@@ -652,6 +688,7 @@ async def chat_endpoint(
         context_text, sources, chunks_used = build_context_and_citations(
             all_matches, is_program_query, SIMILARITY_THRESHOLD
         )
+        context_text = prepend_ace_good_standing_context(context_text, user_query)
 
         top_score = all_matches[0][0].score if all_matches else None
         print(f"RAG: {chunks_used} chunks passed threshold {SIMILARITY_THRESHOLD}")
@@ -819,6 +856,7 @@ async def chat_stream(
             context_text, sources_list, chunks_used = build_context_and_citations(
                 all_matches, is_program_query, SIMILARITY_THRESHOLD
             )
+            context_text = prepend_ace_good_standing_context(context_text, user_query)
             top_score = all_matches[0][0].score if all_matches else None
 
             # If course cards were fetched, add their data directly to context

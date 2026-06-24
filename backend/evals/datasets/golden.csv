@@ -1,7 +1,7 @@
 tier,id,category,question,grading_notes,must_contain,must_contain_any,must_not_contain,require_no_sources
 smoke,smoke-01,Prerequisites,Can I take COMP 3000 without COMP 2401?,Must state COMP 2401 is a prerequisite for COMP 3000 before taking COMP 3000.,COMP 2401|prerequisite,,,
 smoke,smoke-02,Registration,How do I drop COMP 2402?,"Must explain how to drop via Carleton Central registration. May mention deadlines but must not give only course metadata or a generic course description without registration steps.",,Carleton Central|registration|drop,,
-smoke,smoke-03,Regulations,What's the minimum CGPA for good standing?,Must state ACE/good standing CGPA thresholds (4.00 for mid-credit band and 5.00 for higher credits) or equivalent accurate regulation summary.,,CGPA|good standing|4.00|4.0|5.00|5.0,,
+smoke,smoke-03,Regulations,What's the minimum CGPA for good standing?,Must state ACE/good standing CGPA thresholds (4.00 for mid-credit band and 5.00 for higher credits) or equivalent accurate regulation summary.,4.00|5.00|5.5,CGPA|good standing,most programs at Carleton University is 4.00,
 smoke,smoke-04,Deadlines,Last day to withdraw from a fall course?,"Must give the Fall academic withdrawal deadline (approximately November 15, 2026 for full fall courses) or clearly state the fall withdrawal date from context.",,withdraw|November|Nov,,
 smoke,smoke-05,Programs,How many credits to graduate?,Must ask which program the student is in or explain that requirements vary by program instead of guessing a single number.,,,,
 smoke,smoke-06,Schedule,Who teaches SYSC 3110 in Fall 2026?,Must identify Safaa Bedawi as an instructor for SYSC 3110 in Fall 2026.,Safaa Bedawi,,ratemyprofessors|professor ratings,

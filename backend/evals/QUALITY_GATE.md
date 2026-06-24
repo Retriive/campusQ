@@ -110,3 +110,21 @@ GATE_THRESHOLDS = {
 ```
 
 Changing thresholds is a product decision — update this doc when you change them.
+
+## Retrieval / reranker (accuracy)
+
+RAG retrieval uses `backend/retrieval.py`:
+
+1. **Intent-based namespace boosts** — registration → registrar, deadlines → dates, etc.
+2. **Reranker** — retrieves ~30 chunks, reranks to top 10 before the LLM
+   - **Primary:** Cohere `rerank-english-v3.0` if `COHERE_API_KEY` is set
+   - **Fallback:** GPT-4o mini LLM rerank (uses existing `OPENAI_API_KEY`)
+
+Optional on Render/production:
+
+```bash
+COHERE_API_KEY=...
+```
+
+Cohere is cheaper and faster for reranking; the LLM fallback works without it.
+

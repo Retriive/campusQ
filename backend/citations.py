@@ -25,6 +25,9 @@ NAMESPACE_FALLBACK_URLS = {
 
 _BARE_DEPT_CODE = re.compile(r"^[A-Z]{3,4}$")
 
+_PROGRAM_CITATION_NS = frozenset({"programs", "courses", "regulations", "registrar"})
+_PROGRAM_CITATION_ORDER = {"programs": 0, "courses": 1, "regulations": 2, "registrar": 3}
+
 
 def chunk_passes_threshold(match, is_program_query: bool, threshold: float) -> bool:
     is_program_chunk = "program" in match.metadata or "section" in match.metadata
@@ -127,6 +130,7 @@ def citation_from_match(match, namespace: str = "") -> dict | None:
         "url": citation_url_from_metadata(meta, namespace),
         "title": title,
         "section": citation_section_from_metadata(meta, namespace),
+        "namespace": namespace,
     }
 
 
@@ -138,6 +142,7 @@ def citation_from_course(structured: dict, source_url: str = "") -> dict:
         "url": source_url or "https://calendar.carleton.ca/undergrad/courses/",
         "title": title,
         "section": "Carleton Course Calendar",
+        "namespace": "courses",
     }
 
 
@@ -153,6 +158,17 @@ def dedupe_citations(citations: list[dict], limit: int = 3) -> list[dict]:
         if len(out) >= limit:
             break
     return out
+
+
+def finalize_citations(citations: list[dict], is_program_query: bool, limit: int = 3) -> list[dict]:
+    """Drop irrelevant namespaces and rank program sources first."""
+    if is_program_query:
+        citations = [c for c in citations if c.get("namespace") in _PROGRAM_CITATION_NS]
+        citations.sort(key=lambda c: _PROGRAM_CITATION_ORDER.get(c.get("namespace", ""), 99))
+    cleaned = dedupe_citations(citations, limit)
+    for c in cleaned:
+        c.pop("namespace", None)
+    return cleaned
 
 
 def should_emit_citations(answer: str, chunks_used: int) -> bool:
@@ -185,4 +201,4 @@ def build_context_and_citations(
         if citation:
             citations.append(citation)
 
-    return context_text, dedupe_citations(citations), chunks_used
+    return context_text, finalize_citations(citations, is_program_query), chunks_used

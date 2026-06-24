@@ -20,9 +20,10 @@ import fitz  # PyMuPDF
 from citations import (
     build_context_and_citations,
     citation_from_course,
-    dedupe_citations,
+    finalize_citations,
     should_emit_citations,
 )
+from retrieval import retrieve_and_rerank
 
 load_dotenv()
 
@@ -358,6 +359,12 @@ RULES:
    - Course timetables/seat availability → Carleton Central Schedule Builder
    Keep the mention brief — one sentence, not a disclaimer paragraph. Don't repeat it if it was already mentioned earlier in the conversation for the same topic.
 
+ACTION QUESTIONS — IMPORTANT:
+For drop, withdraw, register, or add-course questions:
+- Explain the Carleton Central process from context.
+- If the student names a course but not a term (Fall/Winter/Summer), ask which term they mean before stating a specific deadline — deadlines differ by term and by drop vs withdraw.
+- Do not answer with only course catalog metadata.
+
 CLARIFYING QUESTIONS — IMPORTANT:
 Some questions are too vague to answer accurately without knowing the student's program. If the question is program-dependent and the student hasn't specified their program, ask ONE short clarifying question instead of guessing.
 
@@ -623,85 +630,16 @@ async def chat_endpoint(
             model="text-embedding-3-small",
         ).data[0].embedding
 
-        is_program_query = any(kw in user_query.lower() for kw in [
-            "program", "required courses", "year 1", "year 2", "year 3", "year 4",
-            "stream", "engineering", "bachelor", "degree requirements", "curriculum",
-            "what courses do i need", "courses for my", "courses in the"
-        ])
-
-        top_k_programs = 25 if is_program_query else 8
-        top_k_other = 5 if is_program_query else 8
-        keep_total = 30 if is_program_query else 10
-
-        _q_lower = user_query.lower()
-        is_schedule_query = any(kw in _q_lower for kw in [
-            "open", "closed", "available", "offered", "offering",
-            "section", "crn", "waitlist", "full",
-            "who teaches", "who is teaching", "instructor", "professor", "prof", "who is teaching", "taught by", "who teach",
-            "when is", "what time", "what day", "what days", "which day",
-            "schedule", "meets", "meeting",
-            "what semester", "what term", "which semester", "which term",
-            "fall 2026", "winter 2027", "summer 2026",
-            "f26", "w27", "su26",
-        ])
-        is_deadline_query = any(kw in _q_lower for kw in [
-            "last day", "deadline", "when is", "when does", "when do", "due date",
-            "withdraw", "withdrawal", "add", "drop", "refund", "payment",
-            "registration", "exam", "exams", "begin", "start", "end", "term begins",
-            "time ticket", "reading week", "break", "holiday", "closed",
-        ])
-
-        all_matches: list[tuple] = []
-        for ns in ["courses", "programs", "regulations", "registrar", "services", "dates", "tuition", "library", "facts", "schedule"]:
-            top_k = top_k_programs if ns == "programs" else top_k_other
-            if ns == "schedule" and is_schedule_query:
-                top_k = max(top_k, 15)
-            if ns == "dates" and is_deadline_query:
-                top_k = max(top_k, 15)
-            ns_results = index.query(
-                vector=query_embedding,
-                top_k=top_k,
-                include_metadata=True,
-                namespace=ns,
-            )
-            if ns_results.matches:
-                for m in ns_results.matches:
-                    if ns == "schedule" and is_schedule_query:
-                        m.score = min(1.0, m.score + 0.25)
-                    if ns == "dates" and is_deadline_query:
-                        m.score = min(1.0, m.score + 0.25)
-                all_matches.extend((m, ns) for m in ns_results.matches)
-
-        # Metadata-filtered schedule fetch: for schedule queries mentioning a course code,
-        # query the schedule namespace filtered by course_code to get all terms it exists in.
-        # This avoids hardcoding term slugs and works regardless of what terms are loaded.
-        if is_schedule_query and course_matches:
-            _existing_ids = {m.id for m, _ in all_matches}
-            for dept, num in course_matches:
-                _code = f"{dept.upper()} {num}"
-                try:
-                    _sched = index.query(
-                        vector=query_embedding,
-                        top_k=10,
-                        include_metadata=True,
-                        namespace="schedule",
-                        filter={"course_code": {"$eq": _code}},
-                    )
-                    for m in _sched.matches:
-                        if m.id not in _existing_ids:
-                            # Wrap in a simple object to avoid mutating frozen Pydantic ScoredVector
-                            class _SM:
-                                def __init__(self, src):
-                                    self.id = src.id
-                                    self.score = 0.85
-                                    self.metadata = src.metadata
-                            all_matches.append((_SM(m), "schedule"))
-                            _existing_ids.add(m.id)
-                except Exception as e:
-                    print(f"Schedule filter error: {e}")
-
-        all_matches.sort(key=lambda item: item[0].score, reverse=True)
-        all_matches = all_matches[:keep_total]
+        all_matches, query_flags = retrieve_and_rerank(
+            index=index,
+            user_query=user_query,
+            query_embedding=query_embedding,
+            intent=classify_intent(user_query),
+            course_matches=course_matches,
+            openai_client=openai_client,
+            chat_model=CHAT_MODEL,
+        )
+        is_program_query = query_flags.is_program_query
 
         context_text, sources, chunks_used = build_context_and_citations(
             all_matches, is_program_query, SIMILARITY_THRESHOLD
@@ -858,78 +796,17 @@ async def chat_stream(
                 model="text-embedding-3-small",
             ).data[0].embedding
 
-            is_program_query = any(kw in user_query.lower() for kw in [
-                "program", "required courses", "year 1", "year 2", "year 3", "year 4",
-                "stream", "engineering", "bachelor", "degree requirements", "curriculum",
-                "what courses do i need", "courses for my", "courses in the"
-            ])
-
-            top_k_programs = 25 if is_program_query else 8
-            top_k_other = 5 if is_program_query else 8
-            keep_total = 30 if is_program_query else 10
-
-            _q_lower = user_query.lower()
-            is_schedule_query = any(kw in _q_lower for kw in [
-                "open", "closed", "available", "offered", "offering",
-                "section", "crn", "waitlist", "full",
-                "who teaches", "who is teaching", "instructor", "professor", "prof", "who is teaching", "taught by", "who teach",
-                "when is", "what time", "what day", "what days", "which day",
-                "schedule", "meets", "meeting",
-                "what semester", "what term", "which semester", "which term",
-                "fall 2026", "winter 2027", "summer 2026",
-                "f26", "w27", "su26",
-            ])
-            is_deadline_query = any(kw in _q_lower for kw in [
-                "last day", "deadline", "when is", "when does", "when do", "due date",
-                "withdraw", "withdrawal", "add", "drop", "refund", "payment",
-                "registration", "exam", "exams", "begin", "start", "end", "term begins",
-                "time ticket", "reading week", "break", "holiday", "closed",
-            ])
-
-            all_matches: list[tuple] = []
-            for ns in ["courses", "programs", "regulations", "registrar", "services", "dates", "tuition", "library", "facts", "schedule"]:
-                top_k = top_k_programs if ns == "programs" else top_k_other
-                if ns == "schedule" and is_schedule_query:
-                    top_k = max(top_k, 15)
-                if ns == "dates" and is_deadline_query:
-                    top_k = max(top_k, 15)
-                ns_results = index.query(
-                    vector=query_embedding,
-                    top_k=top_k,
-                    include_metadata=True,
-                    namespace=ns,
-                )
-                if ns_results.matches:
-                    for m in ns_results.matches:
-                        if ns == "schedule" and is_schedule_query:
-                            m.score = min(1.0, m.score + 0.25)
-                        if ns == "dates" and is_deadline_query:
-                            m.score = min(1.0, m.score + 0.25)
-                    all_matches.extend((m, ns) for m in ns_results.matches)
-
-            # Metadata-filtered schedule fetch: find this course in all terms it exists in.
-            if is_schedule_query and course_matches:
-                _existing_ids = {m.id for m, _ in all_matches}
-                for dept, num in course_matches:
-                    _code = f"{dept.upper()} {num}"
-                    try:
-                        _sched = index.query(
-                            vector=query_embedding,
-                            top_k=10,
-                            include_metadata=True,
-                            namespace="schedule",
-                            filter={"course_code": {"$eq": _code}},
-                        )
-                        for m in _sched.matches:
-                            if m.id not in _existing_ids:
-                                m.score = max(m.score, 0.85)
-                                all_matches.append((m, "schedule"))
-                                _existing_ids.add(m.id)
-                    except Exception:
-                        pass
-
-            all_matches.sort(key=lambda item: item[0].score, reverse=True)
-            all_matches = all_matches[:keep_total]
+            all_matches, query_flags = retrieve_and_rerank(
+                index=index,
+                user_query=user_query,
+                query_embedding=query_embedding,
+                intent=classify_intent(user_query),
+                course_matches=course_matches,
+                openai_client=openai_client,
+                chat_model=CHAT_MODEL,
+            )
+            is_program_query = query_flags.is_program_query
+            is_schedule_query = query_flags.is_schedule_query
 
             context_text, sources_list, chunks_used = build_context_and_citations(
                 all_matches, is_program_query, SIMILARITY_THRESHOLD
@@ -947,7 +824,7 @@ async def chat_stream(
                     course_context += f"Prerequisites: {prereqs}\n\n"
                     course_citations.append(citation_from_course(c))
                 context_text = course_context + context_text
-                sources_list = dedupe_citations(course_citations + sources_list)
+                sources_list = finalize_citations(course_citations + sources_list, is_program_query)
 
             if not context_text:
                 log_no_context(user_query, "stream_rag")

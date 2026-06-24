@@ -5,3 +5,4 @@ pinecone
 PyMuPDF
 python-dotenv
 python-multipart
+cohere

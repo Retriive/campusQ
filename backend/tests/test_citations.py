@@ -87,3 +87,18 @@ def test_direct_course_citation():
     )
     assert citation["title"] == "COMP 2401 — Object-Oriented Programming"
     assert "calendar.carleton.ca" in citation["url"]
+
+
+def test_program_citations_exclude_tuition():
+    from citations import finalize_citations
+    citations = [
+        {"url": "https://a.com", "title": "B.Eng Software Engineering", "namespace": "programs"},
+        {"url": "https://b.com", "title": "Miscellaneous Fees", "namespace": "tuition"},
+        {"url": "https://c.com", "title": "Course Selection Guide", "namespace": "facts"},
+        {"url": "https://d.com", "title": "B.C.S. Honours", "namespace": "programs"},
+    ]
+    out = finalize_citations(citations, is_program_query=True)
+    titles = [c["title"] for c in out]
+    assert "Miscellaneous Fees" not in titles
+    assert "Course Selection Guide" not in titles
+    assert titles[0] == "B.Eng Software Engineering"

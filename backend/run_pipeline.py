@@ -24,7 +24,12 @@ import time
 import importlib.util
 import os
 
-SCRAPERS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scrapers", "active")
+from dotenv import load_dotenv
+
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BACKEND_DIR, ".env"))
+
+SCRAPERS_DIR = os.path.join(BACKEND_DIR, "scrapers", "active")
 
 ALL_SCRAPERS = [
     "courses",

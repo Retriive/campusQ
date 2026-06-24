@@ -79,6 +79,8 @@ def classify_intent(query: str) -> str:
         return "deadlines"
     if any(k in q for k in ["cgpa", "gpa", "good standing", "fail", "repeat", "withdraw", "ace ", "academic standing"]):
         return "regulations"
+    if "engineering" in q and any(k in q for k in ["how many times", "attempt", "retake", "try again"]):
+        return "regulations"
     if any(k in q for k in ["register", "registration", "add a course", "drop", "override", "waitlist", "time ticket"]):
         return "registration"
     if any(k in q for k in ["required courses", "graduate", "degree", "program", "stream", "concentration", "minor", "credits to"]):
@@ -88,6 +90,27 @@ def classify_intent(query: str) -> str:
     if re.search(r'[a-zA-Z]{4}\s*\d{4}', query):
         return "course_lookup"
     return "general"
+
+
+ENGINEERING_ATTEMPTS_CONTEXT = """[Authoritative — Engineering course attempt limit, Calendar §3.2.2]
+
+A student in the Bachelor of Engineering degree may attempt a course no more than three times.
+An attempt includes courses where the student earned a final letter grade, SAT, UNS, CR, or NR."""
+
+
+def is_engineering_attempt_limit_query(query: str) -> bool:
+    q = query.lower()
+    if "engineering" not in q and "b.eng" not in q:
+        return False
+    return any(k in q for k in ("how many times", "attempt", "retake", "try again"))
+
+
+def prepend_engineering_attempts_context(context_text: str, query: str) -> str:
+    if not is_engineering_attempt_limit_query(query):
+        return context_text
+    if context_text:
+        return f"{ENGINEERING_ATTEMPTS_CONTEXT}\n\n{context_text}"
+    return ENGINEERING_ATTEMPTS_CONTEXT
 
 
 def detect_department(query: str, course_codes: list[str]) -> str:
@@ -364,6 +387,11 @@ For drop, withdraw, register, or add-course questions:
 - Explain the Carleton Central process from context.
 - If the student names a course but not a term (Fall/Winter/Summer), ask which term they mean before stating a specific deadline — deadlines differ by term and by drop vs withdraw.
 - Do not answer with only course catalog metadata.
+
+ENGINEERING COURSE ATTEMPTS — IMPORTANT:
+For Bachelor of Engineering students asking how many times they can attempt/retake a course:
+- The limit is three attempts per course (Calendar §3.2.2).
+- State "three times" clearly in your answer.
 
 PROGRAM COMPARISON — SOFTWARE ENGINEERING vs COMPUTER SCIENCE:
 When asked to compare Software Engineering and Computer Science at Carleton:
@@ -650,6 +678,7 @@ async def chat_endpoint(
         context_text, sources, chunks_used = build_context_and_citations(
             all_matches, is_program_query, SIMILARITY_THRESHOLD
         )
+        context_text = prepend_engineering_attempts_context(context_text, user_query)
 
         top_score = all_matches[0][0].score if all_matches else None
         print(f"RAG: {chunks_used} chunks passed threshold {SIMILARITY_THRESHOLD}")
@@ -817,6 +846,7 @@ async def chat_stream(
             context_text, sources_list, chunks_used = build_context_and_citations(
                 all_matches, is_program_query, SIMILARITY_THRESHOLD
             )
+            context_text = prepend_engineering_attempts_context(context_text, user_query)
             top_score = all_matches[0][0].score if all_matches else None
 
             # If course cards were fetched, add their data directly to context

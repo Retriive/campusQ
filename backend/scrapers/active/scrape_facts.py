@@ -112,6 +112,40 @@ graduation requirements, how long is the commerce degree, sprott graduation, bco
 credits needed, how many credits does bcom require, commerce degree length.""",
     ),
 
+    # ── ACE / good standing CGPA thresholds ───────────────────────────────────
+    (
+        "ace-good-standing-cgpa",
+        "Minimum CGPA for Good Standing (ACE) at Carleton University",
+        """Academic Continuation Evaluation (ACE) — Minimum CGPA for Good Standing
+
+Good standing at Carleton means you are Eligible to Continue (EC) in your program.
+Minimum Overall CGPA thresholds depend on your program type AND how many credits you
+have completed. Do NOT assume a single number like 4.00 for everyone.
+
+Standard ACE thresholds (Undergraduate Calendar Section 3.2.6, Table 1):
+
+HONOURS programs (most B.A./B.Sc. Honours):
+- Fewer than 5.5 credits completed: Overall CGPA 4.00
+- 5.5 credits or more completed: Overall CGPA 5.00
+- 15.5+ credits completed: also Major CGPA 6.50
+
+ENGINEERING programs:
+- Overall CGPA 5.00 at all credit levels
+
+15-CREDIT and 20-CREDIT NON-HONOURS programs:
+- Overall CGPA 4.00 (Major CGPA may also apply at higher credit bands)
+
+BAS Design: Overall 4.00 throughout.
+BID: 3.50 (<5.5 credits), then 4.00.
+
+The first ACE evaluation happens when a student completes 5.5 credits. Subsequent
+ACE checks run at the end of each term in which the student completes a course.
+
+Related terms: good standing, minimum CGPA, ACE, academic continuation evaluation,
+eligible to continue, EC status, academic warning, AW, required to withdraw,
+how high does my GPA need to be, CGPA threshold, credits completed band.""",
+    ),
+
     # ── Carleton 12-point GPA scale ──────────────────────────────────────────
     (
         "carleton-gpa-scale",
@@ -142,8 +176,10 @@ Percentage to letter grade conversions:
 - 85% = A   (11 points)
 
 The minimum passing grade for most courses is D- (50%).
-The minimum CGPA for good standing in most programs is 4.00 (C-).
 Dean's List / High Achievement is typically A- (10.0) or above.
+
+For minimum CGPA to stay in good standing (ACE), see the ace-good-standing-cgpa
+fact — thresholds vary by program and credits completed (4.00 and 5.00 bands).
 
 Related terms: GPA scale, grade points, letter grade percentage, what is my GPA,
 Carleton grading, 4.0 equivalent, grade conversion, what letter grade is 72 percent,

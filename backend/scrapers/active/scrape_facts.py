@@ -112,6 +112,41 @@ graduation requirements, how long is the commerce degree, sprott graduation, bco
 credits needed, how many credits does bcom require, commerce degree length.""",
     ),
 
+    # ── Software Engineering vs Computer Science (base degrees) ─────────────
+    (
+        "software-engineering-vs-computer-science",
+        "Difference Between Software Engineering and Computer Science at Carleton",
+        """Software Engineering vs Computer Science at Carleton University
+
+IMPORTANT: Compare the two MAIN degrees — not a CS stream.
+
+SOFTWARE ENGINEERING — Bachelor of Engineering (B.Eng.), Faculty of Engineering and Design:
+- Approximately 21.0 credits
+- Accredited engineering degree
+- Heavy engineering science: math, physics, engineering design, co-op common
+- Focus: building large software systems using engineering methods (design, testing, projects)
+
+COMPUTER SCIENCE — Bachelor of Computer Science (B.C.S. Honours or Major), School of Computer Science:
+- 20.0 credits
+- Science degree (not engineering)
+- Core COMP, MATH, STAT — algorithms, theory, programming foundations
+- Optional streams exist (AI, cybersecurity, game dev, Software Engineering stream, etc.)
+  but when students ask "CS vs Software Engineering" they mean the BASE B.C.S. degree.
+
+Key differences:
+- Degree: B.Eng (SE) vs B.C.S. (CS)
+- Faculty: Engineering and Design vs School of Computer Science
+- SE has more engineering breadth; CS has more computer science theory/electives
+- Both can lead to software careers; SE is the engineering path
+
+Do NOT answer by describing only "Computer Science Software Engineering Stream" as if it
+were the whole CS program.
+
+Related terms: software eng vs CS, difference between SE and computer science Carleton,
+B.Eng vs B.C.S, software engineering or computer science which should I take,
+compare software engineering and CS at Carleton.""",
+    ),
+
     # ── ACE first evaluation timing ───────────────────────────────────────────
     (
         "ace-first-evaluation",

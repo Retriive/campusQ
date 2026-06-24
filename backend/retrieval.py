@@ -89,6 +89,42 @@ def is_program_related_query(query: str) -> bool:
     return any(kw in q for kw in PROGRAM_QUERY_KEYWORDS)
 
 
+def is_software_eng_vs_cs_comparison(query: str) -> bool:
+    q = query.lower()
+    has_se = "software eng" in q or "software engineering" in q
+    has_cs = (
+        "computer science" in q
+        or bool(re.search(r"\bcs\b", q))
+        or "b.cs" in q
+        or "bcs" in q
+    )
+    return has_se and has_cs
+
+
+def _program_chunk_label(chunk: RankedChunk) -> str:
+    meta = chunk.metadata
+    return (meta.get("title") or meta.get("program") or meta.get("text", ""))[:400].lower()
+
+
+def adjust_se_cs_comparison_score(chunk: RankedChunk) -> float:
+    """Boost base B.C.S. + B.Eng SE; demote CS stream chunks for SE vs CS questions."""
+    if chunk.namespace != "programs":
+        return chunk.score
+    label = _program_chunk_label(chunk)
+    score = chunk.score
+    if "stream" in label and "computer science" in label:
+        return max(0.0, score - 0.20)
+    if re.search(r"computer science b\.?c\.?s\.? honours \(20", label):
+        return min(1.0, score + 0.25)
+    if re.search(r"computer science b\.?c\.?s\.? major \(20", label):
+        return min(1.0, score + 0.20)
+    if "software engineering" in label and (
+        "b.eng" in label or "bachelor of engineering" in label or "21.0 credit" in label
+    ):
+        return min(1.0, score + 0.18)
+    return score
+
+
 def detect_query_flags(query: str) -> QueryFlags:
     q = query.lower()
     return QueryFlags(
@@ -266,7 +302,15 @@ def retrieve_and_rerank(
             if flags.is_action_query and ns in ("registrar", "dates"):
                 score = min(1.0, score + 0.20)
             score = _apply_intent_boost(score, ns, intent)
-            chunks.append(RankedChunk.from_match(m, ns, score))
+            chunk = RankedChunk.from_match(m, ns, score)
+            if is_software_eng_vs_cs_comparison(user_query):
+                chunk = RankedChunk(
+                    id=chunk.id,
+                    metadata=chunk.metadata,
+                    namespace=chunk.namespace,
+                    score=adjust_se_cs_comparison_score(chunk),
+                )
+            chunks.append(chunk)
 
     # Metadata-filtered schedule fetch by course code
     if flags.is_schedule_query and course_matches:

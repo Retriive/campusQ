@@ -64,7 +64,7 @@ These must **all pass** before every production deploy:
 | 6 | Who teaches SYSC 3110 in Fall 2026? | Schedule / instructor |
 | 7 | What is COMP 9999? | No hallucination, no sources |
 | 8 | What's a B- worth at Carleton? | 12-point grading scale |
-| 9 | Software eng vs CS at Carleton? | Program comparison |
+| 9 | How many times can an Engineering student attempt a course? | Academic regulations (3 attempts) |
 | 10 | Drop vs withdraw difference? | Registration policy |
 
 ---

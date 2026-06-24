@@ -112,6 +112,29 @@ graduation requirements, how long is the commerce degree, sprott graduation, bco
 credits needed, how many credits does bcom require, commerce degree length.""",
     ),
 
+    # ── Engineering course attempt limit ────────────────────────────────────
+    (
+        "engineering-three-attempts",
+        "How Many Times Can an Engineering Student Attempt a Course at Carleton?",
+        """Three Attempts of a Course (Engineering) — Carleton University Section 3.2.2
+
+A student in the Bachelor of Engineering degree may attempt a course no more than
+three times. An attempt includes courses where the student earned a final letter
+grade, SAT, UNS, CR, or NR.
+
+If a required prerequisite is not passed with the minimum required grade by the
+third attempt, the student may not register in the dependent course and may have
+to leave the degree.
+
+If on the third attempt of a course the student does not achieve a passing grade,
+they cannot meet graduation requirements and must leave the degree with status
+Continue in Alternate (CA) or Dismissed from Program (DP).
+
+Related terms: engineering course attempts, how many times can I retake a course
+engineering, three attempts rule, B.Eng repeat course limit, third attempt fail
+engineering Carleton.""",
+    ),
+
     # ── Software Engineering vs Computer Science (base degrees) ─────────────
     (
         "software-engineering-vs-computer-science",

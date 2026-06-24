@@ -12,8 +12,8 @@ interface EmptyStateProps {
 const QUICK_ASKS = [
   {
     icon: GitBranch,
-    label: "Compare programs",
-    question: "What's the difference between software eng and CS at Carleton?",
+    label: "Academic rules",
+    question: "When does the first ACE evaluation happen at Carleton?",
   },
   {
     icon: ShieldAlert,

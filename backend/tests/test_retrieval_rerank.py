@@ -20,7 +20,7 @@ class FakeClient:
 
 
 def test_program_comparison_detected():
-    q = "What's the difference between software eng and CS at Carleton?"
+    q = "How many credits do Honours programs require at Carleton?"
     assert is_program_related_query(q)
     flags = detect_query_flags(q)
     assert flags.is_program_query

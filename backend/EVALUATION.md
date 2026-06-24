@@ -1,5 +1,8 @@
 # CampusQ RAG Evaluation
 
+> **Operational quality gate:** see [`evals/QUALITY_GATE.md`](evals/QUALITY_GATE.md) for
+> deploy/expansion thresholds and `python evals/quality_gate.py --tier smoke`.
+
 How we measure whether changes to retrieval or the system prompt actually
 improve answer quality, instead of judging by a few manual curl tests.
 

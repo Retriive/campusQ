@@ -16,6 +16,7 @@
 | Run the quality tests before deploy | [docs/QUALITY_GATE.md](docs/QUALITY_GATE.md) |
 | See what each folder does | [docs/PROJECT_MAP.md](docs/PROJECT_MAP.md) |
 | Know our ship / no-ship rules | [docs/TEAM_RULES.md](docs/TEAM_RULES.md) |
+| **Start contributing (team rules)** | **[docs/HOW_WE_WORK.md](docs/HOW_WE_WORK.md)** |
 
 ---
 

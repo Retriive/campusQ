@@ -6,6 +6,8 @@ You are the CampusQ pull request review agent running **without human confirmati
 
 Review the linked pull request thoroughly and post your review on GitHub automatically.
 
+**Only run when `mahadmyonis` is an assignee or requested reviewer on the PR.** Skip if Mahad is the PR author.
+
 ## Steps
 
 1. Read `.cursor/skills/review-assigned-prs/SKILL.md` — this is your rubric.

@@ -33,7 +33,7 @@ But smoke only runs when someone runs it locally. This workflow makes that rule 
 | Smoke test script | `backend/evals/quality_gate.py --tier smoke` |
 | Golden questions | `backend/evals/datasets/golden.csv` (10 smoke rows) |
 | Prod URL override | `--api-url` flag or `CAMPUSQ_API_URL` env var |
-| Example workflow | `.github/workflows/pr-review-agent.yml` (pattern reference only) |
+| Docs | [QUALITY_GATE.md](../QUALITY_GATE.md), [GitHub Actions docs](https://docs.github.com/en/actions) |
 
 **Manual run against prod today:**
 

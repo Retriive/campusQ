@@ -17,6 +17,7 @@
 | See what each folder does | [docs/PROJECT_MAP.md](docs/PROJECT_MAP.md) |
 | Know our ship / no-ship rules | [docs/TEAM_RULES.md](docs/TEAM_RULES.md) |
 | **Start contributing (team rules)** | **[docs/HOW_WE_WORK.md](docs/HOW_WE_WORK.md)** |
+| **Review PRs assigned to me** | **[docs/PR_REVIEW_AGENT.md](docs/PR_REVIEW_AGENT.md)** |
 
 ---
 

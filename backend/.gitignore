@@ -9,3 +9,6 @@ docs/
 vectorstore/
 engineering_debug.txt
 policy_preview.json
+# Generated team-brief artifacts
+team_brief_preview.html
+.brief_sent_*

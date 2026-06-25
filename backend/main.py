@@ -981,3 +981,50 @@ async def dashboard_digest():
 async def dashboard_waitlist(days: int | None = 30):
     d = None if days == 0 else days
     return {"ok": True, "data": build_waitlist_data(LOG_DIR, days=d)}
+
+
+# ── Weekly team brief scheduler (in-process, opt-in) ──────────────────────────
+# Sends the internal team brief every Monday 8am Eastern, from inside this
+# always-on backend so it can read the logs on the persistent /data disk.
+# No extra service needed. Arm it with ENABLE_BRIEF_SCHEDULER=true in the env.
+def _weekly_brief_job():
+    # Dedupe across web workers sharing this instance's filesystem: the first
+    # worker to atomically create the week's lock file is the one that sends.
+    try:
+        week_tag = datetime.utcnow().strftime("%G-W%V")
+        lock_path = os.path.join(LOG_DIR, f".brief_sent_{week_tag}")
+        try:
+            os.close(os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        except FileExistsError:
+            return  # already sent this week
+        from send_team_brief import send_brief
+        send_brief(LOG_DIR, quiet=True)
+        print(f"[scheduler] weekly team brief sent ({week_tag})")
+    except Exception as exc:
+        print(f"[scheduler] weekly team brief failed: {exc}")
+
+
+def _start_brief_scheduler():
+    if os.getenv("ENABLE_BRIEF_SCHEDULER", "").strip().lower() not in ("1", "true", "yes", "on"):
+        return
+    try:
+        import pytz
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from apscheduler.triggers.cron import CronTrigger
+
+        tz = pytz.timezone("America/Toronto")
+        scheduler = BackgroundScheduler(daemon=True, timezone=tz)
+        scheduler.add_job(
+            _weekly_brief_job,
+            CronTrigger(day_of_week="mon", hour=8, minute=0, timezone=tz),
+            id="weekly_team_brief",
+            coalesce=True,
+            misfire_grace_time=3600,
+        )
+        scheduler.start()
+        print("[scheduler] weekly team brief armed: Mondays 08:00 America/Toronto")
+    except Exception as exc:
+        print(f"[scheduler] could not start: {exc}")
+
+
+_start_brief_scheduler()

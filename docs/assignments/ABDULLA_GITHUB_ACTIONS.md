@@ -76,9 +76,9 @@ Add a short section to [QUALITY_GATE.md](../QUALITY_GATE.md) (or a comment at to
 
 GitHub path: **Repo → Settings → Secrets and variables → Actions → New repository secret**
 
-### 3. Do not break existing workflows
+### 3. New workflow only
 
-`pr-review-agent.yml` already exists — add a **new** workflow file; don't modify the PR review agent unless needed.
+Add a **new** workflow file (`smoke-gate.yml`). No other workflows exist in the repo yet.
 
 ---
 

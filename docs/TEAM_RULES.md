@@ -78,7 +78,6 @@ Copy this for every production deploy:
 | Area | Typical owner | Key files |
 |---|---|---|
 | AI / chat quality | Backend dev | `main.py`, `retrieval.py`, `citations.py` |
-| Prompt guardrails & safety | Salama | `main.py` (`build_system_prompt`), `golden.csv` |
 | Quality tests | Anyone on team | `evals/quality_gate.py`, `golden.csv` |
 | University data | Backend dev | `scrapers/`, `run_pipeline.py` |
 | Student app | Frontend dev | `frontend/` |

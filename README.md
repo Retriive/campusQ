@@ -17,7 +17,6 @@
 | See what each folder does | [docs/PROJECT_MAP.md](docs/PROJECT_MAP.md) |
 | Know our ship / no-ship rules | [docs/TEAM_RULES.md](docs/TEAM_RULES.md) |
 | **Start contributing (team rules)** | **[docs/HOW_WE_WORK.md](docs/HOW_WE_WORK.md)** |
-| Salama — prompt safety assignment | [docs/assignments/SALAMA_PROMPT_GUARDRAILS.md](docs/assignments/SALAMA_PROMPT_GUARDRAILS.md) |
 
 ---
 

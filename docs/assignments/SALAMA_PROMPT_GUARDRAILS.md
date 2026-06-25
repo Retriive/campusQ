@@ -1,8 +1,8 @@
-# Assignment: Chatbot prompt guardrails & safety
+# Task: Chatbot prompt guardrails & safety
 
-**Owner:** Salama  
+**Assigned to:** Salama (CTO)  
 **Reviewer:** Mahad (required before merge)  
-**Area:** AI / chat safety  
+**Area:** AI / chat safety — one-off task, not a permanent ownership lane  
 **Status:** Assigned — not started
 
 ---

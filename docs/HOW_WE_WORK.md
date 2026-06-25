@@ -195,14 +195,76 @@ Details: [PROJECT_MAP.md](PROJECT_MAP.md)
 | University data / scrapers | Backend lead | — |
 | Quality gate & tests | Anyone | Mahad reviews |
 | Infrastructure (Render, Vercel) | Whoever ships | Mahad |
+| Engineering / architecture | Salama (CTO) | — |
 
 **Not assigned yet?** Pick an area, tell the team in Slack, own it.
 
-**Current tasks** *(assigned work, not standing owner roles)*:
+---
 
-| Person | Task |
-|--------|------|
-| Abdulla | [GitHub Actions smoke gate on prod](assignments/ABDULLA_GITHUB_ACTIONS.md) |
+## Open tasks
+
+One-off work assigned right now. **Not ownership** — when you're done, close the GitHub issue. **Mahad reviews** before merge.
+
+### Salama (CTO) — Chatbot safety rules in the prompt
+
+**Issue:** [#13](https://github.com/Retriive/campusQ/issues/13)
+
+**What:** Teach the chatbot to refuse bad requests (cheating, off-topic, crisis/medical/legal advice, prompt injection) while still answering normal Carleton questions.
+
+**Files:** `backend/main.py` (`build_system_prompt()`), `backend/evals/datasets/golden.csv`
+
+**Done when:**
+
+- [ ] Safety rules added to the prompt (numbered, same style as today)
+- [ ] At least 5 new test questions in `golden.csv`
+- [ ] Smoke **10/10** and core **≥ 27/32** locally
+- [ ] PR open → Mahad approves → merge
+
+**Don't break these tests:**
+
+| ID | Must still pass |
+|----|-----------------|
+| `smoke-07` | Don't invent fake courses (COMP 9999) |
+| `core-13` | Decline prof ratings → RateMyProfessors |
+| `smoke-06` | Answer "who teaches" with facts, not a decline |
+
+```bash
+cd backend
+py evals/quality_gate.py --tier smoke
+py evals/quality_gate.py --tier core
+```
+
+---
+
+### Abdulla — Auto-run smoke tests on production
+
+**Issue:** [#16](https://github.com/Retriive/campusQ/issues/16)
+
+**What:** GitHub Actions runs smoke (10/10) against **production** after every push to `main`. Stops us shipping a broken chatbot because nobody ran the test manually.
+
+**Files:** new `.github/workflows/smoke-gate.yml` (example workflow already in repo: `pr-review-agent.yml`)
+
+**Mahad must add repo secrets** (Settings → Secrets → Actions):
+
+| Secret | Value |
+|--------|-------|
+| `CAMPUSQ_API_URL` | Render production backend URL |
+| `OPENAI_API_KEY` | For the quality gate judge |
+
+**Done when:**
+
+- [ ] Workflow on `main`; triggers on push to `main` + manual rerun
+- [ ] Secrets set; one green run in Actions tab
+- [ ] Short note in `docs/QUALITY_GATE.md` about CI smoke
+- [ ] PR open → Mahad reviews → merge
+
+**Not in scope:** core gate in CI, changing golden tests, auto-deploy.
+
+```bash
+# Manual prod smoke today (what CI should automate):
+cd backend
+CAMPUSQ_API_URL=https://your-render-url.onrender.com py evals/quality_gate.py --tier smoke
+```
 
 ---
 

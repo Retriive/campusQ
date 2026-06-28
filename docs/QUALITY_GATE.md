@@ -33,6 +33,36 @@ $env:CAMPUSQ_API_URL = "https://your-render-url.onrender.com"
 py evals\quality_gate.py --tier smoke
 ```
 
+---
+
+## CI smoke (GitHub Actions)
+
+After every push to `main`, GitHub Actions runs the same smoke gate against **production** (`.github/workflows/smoke-gate.yml`). You can also re-run it manually: **Actions → Smoke quality gate → Run workflow**.
+
+**Required repo secrets** (Settings → Secrets and variables → Actions):
+
+| Secret | Purpose |
+|---|---|
+| `CAMPUSQ_API_URL` | Render production backend URL (no trailing slash) |
+| `OPENAI_API_KEY` | Powers the LLM judge in `quality_gate.py` |
+
+### Reading a failed Action
+
+1. Open the failed run under **Actions → Smoke quality gate**.
+2. Expand **Run smoke quality gate against production** — the log lists each question as `PASS` or `FAIL` with a one-line reason.
+3. Scroll to the summary block near the end:
+   ```
+   Result     : 9/10 passed (90.0%)
+   Gate       : ❌ FAILED
+   ```
+   Smoke requires **10/10**; anything less fails the check.
+4. Under **Failures**, note the question IDs (e.g. `smoke-03`) and reasons.
+5. Download **smoke-gate-results** from the run’s **Artifacts** (uploaded on failure) for full answers in CSV/JSON, or reproduce locally with the prod URL above.
+
+**Exit codes in CI:** same as local — `0` pass, `1` gate failed, `2` setup error (missing secrets, API unreachable).
+
+Do not deploy if this check is red on `main`.
+
 ### Reading the result
 
 ```

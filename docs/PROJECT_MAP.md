@@ -11,8 +11,7 @@ campusQ/
 ├── README.md           ← Start here
 ├── docs/               ← Team guides (you are here)
 ├── backend/            ← Python API + AI + data
-├── frontend/           ← Next.js student app
-└── frontend_archived/  ← Old frontend (ignore)
+└── frontend/           ← Next.js student app
 ```
 
 ---

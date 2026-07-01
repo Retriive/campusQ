@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, BookOpen, ArrowLeft, ChevronDown, GraduationCap, Map, Search } from "lucide-react"
+import { Loader2, BookOpen, ArrowLeft, ChevronRight, ChevronDown, GraduationCap, Map, Search, X } from "lucide-react"
 import { DegreePlan } from "./degree-plan"
 import { Button } from "@/components/ui/button"
 import ReactMarkdown from "react-markdown"
@@ -599,6 +599,7 @@ export function ProgramExplorer() {
   const [loading, setLoading] = React.useState(false)
   const [search, setSearch] = React.useState("")
   const [selectedFaculty, setSelectedFaculty] = React.useState<string | null>(null)
+  const [openFaculties, setOpenFaculties] = React.useState<Set<string>>(new Set())
   // plan state — tracks chosen slug+variant for DegreePlan
   const [planSlug, setPlanSlug]       = React.useState("")
   const [planVariant, setPlanVariant] = React.useState("")
@@ -701,7 +702,7 @@ export function ProgramExplorer() {
   }
 
   // Back from a detail view: return to the stream picker if the program has streams,
-  // otherwise all the way to the directory.
+  // otherwise to the directory.
   const goBackFromDetail = (program: Program) => {
     if (program.streams && program.streams.length > 0) {
       setView({ screen: "streams", program })
@@ -710,6 +711,15 @@ export function ProgramExplorer() {
     }
     setResult("")
     setStructured(null)
+  }
+
+  const toggleFaculty = (name: string) => {
+    setOpenFaculties((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
   }
 
   // ── Streams / options picker ──────────────────────────────────────────────
@@ -741,7 +751,7 @@ export function ProgramExplorer() {
               <button
                 key={stream.queryName}
                 onClick={() => handleStreamClick(program, stream)}
-                className="group flex flex-col items-start gap-2 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-secondary/30 hover:-translate-y-px active:scale-[0.98] transition-[transform,border-color,background-color] duration-200 ease-[var(--ease-out)] text-left p-3"
+                className="group flex flex-col items-start gap-2 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-secondary/30 hover:-translate-y-px hover:shadow-sm active:scale-[0.98] transition-[transform,border-color,background-color,box-shadow] duration-200 ease-[var(--ease-out)] text-left p-3"
               >
                 <span className={cn("inline-block text-[10px] font-bold font-mono px-2 py-0.5 rounded tracking-wide", colors.bg, colors.text)}>
                   {ab}
@@ -856,12 +866,33 @@ export function ProgramExplorer() {
     }))
     .filter((s) => s.matches.length > 0)
 
+  const totalMatches = sections.reduce((n, s) => n + s.matches.length, 0)
+  // A section is expanded when searching, when its faculty pill is active, or when toggled open.
+  const isExpanded = (name: string) => !!q || selectedFaculty === name || openFaculties.has(name)
+  const allExpanded = sections.length > 0 && sections.every((s) => isExpanded(s.faculty.name))
+
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {/* Header */}
-      <div>
-        <h2 className="text-lg font-semibold mb-0.5">Programs</h2>
-        <p className="text-sm text-muted-foreground">{ALL_PROGRAMS.length} Carleton programs</p>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold mb-0.5">Programs</h2>
+          <p className="text-sm text-muted-foreground">
+            {q || selectedFaculty
+              ? `${totalMatches} of ${ALL_PROGRAMS.length} programs`
+              : `${ALL_PROGRAMS.length} Carleton programs`}
+          </p>
+        </div>
+        {!q && sections.length > 0 && (
+          <button
+            onClick={() =>
+              setOpenFaculties(allExpanded ? new Set() : new Set(FACULTIES.map((f) => f.name)))
+            }
+            className="shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {allExpanded ? "Collapse all" : "Expand all"}
+          </button>
+        )}
       </div>
 
       {/* Search */}
@@ -871,8 +902,17 @@ export function ProgramExplorer() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search programs…"
-          className="w-full rounded-xl border border-border bg-card pl-9 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/20"
+          className="w-full rounded-xl border border-border bg-card pl-9 pr-9 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
         />
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            aria-label="Clear search"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 size-6 rounded-lg flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-secondary transition-colors"
+          >
+            <X className="size-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Faculty pills */}
@@ -908,40 +948,64 @@ export function ProgramExplorer() {
         })}
       </div>
 
-      {/* Grouped programs */}
+      {/* Grouped, collapsible programs */}
       {sections.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-          <p className="text-sm font-medium text-foreground">No programs match “{search}”</p>
-          <p className="text-xs text-muted-foreground">Try a different search or faculty.</p>
+          <div className="size-11 rounded-2xl bg-secondary flex items-center justify-center">
+            <Search className="size-5 text-muted-foreground/40" />
+          </div>
+          <p className="text-sm font-medium text-foreground">No programs found</p>
+          <p className="text-xs text-muted-foreground max-w-[220px]">
+            Nothing matches your search or filter. Try a different term or faculty.
+          </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-7">
-          {sections.map(({ faculty, matches }) => (
-            <div key={faculty.name} className="flex flex-col gap-3">
-              {/* Faculty heading */}
-              <div className="flex items-center gap-2">
-                <span className={cn("size-2 rounded-full", faculty.dotColor)} />
-                <p className={cn("text-[11px] font-semibold uppercase tracking-widest", faculty.color)}>
-                  {faculty.name}
-                </p>
-                <span className="text-[11px] text-muted-foreground/50">{matches.length}</span>
+        <div className="flex flex-col gap-2">
+          {sections.map(({ faculty, matches }) => {
+            const expanded = isExpanded(faculty.name)
+            const locked = !!q || selectedFaculty === faculty.name // can't collapse while filtering
+            return (
+              <div key={faculty.name} className="rounded-2xl border border-border/70 bg-card/40 overflow-hidden">
+                {/* Faculty header */}
+                <button
+                  onClick={() => !locked && toggleFaculty(faculty.name)}
+                  aria-expanded={expanded}
+                  className={cn(
+                    "w-full flex items-center gap-2.5 px-3.5 py-3 text-left transition-colors",
+                    locked ? "cursor-default" : "hover:bg-secondary/40"
+                  )}
+                >
+                  <span className={cn("size-2.5 rounded-full shrink-0", faculty.dotColor)} />
+                  <span className={cn("text-[13px] font-semibold flex-1 min-w-0 truncate", faculty.color)}>
+                    {faculty.name}
+                  </span>
+                  <span className="text-[11px] font-medium text-muted-foreground/60 tabular-nums shrink-0">
+                    {matches.length}
+                  </span>
+                  {!locked && (
+                    <ChevronDown className={cn("size-4 text-muted-foreground/40 transition-transform shrink-0", expanded && "rotate-180")} />
+                  )}
+                </button>
+
+                {/* Program cards */}
+                {expanded && (
+                  <div className="grid grid-cols-2 gap-2 px-3 pb-3 pt-0.5">
+                    {matches.map((p) => {
+                      const program: Program = { ...p, faculty: faculty.name }
+                      return (
+                        <ProgramCard
+                          key={p.name}
+                          program={program}
+                          faculty={faculty}
+                          onClick={() => openProgram(program)}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
               </div>
-              {/* Program cards */}
-              <div className="grid grid-cols-2 gap-2">
-                {matches.map((p) => {
-                  const program: Program = { ...p, faculty: faculty.name }
-                  return (
-                    <ProgramCard
-                      key={p.name}
-                      program={program}
-                      faculty={faculty}
-                      onClick={() => openProgram(program)}
-                    />
-                  )
-                })}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
@@ -963,7 +1027,8 @@ function ProgramCard({
   return (
     <button
       onClick={onClick}
-      className="group flex flex-col items-start gap-2 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-secondary/30 hover:-translate-y-px active:scale-[0.98] transition-[transform,border-color,background-color] duration-200 ease-[var(--ease-out)] text-left p-3"
+      title={program.description}
+      className="group relative flex flex-col items-start gap-2 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-secondary/30 hover:-translate-y-px hover:shadow-sm active:scale-[0.98] transition-[transform,border-color,background-color,box-shadow] duration-200 ease-[var(--ease-out)] text-left p-3 min-h-[92px]"
     >
       {/* Degree badge */}
       <span className={cn("inline-block text-[10px] font-bold font-mono px-2 py-0.5 rounded tracking-wide", colors.bg, colors.text)}>
@@ -973,10 +1038,19 @@ function ProgramCard({
       {/* Program name */}
       <span className="text-xs font-medium text-foreground leading-snug line-clamp-2">{program.name}</span>
 
-      {/* Options count */}
-      {count > 0 && (
-        <span className="text-[10px] text-muted-foreground/60 mt-auto">
-          {count} options
+      {/* Footer: options count, or a subtle affordance for single programs */}
+      {count > 0 ? (
+        <span className="mt-auto inline-flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
+          <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded bg-secondary text-[9px] font-semibold text-muted-foreground/80 tabular-nums">
+            {count}
+          </span>
+          options
+          <ChevronRight className="size-3 -ml-0.5 transition-transform group-hover:translate-x-0.5" />
+        </span>
+      ) : (
+        <span className="mt-auto inline-flex items-center gap-0.5 text-[10px] text-muted-foreground/40 transition-colors group-hover:text-muted-foreground/70">
+          View requirements
+          <ChevronRight className="size-3 transition-transform group-hover:translate-x-0.5" />
         </span>
       )}
     </button>

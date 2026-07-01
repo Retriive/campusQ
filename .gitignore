@@ -47,3 +47,5 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+# Eval / quality-gate outputs
+backend/evals/experiments/

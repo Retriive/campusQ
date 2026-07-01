@@ -129,8 +129,7 @@ export function ChatInput({ value, onChange, onSubmit, disabled, isHome }: ChatI
         <p className="text-[11px] text-center text-muted-foreground/30 mt-2.5 tracking-wide">
           {isHome
             ? "Independent tool — not affiliated with Carleton University"
-            : "Verify important decisions with your advisor"
-          }
+            : "CampusQ is AI and can make mistakes — verify important decisions with your advisor"          }
         </p>
       </div>
     </div>

@@ -3,8 +3,10 @@ import json
 import re
 import time
 import uuid
+import hmac
+import hashlib
 import contextvars
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 # Request-scoped session id — set once per request, read by log_query.
 # Avoids threading session_id through every log call site.
@@ -120,6 +122,62 @@ def _log(filename: str, data: dict):
     with open(path, "a", encoding="utf-8") as f:
         f.write(line)
 
+# ── User-id pseudonymization ───────────────────────────────────────────────────
+# We never write a student's raw Clerk id to disk. It's HMAC-hashed with a
+# server-only secret first, so a log line can't be traced back to a Clerk
+# account/email even if the log file leaks — while still letting the same
+# student's queries be grouped together for retention analytics.
+_USER_ID_SALT = os.getenv("USER_ID_HASH_SALT", "campusq-dev-salt-change-in-prod")
+
+def anonymize_user_id(user_id: str) -> str:
+    if not user_id or user_id == "anonymous":
+        return "anonymous"
+    digest = hmac.new(_USER_ID_SALT.encode(), user_id.encode(), hashlib.sha256).hexdigest()
+    return digest[:16]
+
+# ── Log retention ──────────────────────────────────────────────────────────────
+# Pilot commitment: logs older than LOG_RETENTION_DAYS are deleted, not just
+# ignored. Runs once at startup and daily thereafter (see _start_retention_scheduler).
+LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "90"))
+_RETAINED_LOG_FILES = [
+    "queries.log", "feedback.log", "reports.log",
+    "no_context.log", "course_misses.log", "waitlist.log",
+]
+
+def _prune_log_file(path: str, cutoff: datetime):
+    if not os.path.exists(path):
+        return
+    kept_lines = []
+    dropped = 0
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                ts = datetime.fromisoformat(json.loads(stripped).get("ts", "").replace("Z", ""))
+            except Exception:
+                kept_lines.append(line if line.endswith("\n") else line + "\n")
+                continue
+            if ts >= cutoff:
+                kept_lines.append(line if line.endswith("\n") else line + "\n")
+            else:
+                dropped += 1
+    if dropped:
+        tmp_path = path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.writelines(kept_lines)
+        os.replace(tmp_path, path)
+        print(f"[retention] pruned {dropped} line(s) older than {LOG_RETENTION_DAYS}d from {os.path.basename(path)}")
+
+def prune_old_logs():
+    cutoff = datetime.utcnow() - timedelta(days=LOG_RETENTION_DAYS)
+    for filename in _RETAINED_LOG_FILES:
+        try:
+            _prune_log_file(os.path.join(LOG_DIR, filename), cutoff)
+        except Exception as exc:
+            print(f"[retention] failed to prune {filename}: {exc}")
+
 # Maps the most common course-code prefixes to a readable department/subject.
 # Used for analytics — what subject areas are students asking about?
 DEPT_BY_PREFIX = {
@@ -191,6 +249,44 @@ def prepend_engineering_attempts_context(context_text: str, query: str) -> str:
     return ENGINEERING_ATTEMPTS_CONTEXT
 
 
+# ── High-stakes academic situations → advisor escalation ──────────────────────
+# CampusQ answers routine questions, but academic warning, repeated course
+# failure, and graduation risk are situations where a wrong or incomplete
+# answer matters a lot more than usual. For these, we still answer from
+# context (so the student isn't left with nothing), but we always append an
+# explicit, deterministic nudge to talk to a real advisor — this isn't left
+# to the model to decide to say.
+HIGH_STAKES_RE = re.compile(
+    r"academic (warning|probation|suspension)"
+    r"|on (academic )?warning"
+    r"|fail(?:ed|ing)?\b.{0,40}\b(again|twice|a second time|a third time|multiple times|three times)"
+    r"|(?:second|2nd|third|3rd) attempt"
+    r"|(?:won'?t|not going to|might not) graduate"
+    r"|worried (?:about|i (?:won'?t|might not))? ?graduat"
+    r"|(?:behind|falling behind) (?:in|on) (?:my )?(?:degree|program|graduation)"
+    r"|risk of (?:not )?graduat",
+    re.IGNORECASE,
+)
+
+ADVISOR_ESCALATION_NOTE = (
+    "\n\nThis sounds like it could affect your academic standing or graduation "
+    "timeline — please connect with an academic advisor to go over your specific "
+    "situation. You can book an appointment through Carleton Central / Academic Advising."
+)
+
+
+def is_high_stakes_query(query: str) -> bool:
+    return bool(HIGH_STAKES_RE.search(query))
+
+
+def with_advisor_escalation(answer: str, query: str) -> str:
+    """Append a deterministic advisor referral for high-stakes questions,
+    unless the model already pointed the student to an advisor."""
+    if answer and is_high_stakes_query(query) and "advisor" not in answer.lower():
+        return answer + ADVISOR_ESCALATION_NOTE
+    return answer
+
+
 def detect_department(query: str, course_codes: list[str]) -> str:
     """Best-effort subject/department for analytics."""
     if course_codes:
@@ -218,7 +314,7 @@ def log_query(
         "ts": datetime.utcnow().isoformat(),
         "id": str(uuid.uuid4())[:8],
         "session": session_id or _current_session.get(),
-        "user": user_id,
+        "user": anonymize_user_id(user_id),
         "department": detect_department(query, course_codes_found),
         "intent": classify_intent(query),
         "type": query_type,
@@ -808,13 +904,11 @@ async def chat_endpoint(
                 had_context=False,
                 user_id=user_id,
             )
-            return {
-                "answer": (
-                    "That's outside of what I currently know. "
-                    "If you think this should be covered, use the Report a Problem button and we'll add it."
-                ),
-                "sources": [],
-            }
+            fallback = (
+                "That's outside of what I currently know. "
+                "If you think this should be covered, use the Report a Problem button and we'll add it."
+            )
+            return {"answer": with_advisor_escalation(fallback, user_query), "sources": []}
 
         system_prompt = build_system_prompt(context_text, attachment_text)
 
@@ -829,7 +923,7 @@ async def chat_endpoint(
             temperature=0.4,
         )
 
-        answer = response.choices[0].message.content
+        answer = with_advisor_escalation(response.choices[0].message.content, user_query)
         if not should_emit_citations(answer, chunks_used):
             sources = []
 
@@ -1002,6 +1096,10 @@ async def chat_stream(
                     full_answer += content
                     yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
 
+            if is_high_stakes_query(user_query) and "advisor" not in full_answer.lower():
+                yield f"data: {json.dumps({'type': 'token', 'content': ADVISOR_ESCALATION_NOTE})}\n\n"
+                full_answer += ADVISOR_ESCALATION_NOTE
+
             # Emit pill cards only for direct lookups ("what is COMP 1005")
             if structured_courses and is_direct_lookup and not is_schedule_query:
                 yield f"data: {json.dumps({'type': 'courses', 'data': structured_courses})}\n\n"
@@ -1108,6 +1206,86 @@ async def dashboard_waitlist(days: int | None = 30, _: None = Depends(require_ad
     return {"ok": True, "data": build_waitlist_data(LOG_DIR, days=_clamp_days(days))}
 
 
+# ── Ingestion admin API (admin key required) ──────────────────────────────────
+# The handover surface: whoever runs CampusQ for a school can add source URLs
+# and trigger re-scrapes without touching code. Runs execute in a background
+# thread (the pipeline is sync + network-bound); one run at a time.
+import threading
+
+from ingest.pipeline import BACKEND_DIR as _INGEST_BACKEND_DIR, run_ingest
+from ingest.registry import list_schools, load_sources
+from ingest.state import IngestState
+
+_ingest_state = IngestState()
+_ingest_run_lock = threading.Lock()
+
+
+@app.get("/api/admin/ingest/sources")
+async def ingest_sources(school: str = "carleton", _: None = Depends(require_admin)):
+    sources = load_sources(school, _INGEST_BACKEND_DIR, _ingest_state.extra_sources(school))
+    pages = {p["url"]: p for p in _ingest_state.pages_for(school)}
+    return {
+        "ok": True,
+        "schools": list_schools(_INGEST_BACKEND_DIR),
+        "sources": [
+            {
+                "category": s.category,
+                "url": s.url,
+                "extractor": s.resolve_extractor(),
+                "follow_links": s.follow_links,
+                "added_by_admin": s.added_by_admin,
+                "last_crawled": pages.get(s.url, {}).get("last_crawled"),
+                "last_changed": pages.get(s.url, {}).get("last_changed"),
+                "status": pages.get(s.url, {}).get("status"),
+            }
+            for s in sources
+        ],
+        "runs": _ingest_state.recent_runs(school, limit=15),
+        "running": _ingest_state.has_running(),
+    }
+
+
+@app.post("/api/admin/ingest/sources")
+async def ingest_add_source(
+    school: str = Form(...),
+    category: str = Form(...),
+    url: str = Form(...),
+    _: None = Depends(require_admin),
+):
+    url = url.strip()
+    if not re.match(r"^https://[^\s]+$", url):
+        return {"ok": False, "error": "URL must start with https:// and contain no spaces"}
+    if not re.match(r"^[a-z_]{2,30}$", category.strip()):
+        return {"ok": False, "error": "category must be a short lowercase name (it becomes the Pinecone namespace)"}
+    _ingest_state.add_extra_source(school.strip()[:40], category.strip(), url[:500])
+    return {"ok": True}
+
+
+@app.post("/api/admin/ingest/run")
+async def ingest_trigger_run(
+    school: str = Form("carleton"),
+    category: str = Form(""),
+    force: str = Form("false"),
+    _: None = Depends(require_admin),
+):
+    if not _ingest_run_lock.acquire(blocking=False):
+        return {"ok": False, "error": "An ingestion run is already in progress."}
+
+    force_flag = force.strip().lower() in ("1", "true", "yes", "on")
+    cat = category.strip() or None
+
+    def _run():
+        try:
+            run_ingest(school, cat, force=force_flag, state=_ingest_state)
+        except Exception as exc:
+            print(f"[ingest] background run failed: {exc}")
+        finally:
+            _ingest_run_lock.release()
+
+    threading.Thread(target=_run, daemon=True, name="ingest-run").start()
+    return {"ok": True, "message": f"Ingestion started for {school}" + (f" / {cat}" if cat else " (all categories)")}
+
+
 # ── Weekly team brief scheduler (in-process, opt-in) ──────────────────────────
 # Sends the internal team brief every Monday 8am Eastern, from inside this
 # always-on backend so it can read the logs on the persistent /data disk.
@@ -1152,4 +1330,30 @@ def _start_brief_scheduler():
         print(f"[scheduler] could not start: {exc}")
 
 
+def _start_retention_scheduler():
+    """Daily job that deletes log lines older than LOG_RETENTION_DAYS. Always on
+    (unlike the opt-in brief scheduler) — this is a privacy commitment, not a
+    feature toggle."""
+    try:
+        import pytz
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from apscheduler.triggers.cron import CronTrigger
+
+        tz = pytz.timezone("America/Toronto")
+        scheduler = BackgroundScheduler(daemon=True, timezone=tz)
+        scheduler.add_job(
+            prune_old_logs,
+            CronTrigger(hour=3, minute=0, timezone=tz),
+            id="log_retention",
+            coalesce=True,
+            misfire_grace_time=3600,
+        )
+        scheduler.start()
+        print(f"[retention] log pruning armed: daily 03:00 America/Toronto, keeping last {LOG_RETENTION_DAYS}d")
+    except Exception as exc:
+        print(f"[retention] could not start scheduler: {exc}")
+
+
+prune_old_logs()  # catch up immediately on boot, then daily via the scheduler
+_start_retention_scheduler()
 _start_brief_scheduler()

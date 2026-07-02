@@ -27,6 +27,7 @@ interface DashboardData {
     thumbs_up: number
     thumbs_down: number
     top_department: string
+    avg_response_ms: number | null
   }
   hourly_trend: HourlyPoint[]
   intents: IntentRow[]
@@ -212,7 +213,7 @@ export default function DashboardPage() {
 
         {/* ── Top row ── */}
 
-        {/* 3 stat cards stacked in one column */}
+        {/* 4 stat cards stacked in one column */}
         <div className="col-span-2 flex flex-col gap-2">
           <div className="flex-1 bg-white rounded-2xl px-4 py-3 flex items-center justify-between shadow-sm border border-stone-100">
             <p className="text-xs text-stone-400">Questions asked</p>
@@ -226,6 +227,13 @@ export default function DashboardPage() {
             <div className="text-right">
               <p className="text-xl font-bold text-emerald-600 tabular-nums">{s.accuracy !== null ? `${s.accuracy}%` : "—"}</p>
               <p className="text-[10px] text-stone-400">{s.accuracy !== null ? `${s.thumbs_up} 👍 · ${s.thumbs_down} 👎` : "no ratings yet"}</p>
+            </div>
+          </div>
+          <div className="flex-1 bg-white rounded-2xl px-4 py-3 flex items-center justify-between shadow-sm border border-stone-100">
+            <p className="text-xs text-stone-400">Avg response</p>
+            <div className="text-right">
+              <p className="text-xl font-bold text-stone-900 tabular-nums">{s.avg_response_ms !== null ? `${(s.avg_response_ms / 1000).toFixed(1)}s` : "—"}</p>
+              <p className="text-[10px] text-stone-400">{timeLabel}</p>
             </div>
           </div>
           <div className="flex-1 bg-white rounded-2xl px-4 py-3 flex items-center justify-between shadow-sm border border-stone-100">

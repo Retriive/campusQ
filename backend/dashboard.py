@@ -129,6 +129,8 @@ def build_dashboard_data(log_dir: str, days: int | None = 7,
     ups = sum(1 for f in fb_week if f.get("rating") == "up")
     downs = sum(1 for f in fb_week if f.get("rating") == "down")
     accuracy = round(100 * ups / (ups + downs)) if (ups + downs) else None
+    response_times = [q["ms"] for q in this_week if isinstance(q.get("ms"), (int, float))]
+    avg_response_ms = round(sum(response_times) / len(response_times)) if response_times else None
     dept_counts = Counter(
         q.get("department") for q in this_week
         if q.get("department") and q.get("department") != "general"
@@ -245,6 +247,7 @@ def build_dashboard_data(log_dir: str, days: int | None = 7,
             "thumbs_up": ups,
             "thumbs_down": downs,
             "top_department": top_department,
+            "avg_response_ms": avg_response_ms,   # null if no queries yet
         },
         "hourly_trend": hourly_trend,
         "retention": {
@@ -300,6 +303,8 @@ def build_digest_text(log_dir: str) -> str:
     lines.append(f"Questions answered last week : {s['total_questions']}")
     acc = f"{s['accuracy']}%" if s["accuracy"] is not None else "no ratings yet"
     lines.append(f"Helpfulness (thumbs up rate) : {acc}")
+    resp = f"{s['avg_response_ms']} ms" if s["avg_response_ms"] is not None else "no data yet"
+    lines.append(f"Average response time        : {resp}")
     lines.append(f"Busiest department           : {s['top_department']}")
     lines.append("")
     lines.append("Top categories:")
@@ -361,6 +366,8 @@ def build_team_brief(log_dir: str) -> str:
     L.append(f"  Questions asked   : {this_week} {trend}")
     acc = f"{s['accuracy']}% helpful" if s["accuracy"] is not None else "no ratings yet"
     L.append(f"  Helpfulness       : {acc}  ({s['thumbs_up']} up / {s['thumbs_down']} down)")
+    resp = f"{s['avg_response_ms']} ms" if s["avg_response_ms"] is not None else "no data yet"
+    L.append(f"  Avg response time : {resp}")
     L.append(f"  Busiest area      : {s['top_department']}")
     L.append("")
 
@@ -475,9 +482,11 @@ def build_team_brief_html(log_dir: str) -> str:
 
     # ── Usage ──
     acc = f'{s["accuracy"]}% helpful' if s["accuracy"] is not None else "no ratings yet"
+    resp = f'{s["avg_response_ms"]} ms' if s["avg_response_ms"] is not None else "no data yet"
     usage = (
         kv("Questions asked (7d)", f'{this_week} &nbsp;<span style="font-size:12px;color:{C["muted"]};font-weight:400;">{trend}</span>')
         + kv("Helpfulness", f'{acc} <span style="color:{C["muted"]};font-weight:400;">({s["thumbs_up"]}&#128077; / {s["thumbs_down"]}&#128078;)</span>')
+        + kv("Avg response time", resp)
         + kv("Busiest area", s["top_department"] if s["top_department"] != "—" else "not enough data yet")
     )
 

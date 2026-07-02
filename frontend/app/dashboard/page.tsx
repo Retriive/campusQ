@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { ArrowUp, ArrowDown, Minus, RefreshCw, AlertTriangle, ThumbsDown, Loader2, MessageSquare } from "lucide-react"
+import { AdminKeyGate, adminHeaders, clearAdminKey } from "@/components/admin-key-gate"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -113,14 +114,29 @@ export default function DashboardPage() {
   const [data, setData] = React.useState<DashboardData | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState("")
+  const [needsKey, setNeedsKey] = React.useState(false)
+  const [keyError, setKeyError] = React.useState("")
   const [selectedDays, setSelectedDays] = React.useState(7)
 
   const load = async (days: number = selectedDays) => {
     setLoading(true); setError("")
     try {
-      const res = await fetch(`${API_URL}/api/dashboard?days=${days}`)
+      const res = await fetch(`${API_URL}/api/dashboard?days=${days}`, { headers: adminHeaders() })
+      if (res.status === 401) {
+        clearAdminKey()
+        setNeedsKey(true)
+        setKeyError("That key didn't work — check ADMIN_API_KEY on the backend.")
+        return
+      }
+      if (res.status === 503) {
+        setNeedsKey(true)
+        setKeyError("The backend has no ADMIN_API_KEY configured yet.")
+        return
+      }
       const json = await res.json()
       if (!json.ok) { setError("Couldn't load dashboard data."); return }
+      setNeedsKey(false)
+      setKeyError("")
       setData(json.data)
     } catch {
       setError("Couldn't reach the server.")
@@ -135,6 +151,8 @@ export default function DashboardPage() {
   }
 
   React.useEffect(() => { load() }, [])
+
+  if (needsKey) return <AdminKeyGate onSubmit={() => load()} error={keyError} />
 
   if (loading && !data) return (
     <div className="h-screen bg-[#F5F0E8] flex items-center justify-center">

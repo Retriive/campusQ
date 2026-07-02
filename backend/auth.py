@@ -18,6 +18,7 @@ Env vars:
   CLERK_ISSUER               e.g. https://clerk.<your-domain>.com  (optional but recommended)
   CLERK_AUTHORIZED_PARTIES   comma-separated allowed `azp` origins (optional)
 """
+import hmac
 import os
 
 from fastapi import Request, HTTPException, status
@@ -100,3 +101,25 @@ async def require_user(request: Request) -> str:
             headers={"WWW-Authenticate": "Bearer"},
         )
     return claims.get("sub", "anonymous")
+
+
+# ── Admin gate for internal/aggregated data endpoints ─────────────────────────
+# Unlike require_user's safe-rollout default, this is DEFAULT-CLOSED: the
+# dashboard endpoints expose waitlist emails and student query text, so they
+# must never be public. Until ADMIN_API_KEY is set on the server, they 503.
+_ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "").strip()
+
+
+async def require_admin(request: Request) -> None:
+    """FastAPI dependency. Grants access only with a matching X-Admin-Key header."""
+    if not _ADMIN_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Admin access is not configured. Set ADMIN_API_KEY on the server.",
+        )
+    supplied = request.headers.get("x-admin-key", "")
+    if not supplied or not hmac.compare_digest(supplied, _ADMIN_API_KEY):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing admin key",
+        )

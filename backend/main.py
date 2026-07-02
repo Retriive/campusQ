@@ -9,7 +9,9 @@ from datetime import datetime, date
 # Request-scoped session id — set once per request, read by log_query.
 # Avoids threading session_id through every log call site.
 _current_session: contextvars.ContextVar[str] = contextvars.ContextVar("session_id", default="none")
-from fastapi import FastAPI, UploadFile, File, Form, Depends
+from collections import defaultdict, deque
+
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pinecone import Pinecone
@@ -24,11 +26,86 @@ from citations import (
     should_emit_citations,
 )
 from retrieval import retrieve_and_rerank
-from auth import require_user
+from auth import require_user, require_admin
 
 load_dotenv()
 
 app = FastAPI()
+
+# ── Server-side input limits ──────────────────────────────────────────────────
+# The frontend enforces none of these; every request must be assumed hostile.
+MAX_QUESTION_CHARS = 2000
+MAX_HISTORY_MESSAGES = 20       # most recent kept
+MAX_MESSAGE_CHARS = 4000
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_PDF_PAGES = 40
+MAX_ATTACHMENT_CHARS = 40_000
+MAX_EMAIL_CHARS = 254
+_ALLOWED_HISTORY_ROLES = {"user", "assistant"}
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
+_COURSE_CODE_RE = re.compile(r"^[A-Za-z]{3,4}\s?\d{4}[A-Za-z]?$")
+
+
+def sanitize_history(history_json: str) -> list[dict]:
+    """Parse client-supplied chat history into a bounded, role-whitelisted list.
+
+    The client controls this field entirely, so: only user/assistant roles
+    survive (nothing can inject extra system messages), each message is
+    length-capped, and only the most recent MAX_HISTORY_MESSAGES are kept —
+    which also stops unbounded token growth on long conversations.
+    """
+    try:
+        raw = json.loads(history_json)
+    except Exception:
+        return []
+    if not isinstance(raw, list):
+        return []
+    cleaned: list[dict] = []
+    for msg in raw:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        content = msg.get("content")
+        if role not in _ALLOWED_HISTORY_ROLES or not isinstance(content, str):
+            continue
+        cleaned.append({"role": role, "content": content[:MAX_MESSAGE_CHARS]})
+    return cleaned[-MAX_HISTORY_MESSAGES:]
+
+
+# ── Rate limiting (in-process sliding window) ─────────────────────────────────
+# Keyed by client IP per endpoint group. In-memory on purpose: the API runs as
+# a single process (same assumption the log writer makes), so this needs no
+# extra dependency or store. Limits are generous for real students and tight
+# enough to stop API-budget-draining loops and waitlist spam.
+_RATE_BUCKETS: dict[tuple[str, str], deque] = defaultdict(deque)
+
+RATE_LIMITS = {
+    "chat": (30, 60),        # 30 requests / minute
+    "waitlist": (10, 3600),  # 10 / hour
+    "report": (10, 3600),
+    "feedback": (60, 3600),
+    "lookup": (120, 60),
+}
+
+
+def _client_ip(request: Request) -> str:
+    # Render/Vercel sit behind proxies; first X-Forwarded-For hop is the client.
+    fwd = request.headers.get("x-forwarded-for", "")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def check_rate_limit(request: Request, scope: str):
+    max_calls, window_s = RATE_LIMITS[scope]
+    key = (scope, _client_ip(request))
+    now = time.time()
+    bucket = _RATE_BUCKETS[key]
+    while bucket and bucket[0] <= now - window_s:
+        bucket.popleft()
+    if len(bucket) >= max_calls:
+        raise HTTPException(status_code=429, detail="Too many requests — slow down and try again shortly.")
+    bucket.append(now)
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 
@@ -194,7 +271,7 @@ app.add_middleware(
     allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-Admin-Key"],
 )
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -542,8 +619,11 @@ async def degree_plan(slug: str = "", variant: str = ""):
 
 
 @app.get("/api/course/{course_code}")
-async def course_lookup(course_code: str):
+async def course_lookup(course_code: str, request: Request):
+    check_rate_limit(request, "lookup")
     clean_code = course_code.upper().strip()
+    if not _COURSE_CODE_RE.match(clean_code):
+        return {"found": False, "message": "Invalid course code format."}
     course_id = clean_code.replace(" ", "")
     try:
         result = index.fetch(ids=[course_id], namespace="courses")
@@ -553,15 +633,21 @@ async def course_lookup(course_code: str):
             return {"found": True, **structured}
         return {"found": False, "message": f"Could not find exact course data for {clean_code}."}
     except Exception as e:
-        return {"found": False, "error": str(e)}
+        # Never echo internals (connection strings, index names) to the client.
+        print(f"Course lookup error for {clean_code}: {e}")
+        return {"found": False, "message": "Lookup failed — please try again."}
 
 
 @app.post("/api/report")
 async def submit_report(
+    request: Request,
     message: str = Form(...),
     query: str = Form(""),
 ):
     """Problem reports from the 'Report a Problem' modal (separate from thumbs feedback)."""
+    check_rate_limit(request, "report")
+    if not message.strip():
+        return {"success": False, "error": "message is required"}
     _log("reports.log", {
         "ts": datetime.utcnow().isoformat(),
         "id": str(uuid.uuid4())[:8],
@@ -573,6 +659,7 @@ async def submit_report(
 
 @app.post("/api/chat")
 async def chat_endpoint(
+    request: Request,
     question: str = Form(...),
     history: str = Form("[]"),
     session_id: str = Form("none"),
@@ -580,25 +667,27 @@ async def chat_endpoint(
     file: UploadFile = File(None),
     auth_user: str = Depends(require_user),
 ):
-    _current_session.set(session_id)
+    check_rate_limit(request, "chat")
+    if not question.strip():
+        return {"answer": "Ask me something about courses, programs, or deadlines!", "sources": []}
+    question = question[:MAX_QUESTION_CHARS]
+    _current_session.set(session_id[:100])
     # Trust the verified Clerk identity over the client-supplied form field.
     if auth_user != "anonymous":
         user_id = auth_user
+    user_id = user_id[:100]
     user_query = question
     t_start = time.time()
 
+    past_messages = sanitize_history(history)
+
     # Inject last-mentioned course code from history for vague follow-up queries
     if not re.search(r'[A-Z]{3,4}\s*\d{4}', user_query, re.IGNORECASE):
-        try:
-            _hist = json.loads(history)
-            for _msg in reversed(_hist):
-                _content = _msg.get("content", "") if isinstance(_msg, dict) else ""
-                _found = re.search(r'([A-Z]{3,4}\s*\d{4})', _content, re.IGNORECASE)
-                if _found:
-                    user_query = f"{user_query} ({_found.group(1)})"
-                    break
-        except Exception:
-            pass
+        for _msg in reversed(past_messages):
+            _found = re.search(r'([A-Z]{3,4}\s*\d{4})', _msg["content"], re.IGNORECASE)
+            if _found:
+                user_query = f"{user_query} ({_found.group(1)})"
+                break
 
     print(f"Searching database for: {user_query}")
 
@@ -664,10 +753,20 @@ async def chat_endpoint(
     attachment_text = ""
     try:
         if file:
-            content = await file.read()
-            doc = fitz.open(stream=content, filetype="pdf")
-            for page in doc:
+            if file.content_type not in ("application/pdf", "application/x-pdf") and not (file.filename or "").lower().endswith(".pdf"):
+                return {"answer": "I can only read PDF attachments — try uploading the document as a PDF.", "sources": []}
+            content = await file.read(MAX_UPLOAD_BYTES + 1)
+            if len(content) > MAX_UPLOAD_BYTES:
+                return {"answer": "That PDF is too large (max 10 MB). Try uploading just the relevant pages.", "sources": []}
+            try:
+                doc = fitz.open(stream=content, filetype="pdf")
+            except Exception:
+                return {"answer": "I couldn't open that file as a PDF — it may be corrupted.", "sources": []}
+            for page_num, page in enumerate(doc):
+                if page_num >= MAX_PDF_PAGES or len(attachment_text) >= MAX_ATTACHMENT_CHARS:
+                    break
                 attachment_text += page.get_text("text") + "\n"
+            attachment_text = attachment_text[:MAX_ATTACHMENT_CHARS]
 
         search_query = rewrite_query_for_embedding(user_query)
         print(f"Embedding query: {search_query}")
@@ -719,7 +818,6 @@ async def chat_endpoint(
 
         system_prompt = build_system_prompt(context_text, attachment_text)
 
-        past_messages = json.loads(history)
         api_messages = [{"role": "system", "content": system_prompt}]
         for msg in past_messages:
             api_messages.append({"role": msg["role"], "content": msg["content"]})
@@ -772,34 +870,35 @@ async def chat_endpoint(
 
 @app.post("/api/chat/stream")
 async def chat_stream(
+    request: Request,
     question: str = Form(...),
     history: str = Form("[]"),
     session_id: str = Form("none"),
     user_id: str = Form("anonymous"),
     auth_user: str = Depends(require_user),
 ):
-    _current_session.set(session_id)
+    check_rate_limit(request, "chat")
+    question = question[:MAX_QUESTION_CHARS]
+    _current_session.set(session_id[:100])
     # Trust the verified Clerk identity over the client-supplied form field.
     if auth_user != "anonymous":
         user_id = auth_user
+    user_id = user_id[:100]
     user_query = question
 
     t_start = time.time()
+
+    past_messages = sanitize_history(history)
 
     # If the query has no course code but is a follow-up (e.g. "what semester is this taught?"),
     # inject the last-mentioned course code from history so RAG can find the right data.
     _course_in_query = re.search(r'[A-Z]{3,4}\s*\d{4}', user_query, re.IGNORECASE)
     if not _course_in_query:
-        try:
-            _hist = json.loads(history)
-            for _msg in reversed(_hist):
-                _content = _msg.get("content", "") if isinstance(_msg, dict) else ""
-                _found = re.search(r'([A-Z]{3,4}\s*\d{4})', _content, re.IGNORECASE)
-                if _found:
-                    user_query = f"{user_query} ({_found.group(1)})"
-                    break
-        except Exception:
-            pass
+        for _msg in reversed(past_messages):
+            _found = re.search(r'([A-Z]{3,4}\s*\d{4})', _msg["content"], re.IGNORECASE)
+            if _found:
+                user_query = f"{user_query} ({_found.group(1)})"
+                break
 
     # Patterns that indicate the user wants course details directly (pill cards shown)
     DIRECT_LOOKUP_PATTERNS = re.compile(
@@ -884,7 +983,6 @@ async def chat_stream(
 
             system_prompt = build_system_prompt(context_text)
 
-            past_messages = json.loads(history)
             api_messages = [{"role": "system", "content": system_prompt}]
             for msg in past_messages:
                 api_messages.append({"role": msg["role"], "content": msg["content"]})
@@ -954,50 +1052,60 @@ async def chat_stream(
 
 @app.post("/api/feedback")
 async def feedback_endpoint(
+    request: Request,
     rating: str = Form(...),              # "up" | "down"
     question: str = Form(""),
     answer: str = Form(""),
     session_id: str = Form("none"),
 ):
+    check_rate_limit(request, "feedback")
     if rating not in ("up", "down"):
         return {"ok": False, "error": "rating must be 'up' or 'down'"}
-    log_feedback(session_id, question, answer, rating)
+    log_feedback(session_id[:100], question, answer, rating)
     return {"ok": True}
 
 
 @app.post("/api/waitlist")
 async def waitlist_endpoint(
+    request: Request,
     email: str = Form(...),
     school: str = Form(...),
 ):
+    check_rate_limit(request, "waitlist")
     email = email.strip().lower()
-    if "@" not in email or "." not in email.split("@")[-1]:
+    if len(email) > MAX_EMAIL_CHARS or not _EMAIL_RE.match(email):
         return {"ok": False, "error": "invalid email"}
     _log("waitlist.log", {
         "ts": datetime.utcnow().isoformat(),
         "email": email,
-        "school": school,
+        "school": school.strip()[:64],
     })
     return {"ok": True}
 
 
-# ── Advisor Dashboard (read-only, anonymized — open access) ───────────────────
+# ── Advisor Dashboard (aggregated internal data — admin key required) ─────────
+# These expose waitlist emails and student query text; they are default-closed
+# until ADMIN_API_KEY is set (see auth.require_admin).
 from dashboard import build_dashboard_data, build_digest_text, build_waitlist_data
 
+def _clamp_days(days: int | None) -> int | None:
+    """?days=0 means all-time; otherwise clamp to a sane window."""
+    if days is None or days == 0:
+        return None
+    return max(1, min(days, 365))
+
 @app.get("/api/dashboard")
-async def dashboard_data(days: int | None = 7):
+async def dashboard_data(days: int | None = 7, _: None = Depends(require_admin)):
     """days=7,14,30,90 or omit for all-time (days=None via ?days=0)"""
-    d = None if days == 0 else days
-    return {"ok": True, "data": build_dashboard_data(LOG_DIR, days=d)}
+    return {"ok": True, "data": build_dashboard_data(LOG_DIR, days=_clamp_days(days))}
 
 @app.get("/api/dashboard/digest")
-async def dashboard_digest():
+async def dashboard_digest(_: None = Depends(require_admin)):
     return {"ok": True, "digest": build_digest_text(LOG_DIR)}
 
 @app.get("/api/dashboard/waitlist")
-async def dashboard_waitlist(days: int | None = 30):
-    d = None if days == 0 else days
-    return {"ok": True, "data": build_waitlist_data(LOG_DIR, days=d)}
+async def dashboard_waitlist(days: int | None = 30, _: None = Depends(require_admin)):
+    return {"ok": True, "data": build_waitlist_data(LOG_DIR, days=_clamp_days(days))}
 
 
 # ── Weekly team brief scheduler (in-process, opt-in) ──────────────────────────

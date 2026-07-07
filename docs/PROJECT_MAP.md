@@ -23,7 +23,9 @@ campusQ/
 | `main.py` | **The brain.** Chat API, system prompt, logging |
 | `retrieval.py` | Search Pinecone, intent routing, reranker |
 | `citations.py` | Formats source links on answers |
-| `dashboard.py` | Advisor analytics API |
+| `dashboard.py` | Advisor analytics API + question clustering |
+| `advisor_report.py` | External Student Questions Report (text + HTML) for university staff |
+| `send_advisor_report.py` | Emails the advisor report (schedule Mondays, like `send_digest.py`) |
 | `run_pipeline.py` | Runs all data scrapers |
 | `wipe.py` | Clears Pinecone before full re-index |
 | `requirements.txt` | Python dependencies |
@@ -61,6 +63,7 @@ Scripts that pull Carleton data into Pinecone:
 |---|---|
 | `test_citations.py` | Citation formatting |
 | `test_retrieval_rerank.py` | Query routing |
+| `test_gap_report.py` | Question clustering + advisor gap report |
 | `test_schedule_chatbot.py` | Schedule questions (manual harness) |
 | `run_eval.py` | Older 65-question harness (diagnostics) |
 

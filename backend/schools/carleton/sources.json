@@ -1,0 +1,52 @@
+{
+  "school": "carleton",
+  "notes": "Seed registry migrated from the hand-written scrapers. category = Pinecone namespace. Add a URL here (or via the admin Sources page) and the pipeline handles the rest — no scraper code.",
+  "sources": [
+    {
+      "category": "courses",
+      "url": "https://calendar.carleton.ca/undergrad/courses/",
+      "extractor": "course_regex",
+      "follow_links": true,
+      "max_pages": 250,
+      "min_records": 2000
+    },
+    {
+      "category": "dates",
+      "url": "https://carleton.ca/registration/academic-dates/",
+      "extractor": "llm_dates",
+      "min_records": 10
+    },
+    {
+      "category": "regulations",
+      "url": "https://calendar.carleton.ca/undergrad/regulations/academicregulationsoftheuniversity/",
+      "extractor": "llm_generic",
+      "follow_links": true,
+      "max_pages": 40,
+      "min_records": 20
+    },
+    {
+      "category": "registrar",
+      "url": "https://carleton.ca/registrar/registration/",
+      "extractor": "llm_generic",
+      "follow_links": true,
+      "max_pages": 40,
+      "min_records": 10
+    },
+    {
+      "category": "tuition",
+      "url": "https://carleton.ca/studentaccounts/tuition-fees/",
+      "extractor": "llm_generic",
+      "follow_links": true,
+      "max_pages": 25,
+      "min_records": 5
+    },
+    {
+      "category": "services",
+      "url": "https://carleton.ca/academicadvising/",
+      "extractor": "llm_generic",
+      "follow_links": true,
+      "max_pages": 40,
+      "min_records": 10
+    }
+  ]
+}

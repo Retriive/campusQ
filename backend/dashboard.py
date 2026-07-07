@@ -263,6 +263,175 @@ def build_dashboard_data(log_dir: str, days: int | None = 7,
     }
 
 
+# ── Question clustering (for the advisor gap report) ──────────────────────────
+# Groups near-duplicate questions ("when is the drop deadline", "when's the
+# deadline to drop a course?") so the report says "asked 40×" instead of listing
+# 40 variants. Token-overlap similarity only — no embeddings/API calls, so this
+# stays a pure function like everything else in this module.
+
+_STOPWORDS = frozenset({
+    "the", "a", "an", "is", "are", "am", "was", "were", "be", "been", "do",
+    "does", "did", "i", "im", "my", "me", "we", "our", "you", "your", "it",
+    "its", "to", "for", "of", "in", "on", "at", "with", "and", "or", "if",
+    "can", "could", "will", "would", "should", "there", "this", "that",
+    "about", "get", "have", "has", "need", "want", "please", "hi", "hello",
+})
+
+
+def _question_tokens(query: str) -> frozenset[str]:
+    """Normalized token set for similarity comparison.
+
+    Course codes are fused ("comp 2402" -> "comp2402") so they act as one strong
+    signal, and a trailing-s strip gives us just enough stemming to match
+    "course"/"courses" without a real stemmer.
+    """
+    q = (query or "").lower().replace("'", "")  # "when's" -> "whens" -> "when"
+    q = re.sub(r"\b([a-z]{4})\s+(\d{4})\b", r"\1\2", q)
+    words = re.findall(r"[a-z0-9]+", q)
+    tokens = set()
+    for w in words:
+        if w in _STOPWORDS or len(w) <= 1:
+            continue
+        if len(w) > 3 and w.endswith("s") and not w.endswith("ss"):
+            w = w[:-1]
+        if w == "prereq":
+            w = "prerequisite"
+        tokens.add(w)
+    return frozenset(tokens)
+
+
+def cluster_questions(questions: list[str], threshold: float = 0.5) -> list[dict]:
+    """Greedy clustering of raw question strings by token-set Jaccard similarity.
+
+    Returns [{question, count, variants}] sorted by count desc, where `question`
+    is the most common verbatim phrasing and `variants` holds up to 3 other
+    phrasings. Junk (< 8 chars, or nothing but stopwords) is dropped.
+    """
+    counts = Counter(
+        q.strip() for q in questions
+        if q and len(q.strip()) >= 8
+    )
+    clusters: list[dict] = []
+    for text, n in counts.most_common():
+        toks = _question_tokens(text)
+        if not toks:
+            continue
+        best, best_sim = None, 0.0
+        for c in clusters:
+            union = len(toks | c["tokens"])
+            sim = len(toks & c["tokens"]) / union if union else 0.0
+            if sim > best_sim:
+                best, best_sim = c, sim
+        if best is not None and best_sim >= threshold:
+            best["variants"][text] += n
+        else:
+            clusters.append({"tokens": toks, "variants": Counter({text: n})})
+
+    out = []
+    for c in clusters:
+        rep, _ = c["variants"].most_common(1)[0]
+        variants = [v for v, _ in c["variants"].most_common() if v != rep][:3]
+        out.append({
+            "question": rep[:200],
+            "count": sum(c["variants"].values()),
+            "variants": [v[:160] for v in variants],
+        })
+    out.sort(key=lambda r: -r["count"])
+    return out
+
+
+def _is_office_hours(dt_utc: datetime) -> bool:
+    """Mon–Fri 8:30–16:30 in Ottawa. Falls back to a fixed UTC-5 offset if pytz
+    is unavailable (close enough for a directional stat)."""
+    try:
+        import pytz
+        local = pytz.utc.localize(dt_utc).astimezone(pytz.timezone("America/Toronto"))
+    except Exception:
+        local = dt_utc - timedelta(hours=5)
+    if local.weekday() >= 5:
+        return False
+    minutes = local.hour * 60 + local.minute
+    return 8 * 60 + 30 <= minutes < 16 * 60 + 30
+
+
+def build_gap_report_data(log_dir: str, days: int | None = 7,
+                          exclude_sessions: frozenset[str] | None = EVAL_SESSIONS) -> dict:
+    """Aggregates the advisor-facing gap report: how many questions students
+    asked, how many were answered from official sources, what they asked most,
+    and — the headline — clustered questions we had no official content for.
+
+    Counts unanswered questions from queries.log (had_context False) because
+    every chat logs there; no_context.log rows are a duplicate subset of those
+    (main.py writes both) and are only used as a fallback for old log formats.
+    """
+    now = datetime.utcnow()
+    if days is None:
+        window_start = datetime(2000, 1, 1)
+        prev_start = datetime(2000, 1, 1)
+    else:
+        window_start = now - timedelta(days=days)
+        prev_start = now - timedelta(days=days * 2)
+
+    queries = _read_jsonl(os.path.join(log_dir, "queries.log"))
+    if exclude_sessions:
+        queries = [q for q in queries if not _is_excluded(q, exclude_sessions)]
+
+    this_week = [q for q in queries if _in_window(q, window_start, now)]
+    prev_week = [q for q in queries if _in_window(q, prev_start, window_start)]
+
+    def _unanswered_texts(rows: list[dict]) -> list[str]:
+        return [q.get("query", "") for q in rows
+                if not q.get("had_context") and q.get("query")]
+
+    unanswered_texts = _unanswered_texts(this_week)
+    prev_unanswered = len(_unanswered_texts(prev_week))
+    if not this_week:
+        # Fallback for old deployments whose queries.log predates had_context
+        no_ctx = _read_jsonl(os.path.join(log_dir, "no_context.log"))
+        if exclude_sessions:
+            no_ctx = [n for n in no_ctx if not _is_excluded(n, exclude_sessions)]
+        unanswered_texts = [n.get("query", "") for n in no_ctx
+                            if _in_window(n, window_start, now) and n.get("query")]
+        prev_unanswered = sum(1 for n in no_ctx if _in_window(n, prev_start, window_start))
+
+    total = len(this_week)
+    answered = sum(1 for q in this_week if q.get("had_context"))
+    coverage_pct = round(100 * answered / total) if total else None
+
+    after_hours = sum(
+        1 for q in this_week
+        if (dt := _parse_ts(q)) is not None and not _is_office_hours(dt)
+    )
+    after_hours_pct = round(100 * after_hours / total) if total else None
+
+    gaps = []
+    for c in cluster_questions(unanswered_texts):
+        gaps.append({
+            **c,
+            "theme": INTENT_LABELS.get(_classify_intent(c["question"]), "General / Other"),
+        })
+
+    answered_texts = [q.get("query", "") for q in this_week
+                      if q.get("had_context") and q.get("query")]
+    top_asked = cluster_questions(answered_texts)[:10]
+
+    return {
+        "generated_at": now.isoformat(),
+        "days": days,
+        "window_start": window_start.isoformat(),
+        "totals": {
+            "questions": total,
+            "answered": answered,
+            "coverage_pct": coverage_pct,
+            "after_hours_pct": after_hours_pct,
+            "unanswered": len(unanswered_texts),
+            "unanswered_prev_window": prev_unanswered,
+        },
+        "top_asked": top_asked,
+        "gaps": gaps,
+    }
+
+
 # ── Waitlist signups (multi-university landing pages) ─────────────────────────
 def build_waitlist_data(log_dir: str, days: int | None = 30) -> dict:
     """days=None means all-time."""

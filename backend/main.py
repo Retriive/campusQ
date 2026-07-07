@@ -1184,7 +1184,12 @@ async def waitlist_endpoint(
 # ── Advisor Dashboard (aggregated internal data — admin key required) ─────────
 # These expose waitlist emails and student query text; they are default-closed
 # until ADMIN_API_KEY is set (see auth.require_admin).
-from dashboard import build_dashboard_data, build_digest_text, build_waitlist_data
+from dashboard import (
+    build_dashboard_data,
+    build_digest_text,
+    build_gap_report_data,
+    build_waitlist_data,
+)
 
 def _clamp_days(days: int | None) -> int | None:
     """?days=0 means all-time; otherwise clamp to a sane window."""
@@ -1204,6 +1209,21 @@ async def dashboard_digest(_: None = Depends(require_admin)):
 @app.get("/api/dashboard/waitlist")
 async def dashboard_waitlist(days: int | None = 30, _: None = Depends(require_admin)):
     return {"ok": True, "data": build_waitlist_data(LOG_DIR, days=_clamp_days(days))}
+
+@app.get("/api/dashboard/gaps")
+async def dashboard_gaps(days: int | None = 7, _: None = Depends(require_admin)):
+    """Clustered content-gap data behind the advisor report (JSON)."""
+    return {"ok": True, "data": build_gap_report_data(LOG_DIR, days=_clamp_days(days))}
+
+@app.get("/api/dashboard/advisor-report")
+async def dashboard_advisor_report(_: None = Depends(require_admin)):
+    """The external, advisor-facing Student Questions Report (text + HTML)."""
+    from advisor_report import build_advisor_report_html, build_advisor_report_text
+    return {
+        "ok": True,
+        "text": build_advisor_report_text(LOG_DIR),
+        "html": build_advisor_report_html(LOG_DIR),
+    }
 
 
 # ── Ingestion admin API (admin key required) ──────────────────────────────────

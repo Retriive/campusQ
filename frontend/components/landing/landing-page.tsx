@@ -8,24 +8,27 @@ import { WaitlistCta } from "@/components/landing/waitlist-cta"
 import { SCHOOLS, type SchoolId } from "@/lib/landing-schools"
 
 // Cinematic-track landing (frontend/DESIGN.md): pure black canvas, thin-weight
-// display type, white-stroked pill CTAs, one action per band, flat blackness.
+// display type, pill CTAs, one action per band, flat blackness. The selected
+// school's color family (globals.css [data-school] tokens, dark variants via
+// the .dark wrapper) carries every accent.
 
 export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: SchoolId }) {
   const [schoolId, setSchoolId] = useState<SchoolId>(defaultSchool)
   const school = SCHOOLS[schoolId]
 
   return (
-    <div className="min-h-screen bg-night text-white flex flex-col [font-feature-settings:'ss03']">
+    <div className="dark">
+    <div data-school={schoolId} className="min-h-screen bg-night text-white flex flex-col [font-feature-settings:'ss03']">
 
       {/* Nav — nav-bar-dark */}
       <nav className="sticky top-0 z-50 bg-night border-b border-night-line">
         <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-base tracking-tight">
-              <span className="font-[550]">Campus</span><span className="font-[330]">Q</span>
+              <span className="font-[550]">Campus</span><span className="font-[330] text-primary transition-colors duration-500">Q</span>
             </span>
             {school.live && (
-              <span className="text-[10px] tracking-[0.72px] uppercase px-2.5 py-0.5 rounded-full border border-white/30 text-zinc-300">
+              <span className="text-[10px] tracking-[0.72px] uppercase px-2.5 py-0.5 rounded-full bg-primary text-primary-foreground transition-colors duration-500">
                 Live
               </span>
             )}
@@ -62,7 +65,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
 
         <h1 className="font-[330] leading-[1.02] tracking-[0.02em] text-[clamp(2.9rem,8vw,6rem)] text-balance max-w-5xl">
           Every answer your advisor would give.{" "}
-          <span className="text-zinc-500">In seconds.</span>
+          <span className="text-primary transition-colors duration-500">In seconds.</span>
         </h1>
 
         <p className="mt-8 text-lg leading-[1.56] text-zinc-400 max-w-xl">
@@ -76,7 +79,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
             <div className="flex flex-wrap items-center gap-6">
               <Link
                 href="/sign-up"
-                className="inline-flex items-center gap-2 rounded-full border-2 border-white px-7 py-3 text-base text-white hover:bg-white hover:text-black transition-colors"
+                className="inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-strong px-7 py-3 text-base text-primary-foreground transition-colors duration-500"
               >
                 Ask your first question
                 <ArrowRight className="size-4" />
@@ -106,7 +109,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
             <span className="size-2.5 rounded-full bg-zinc-700" />
             <span className="size-2.5 rounded-full bg-zinc-700" />
             <div className="mx-auto flex items-center gap-2 rounded-full border border-night-line px-4 py-1">
-              <span className="size-1.5 rounded-full bg-white" />
+              <span className="size-1.5 rounded-full bg-primary transition-colors duration-500" />
               <span className="text-[11px] text-zinc-400">campusq.retriive.com</span>
             </div>
             <span className="size-2.5 opacity-0" />
@@ -114,11 +117,11 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
 
           {/* Inner app nav */}
           <div className="px-5 py-3 border-b border-night-line flex items-center gap-2.5">
-            <div className="size-5 rounded-md bg-white flex items-center justify-center text-[9px] font-[550] text-black">
+            <div className="size-5 rounded-md bg-primary flex items-center justify-center text-[9px] font-[550] text-primary-foreground transition-colors duration-500">
               Q
             </div>
             <span className="text-xs text-zinc-200">CampusQ</span>
-            <span className="ml-auto text-[10px] uppercase tracking-[0.72px] px-2 py-0.5 rounded-full border border-night-line text-zinc-400">
+            <span className="ml-auto text-[10px] uppercase tracking-[0.72px] px-2 py-0.5 rounded-full border border-night-line text-primary transition-colors duration-500">
               {school.shortName}
             </span>
           </div>
@@ -128,7 +131,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
             {school.demoMessages.map((msg, i) => (
               <div key={`${schoolId}-${i}`} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start gap-3"}`}>
                 {msg.role === "assistant" && (
-                  <div className="shrink-0 size-6 rounded-full bg-white flex items-center justify-center text-[9px] font-[550] text-black mt-0.5">
+                  <div className="shrink-0 size-6 rounded-full bg-primary flex items-center justify-center text-[9px] font-[550] text-primary-foreground mt-0.5 transition-colors duration-500">
                     Q
                   </div>
                 )}
@@ -150,8 +153,8 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
                 <Link href="/sign-up" className="flex-1 rounded-full border border-night-line px-5 py-3 text-xs text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-colors">
                   Ask anything about {school.shortName}…
                 </Link>
-                <Link href="/sign-up" className="size-10 rounded-full border-2 border-white flex items-center justify-center shrink-0 hover:bg-white group transition-colors">
-                  <ArrowRight className="size-4 text-white group-hover:text-black transition-colors" />
+                <Link href="/sign-up" className="size-10 rounded-full bg-primary hover:bg-primary-strong flex items-center justify-center shrink-0 transition-colors duration-500">
+                  <ArrowRight className="size-4 text-primary-foreground" />
                 </Link>
               </>
             ) : (
@@ -177,7 +180,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <span className="size-1.5 rounded-full bg-white" />
+              <span className="size-1.5 rounded-full bg-primary transition-colors duration-500" />
               <p className="text-sm text-zinc-400">
                 <span className="text-white">{school.shortName}</span>&apos;s catalog is being indexed — join the waitlist to get notified first.
               </p>
@@ -206,7 +209,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
           {school.live ? (
             <Link
               href="/sign-up"
-              className="inline-flex items-center gap-2 rounded-full border-2 border-white px-7 py-3 text-base text-white hover:bg-white hover:text-black transition-colors"
+              className="inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-strong px-7 py-3 text-base text-primary-foreground transition-colors duration-500"
             >
               Open CampusQ free
               <ArrowRight className="size-4" />
@@ -226,7 +229,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
         <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <span className="text-sm">
-              <span className="font-[550]">Campus</span><span className="font-[330]">Q</span>
+              <span className="font-[550]">Campus</span><span className="font-[330] text-primary transition-colors duration-500">Q</span>
             </span>
             <span className="text-zinc-700">·</span>
             <a href="https://retriive.com" className="text-xs text-night-link underline underline-offset-2 hover:text-white transition-colors">
@@ -241,6 +244,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
         </div>
       </footer>
 
+    </div>
     </div>
   )
 }

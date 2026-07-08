@@ -14,10 +14,11 @@ export function UniversityToggle({
       {SCHOOL_LIST.map((s) => (
         <button
           key={s.id}
+          data-school={s.id}
           onClick={() => onSelect(s.id)}
           className={`text-xs px-3.5 py-1.5 rounded-full transition-colors duration-200 active:scale-[0.97] ${
             activeId === s.id
-              ? "bg-white text-black font-[550]"
+              ? "bg-primary text-primary-foreground font-[550]"
               : "text-zinc-400 hover:text-white"
           }`}
         >

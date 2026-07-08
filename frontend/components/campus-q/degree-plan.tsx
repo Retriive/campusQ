@@ -17,8 +17,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css"
 import { Loader2, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+import { API_BASE_URL } from "@/lib/api"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface CourseNode { code: string; name: string; credits: number }
@@ -255,7 +254,7 @@ export function DegreePlan({ slug, variant }: { slug: string; variant: string })
     setError("")
     setCourses([])
     setRawEdges([])
-    fetch(`${API_URL}/api/degree-plan?slug=${encodeURIComponent(slug)}&variant=${encodeURIComponent(variant)}`)
+    fetch(`${API_BASE_URL}/api/degree-plan?slug=${encodeURIComponent(slug)}&variant=${encodeURIComponent(variant)}`)
       .then((r) => r.json())
       .then((d) => {
         setCourses(d.courses || [])

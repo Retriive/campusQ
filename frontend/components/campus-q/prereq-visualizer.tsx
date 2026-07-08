@@ -2,8 +2,7 @@
 
 import * as React from "react"
 import { ChevronRight, ChevronDown, GitBranch, Loader2 } from "lucide-react"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+import { API_BASE_URL } from "@/lib/api"
 
 interface CourseNode {
   courseCode: string
@@ -32,7 +31,7 @@ function TreeNode({ courseCode, depth = 0, maxDepth = 3, visited = new Set() }: 
   React.useEffect(() => {
     if (isVisited) return
     setLoading(true)
-    fetch(`${API_URL}/api/course/${encodeURIComponent(courseCode)}`)
+    fetch(`${API_BASE_URL}/api/course/${encodeURIComponent(courseCode)}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.found !== false) {

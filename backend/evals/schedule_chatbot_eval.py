@@ -1,12 +1,12 @@
 """
-test_schedule_chatbot.py — End-to-end schedule RAG evaluation for CampusQ.
+schedule_chatbot_eval.py — End-to-end schedule RAG evaluation for CampusQ.
 
 Sends real questions to the local chatbot API and checks answers against
 ground truth derived from course_resultsCampusQ.json.
 
 Usage:
-    py tests/test_schedule_chatbot.py
-    py tests/test_schedule_chatbot.py --url https://your-deployed-url.com
+    py evals/schedule_chatbot_eval.py
+    py evals/schedule_chatbot_eval.py --url https://your-deployed-url.com
 
 Categories tested:
     1. Open/closed availability
@@ -21,14 +21,19 @@ Categories tested:
    10. Negative cases (not offered in a term)
 """
 
-import sys
-import json
-import time
-import re
-import requests
 import argparse
+import json
+import os
+import time
+from collections import defaultdict
+
+import requests
 
 BASE_URL = "http://localhost:8000"
+RESULTS_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "schedule_test_results.json",
+)
 
 # ── Ground truth (derived from course_resultsCampusQ.json) ───────────────────
 # Each test: question, expected fragments (all must appear in answer, case-insensitive),
@@ -280,36 +285,12 @@ TEST_CASES = [
 ]
 
 
-# ── API caller ────────────────────────────────────────────────────────────────
-
-def ask(question: str, history: list = None) -> str:
-    """Send question to chatbot and return the full text response."""
-    if history is None:
-        history = []
-    try:
-        r = requests.post(
-            f"{BASE_URL}/api/chat",
-            data={
-                "question": question,
-                "history": json.dumps(history),
-                "session_id": "test-session",
-                "user_id": "test-runner",
-            },
-            timeout=30,
-        )
-        r.raise_for_status()
-        data = r.json()
-        return data.get("answer", "")
-    except Exception as e:
-        return f"[ERROR: {e}]"
-
-
-def ask_stream(question: str, history: list = None) -> str:
+def ask_stream(question: str, history: list | None = None) -> str:
     """Send question to streaming endpoint and collect all tokens."""
     if history is None:
         history = []
     try:
-        r = requests.post(
+        response = requests.post(
             f"{BASE_URL}/api/chat/stream",
             data={
                 "question": question,
@@ -320,9 +301,9 @@ def ask_stream(question: str, history: list = None) -> str:
             stream=True,
             timeout=30,
         )
-        r.raise_for_status()
+        response.raise_for_status()
         text = ""
-        for line in r.iter_lines():
+        for line in response.iter_lines():
             if line and line.startswith(b"data: "):
                 try:
                     payload = json.loads(line[6:])
@@ -331,11 +312,9 @@ def ask_stream(question: str, history: list = None) -> str:
                 except Exception:
                     pass
         return text.strip()
-    except Exception as e:
-        return f"[ERROR: {e}]"
+    except Exception as exc:
+        return f"[ERROR: {exc}]"
 
-
-# ── Evaluator ─────────────────────────────────────────────────────────────────
 
 def evaluate(answer: str, must_contain: list, must_not_contain: list) -> tuple[bool, list]:
     """Returns (passed, list_of_failures)."""
@@ -350,8 +329,6 @@ def evaluate(answer: str, must_contain: list, must_not_contain: list) -> tuple[b
     return len(failures) == 0, failures
 
 
-# ── Main runner ───────────────────────────────────────────────────────────────
-
 def run_tests(base_url: str):
     global BASE_URL
     BASE_URL = base_url.rstrip("/")
@@ -360,97 +337,89 @@ def run_tests(base_url: str):
     passed = 0
     failed = 0
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"CampusQ Schedule Test Suite — {len(TEST_CASES)} tests")
     print(f"Target: {BASE_URL}")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
-    for tc in TEST_CASES:
-        is_followup_test = "followup" in tc
+    for test_case in TEST_CASES:
+        is_followup_test = "followup" in test_case
 
         if is_followup_test:
-            # First message
-            answer1 = ask_stream(tc["question"])
+            answer1 = ask_stream(test_case["question"])
             history = [
-                {"role": "user", "content": tc["question"]},
+                {"role": "user", "content": test_case["question"]},
                 {"role": "assistant", "content": answer1},
             ]
             time.sleep(0.5)
-            answer = ask_stream(tc["followup"], history=history)
-            must_contain = tc.get("must_contain_followup", [])
-            must_not_contain = tc.get("must_not_contain_followup", [])
-            display_q = f"{tc['question']} -> {tc['followup']}"
+            answer = ask_stream(test_case["followup"], history=history)
+            must_contain = test_case.get("must_contain_followup", [])
+            must_not_contain = test_case.get("must_not_contain_followup", [])
+            display_q = f"{test_case['question']} -> {test_case['followup']}"
         else:
-            answer = ask_stream(tc["question"])
-            must_contain = tc.get("must_contain", [])
-            must_not_contain = tc.get("must_not_contain", [])
-            display_q = tc["question"]
+            answer = ask_stream(test_case["question"])
+            must_contain = test_case.get("must_contain", [])
+            must_not_contain = test_case.get("must_not_contain", [])
+            display_q = test_case["question"]
 
         ok, failures = evaluate(answer, must_contain, must_not_contain)
 
-        status = "PASS" if ok else "FAIL"
         if ok:
             passed += 1
         else:
             failed += 1
 
-        results.append({**tc, "answer": answer, "passed": ok, "failures": failures})
+        results.append({**test_case, "answer": answer, "passed": ok, "failures": failures})
 
         indicator = "[PASS]" if ok else "[FAIL]"
-        print(f"{indicator} [{tc['id']}] [{tc['category']}] {display_q}")
+        print(f"{indicator} [{test_case['id']}] [{test_case['category']}] {display_q}")
         if not ok:
-            for f in failures:
-                print(f"       {f}")
+            for failure in failures:
+                print(f"       {failure}")
             print(f"       Answer: {answer[:200]!r}")
         else:
             print(f"       Answer: {answer[:120]!r}")
         print()
 
-        time.sleep(0.8)  # avoid hammering the server
+        time.sleep(0.8)
 
-    # ── Summary ───────────────────────────────────────────────────────────────
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(f"RESULTS: {passed}/{len(TEST_CASES)} passed  ({failed} failed)")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
-    # By category
-    from collections import defaultdict
     by_cat = defaultdict(lambda: {"pass": 0, "fail": 0})
-    for r in results:
-        cat = r["category"]
-        if r["passed"]:
-            by_cat[cat]["pass"] += 1
+    for row in results:
+        category = row["category"]
+        if row["passed"]:
+            by_cat[category]["pass"] += 1
         else:
-            by_cat[cat]["fail"] += 1
+            by_cat[category]["fail"] += 1
 
     print("By category:")
-    for cat, counts in sorted(by_cat.items()):
+    for category, counts in sorted(by_cat.items()):
         total = counts["pass"] + counts["fail"]
-        print(f"  {cat:<22} {counts['pass']}/{total}")
+        print(f"  {category:<22} {counts['pass']}/{total}")
 
     print()
 
-    # By difficulty
     by_diff = defaultdict(lambda: {"pass": 0, "fail": 0})
-    for r in results:
-        d = r["difficulty"]
-        if r["passed"]:
-            by_diff[d]["pass"] += 1
+    for row in results:
+        difficulty = row["difficulty"]
+        if row["passed"]:
+            by_diff[difficulty]["pass"] += 1
         else:
-            by_diff[d]["fail"] += 1
+            by_diff[difficulty]["fail"] += 1
 
     print("By difficulty:")
-    for d in ["easy", "medium", "hard"]:
-        c = by_diff[d]
-        total = c["pass"] + c["fail"]
+    for difficulty in ["easy", "medium", "hard"]:
+        counts = by_diff[difficulty]
+        total = counts["pass"] + counts["fail"]
         if total:
-            print(f"  {d:<10} {c['pass']}/{total}")
+            print(f"  {difficulty:<10} {counts['pass']}/{total}")
 
-    # Save detailed results
-    out_path = "tests/schedule_test_results.json"
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
-    print(f"\nDetailed results saved to {out_path}")
+    with open(RESULTS_PATH, "w", encoding="utf-8") as handle:
+        json.dump(results, handle, indent=2, ensure_ascii=False)
+    print(f"\nDetailed results saved to {RESULTS_PATH}")
 
     return passed, failed
 

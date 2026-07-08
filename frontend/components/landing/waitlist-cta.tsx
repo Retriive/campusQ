@@ -2,8 +2,7 @@
 
 import * as React from "react"
 import { ArrowRight, Check } from "lucide-react"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+import { API_BASE_URL } from "@/lib/api"
 
 interface WaitlistCtaProps {
   school: string
@@ -35,7 +34,7 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
           const fd = new FormData()
           fd.append("email", email.trim())
           fd.append("school", school)
-          const res = await fetch(`${API_URL}/api/waitlist`, { method: "POST", body: fd })
+          const res = await fetch(`${API_BASE_URL}/api/waitlist`, { method: "POST", body: fd })
           const data = await res.json()
           if (data.ok) {
             setJoined(true)

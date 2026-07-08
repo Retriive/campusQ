@@ -26,46 +26,65 @@ campusQ/
 | `dashboard.py` | Advisor analytics API + question clustering |
 | `advisor_report.py` | External Student Questions Report (text + HTML) for university staff |
 | `send_advisor_report.py` | Emails the advisor report (schedule Mondays, like `send_digest.py`) |
-| `run_pipeline.py` | Runs all data scrapers |
+| `ingestion/` | **Canonical ingestion namespace + CLI** (`py -m ingestion.run`) |
+| `ingest/` | Backwards-compatible ingestion import path (legacy) |
+| `run_pipeline.py` | Legacy wrapper (deprecated; forwards to ingestion pipeline) |
+| `scripts/` | One-off operational scripts (manual probes, debug helpers) |
 | `wipe.py` | Clears Pinecone before full re-index |
 | `requirements.txt` | Python dependencies |
 | `.env` | API keys (not in git — create locally) |
 
-### Scrapers (`backend/scrapers/active/`)
+### Ingestion (`backend/ingestion/`)
 
-Scripts that pull Carleton data into Pinecone:
+Canonical command surface:
 
-| Script | Data |
+| Command | Purpose |
 |---|---|
-| `scrape_courses.py` | Course catalog |
-| `scrape_programs.py` | Program requirements |
-| `scrape_regulations.py` | Academic regulations |
-| `scrape_registrar.py` | Registration info |
-| `scrape_dates.py` | Deadlines |
-| `ingest_schedule.py` | Class schedules |
-| `scrape_campus.py` | Campus services |
-| `scrape_tuition.py` | Tuition/fees |
-| `scrape_facts.py` | General facts |
-| `scrape_library.py` | Library info |
+| `py -m ingestion.run --school carleton --list` | Show configured sources + recent runs |
+| `py -m ingestion.run --school carleton` | Incremental full run |
+| `py -m ingestion.run --school carleton --category dates` | One namespace/category |
+| `py -m ingestion.run --school carleton --force` | Re-extract and overwrite stale data |
 
-### Quality (`backend/evals/`)
+### Legacy scrapers (`backend/scrapers/`)
+
+Kept as an archive/reference path while ingestion migrates. Do not add new logic here.
+
+### Quality / eval harnesses (`backend/evals/`)
 
 | Path | What it is |
 |---|---|
 | `quality_gate.py` | **Run this before deploy** |
+| `run_eval.py` | 65-question diagnostic harness |
+| `schedule_chatbot_eval.py` | Live schedule QA harness |
 | `datasets/golden.csv` | Test questions + grading rules |
 | `experiments/` | Test results (auto-generated) |
 | `QUALITY_GATE.md` | Short pointer → see `docs/QUALITY_GATE.md` |
 
 ### Tests (`backend/tests/`)
 
+`backend/tests/` is deterministic pytest only.
+
 | File | Tests |
 |---|---|
 | `test_citations.py` | Citation formatting |
 | `test_retrieval_rerank.py` | Query routing |
 | `test_gap_report.py` | Question clustering + advisor gap report |
-| `test_schedule_chatbot.py` | Schedule questions (manual harness) |
-| `run_eval.py` | Older 65-question harness (diagnostics) |
+
+### Scripts (`backend/scripts/`)
+
+| File | Purpose |
+|---|---|
+| `pinecone_probe.py` | Manual Pinecone connectivity/metadata check |
+| `retrieval_probe.py` | Manual embedding + retrieval smoke probe |
+
+### Migration notes (deprecated paths)
+
+- `backend/run_pipeline.py` is now a compatibility wrapper. Prefer
+  `py -m ingestion.run ...`.
+- `backend/ingest/` remains for backwards-compatible imports; new code should
+  import from `backend/ingestion/`.
+- Non-deterministic harnesses moved from `backend/tests/` to `backend/evals/`
+  and `backend/scripts/`.
 
 ### Data (`backend/data/`)
 
@@ -90,8 +109,10 @@ Scripts that pull Carleton data into Pinecone:
 | Path | What it is |
 |---|---|
 | `app/` | Pages (landing, chat, dashboard, about) |
-| `components/campus-q/` | Chat UI, program explorer, deadline tracker |
+| `components/campus-q/` | CampusQ features (chat, program explorer, deadlines) |
+| `components/campus-q/chat/` | Chat-specific helpers/components (`chat-container.tsx` support modules) |
 | `components/landing/` | Multi-university landing pages |
+| `lib/api.ts` | Canonical frontend API base URL + fetch helper |
 | `lib/` | Shared utilities |
 
 ### Key pages
@@ -123,11 +144,11 @@ Scripts that pull Carleton data into Pinecone:
 | Symptom | Check |
 |---|---|
 | Wrong answer | `queries.log` → retrieval scores. Then `retrieval.py` / `main.py` prompt |
-| No answer / "I don't know" | `no_context.log` → data gap → run scrapers |
-| Course not found | `course_misses.log` → `scrape_courses.py` |
+| No answer / "I don't know" | `no_context.log` → data gap → run `py -m ingestion.run ...` |
+| Course not found | `course_misses.log` → ingestion sources + extraction rules |
 | Bad source links | `citations.py` |
 | Deploy broke chat | Run smoke gate on production |
-| Frontend won't load | `frontend/` console errors, `NEXT_PUBLIC_API_URL` |
+| Frontend won't load | `frontend/` console errors, `frontend/lib/api.ts` / `NEXT_PUBLIC_API_URL` |
 
 ---
 

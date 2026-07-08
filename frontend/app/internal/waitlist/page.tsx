@@ -3,8 +3,7 @@
 import * as React from "react"
 import { Mail, RefreshCw, Loader2 } from "lucide-react"
 import { AdminKeyGate, adminHeaders, clearAdminKey } from "@/components/admin-key-gate"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+import { API_BASE_URL } from "@/lib/api"
 
 interface WaitlistSchoolRow { school: string; count: number }
 interface WaitlistRecent { email: string; school: string; ts: string }
@@ -20,7 +19,7 @@ export default function InternalWaitlistPage() {
   const load = async () => {
     setLoading(true); setError("")
     try {
-      const res = await fetch(`${API_URL}/api/dashboard/waitlist?days=0`, { headers: adminHeaders() })
+      const res = await fetch(`${API_BASE_URL}/api/dashboard/waitlist?days=0`, { headers: adminHeaders() })
       if (res.status === 401) {
         clearAdminKey()
         setNeedsKey(true)

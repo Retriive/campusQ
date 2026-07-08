@@ -14,7 +14,9 @@ Next.js web app for CampusQ — chat UI, landing pages, and admin tools.
 | `app/chat/page.tsx` | Main chat (beta product) |
 | `app/dashboard/page.tsx` | Advisor analytics |
 | `components/campus-q/` | Chat UI, program explorer, tools |
+| `components/campus-q/chat/` | Chat-specific subcomponents + suggestion utilities |
 | `components/landing/` | Multi-university waitlist pages |
+| `lib/api.ts` | Canonical API base URL + fetch helper |
 
 ---
 

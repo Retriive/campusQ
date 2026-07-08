@@ -56,32 +56,42 @@ def test_query_aware_adjustments_boost_deadline_and_code_hits():
 
 
 def test_dedupe_chunks_removes_duplicate_text_fingerprints():
-    a = RankedChunk(
+    chunk_a = RankedChunk(
         id="a",
         namespace="courses",
         score=0.8,
         metadata={"source": "https://x", "title": "A", "text": "Identical snippet text"},
     )
-    b = RankedChunk(
+    chunk_b = RankedChunk(
         id="b",
         namespace="courses",
         score=0.7,
         metadata={"source": "https://x", "title": "A", "text": "Identical snippet text"},
     )
-    out = dedupe_chunks([a, b])
-    assert [c.id for c in out] == ["a"]
+    out = dedupe_chunks([chunk_a, chunk_b])
+    assert [chunk.id for chunk in out] == ["a"]
 
 
 def test_diverse_pool_limits_one_source_dominance():
     flags = QueryFlags(False, False, False, False)
     chunks = [
-        RankedChunk(id=f"s{i}", namespace="courses", score=0.99 - i * 0.01, metadata={"source": "https://same", "text": f"same {i}"})
+        RankedChunk(
+            id=f"s{i}",
+            namespace="courses",
+            score=0.99 - i * 0.01,
+            metadata={"source": "https://same", "text": f"same {i}"},
+        )
         for i in range(6)
     ] + [
-        RankedChunk(id=f"o{i}", namespace="regulations", score=0.80 - i * 0.01, metadata={"source": f"https://other{i}", "text": f"other {i}"})
+        RankedChunk(
+            id=f"o{i}",
+            namespace="regulations",
+            score=0.80 - i * 0.01,
+            metadata={"source": f"https://other{i}", "text": f"other {i}"},
+        )
         for i in range(3)
     ]
     pool = diverse_pool(chunks, limit=5, flags=flags)
-    same_source = [c for c in pool if c.metadata.get("source") == "https://same"]
+    same_source = [chunk for chunk in pool if chunk.metadata.get("source") == "https://same"]
     assert len(pool) == 5
     assert len(same_source) <= 2

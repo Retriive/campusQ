@@ -16,37 +16,37 @@ const SCHOOLS_STATUS = [
   { name: "Western University", short: "Western", status: "soon" as const, school: "western" },
 ]
 
+// Cinematic track (frontend/DESIGN.md) — same visual language as the landing:
+// black canvas, thin display type, pill CTAs, hairline dividers.
 export default function AboutPage() {
   return (
-    <div data-school="carleton" className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="dark">
+    <div data-school="carleton" className="min-h-screen bg-night text-white flex flex-col [font-feature-settings:'ss03']">
 
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b border-border/60 bg-card/80 backdrop-blur-2xl">
-        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Link href="/" className="text-sm font-bold tracking-tight">
-            Campus<span className="text-primary">Q</span>
+      {/* Nav — nav-bar-dark */}
+      <nav className="sticky top-0 z-50 bg-night border-b border-night-line">
+        <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="text-base tracking-tight">
+            <span className="font-[550]">Campus</span><span className="font-[330] text-primary">Q</span>
           </Link>
           <Link
             href="/chat"
-            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-xs font-semibold px-4 py-2 rounded-lg hover:bg-primary-strong transition-colors shadow-resting"
+            className="inline-flex items-center gap-1.5 rounded-full border-2 border-white px-5 py-1.5 text-sm text-white hover:bg-white hover:text-black transition-colors"
           >
-            Open app <ArrowRight className="size-3" />
+            Open app <ArrowRight className="size-3.5" />
           </Link>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border/60">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_50%_-10%,var(--primary-soft),transparent)]" />
-        <div className="absolute inset-0 opacity-[0.03]"
-          style={{ backgroundImage: "radial-gradient(circle, currentColor 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
-        <div className="relative max-w-5xl mx-auto px-6 py-20 md:py-28">
-          <p className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-widest mb-5">About CampusQ</p>
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground max-w-2xl mb-6 text-balance">
+      <section className="border-b border-night-line">
+        <div className="max-w-[1400px] mx-auto px-6 pt-20 pb-16 md:pt-28 md:pb-24">
+          <p className="text-xs uppercase tracking-[0.72px] text-zinc-400 mb-6">About CampusQ</p>
+          <h1 className="font-[330] leading-[1.05] text-[clamp(2.5rem,6vw,4.375rem)] text-balance max-w-3xl">
             Academic questions,<br />
             <span className="text-primary">answered instantly.</span>
           </h1>
-          <p className="text-muted-foreground text-base max-w-lg">
+          <p className="mt-8 text-lg leading-[1.56] text-zinc-400 max-w-xl">
             CampusQ is an independent AI assistant built for Canadian university students. Ask anything
             about courses, prerequisites, programs, or deadlines — get a real answer in seconds, sourced
             directly from official university documents.
@@ -54,17 +54,17 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <main className="max-w-5xl mx-auto px-6 py-16 w-full flex flex-col gap-20">
+      <main className="max-w-[1400px] mx-auto px-6 py-20 md:py-28 w-full flex flex-col gap-24 md:gap-32">
 
         {/* Why */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
           <div>
-            <p className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-widest mb-5">Why we built it</p>
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
-              The information exists.<br />It's just inaccessible.
+            <p className="text-xs uppercase tracking-[0.72px] text-zinc-400 mb-6">Why we built it</p>
+            <h2 className="font-[330] leading-[1.14] text-3xl md:text-5xl">
+              The information exists.<br />It&apos;s just inaccessible.
             </h2>
           </div>
-          <div className="flex flex-col gap-5 text-base text-muted-foreground">
+          <div className="flex flex-col gap-5 text-base leading-relaxed text-zinc-400">
             <p>
               Every semester, students waste hours cross-referencing PDFs, hunting for prerequisites,
               decoding program requirements, and waiting weeks for advisor appointments — to answer
@@ -76,40 +76,39 @@ export default function AboutPage() {
               No guessing. No Reddit threads from 2019.
             </p>
             <p>
-              We're rolling out to every major Canadian university. Same idea, every campus.
+              We&apos;re rolling out to every major Canadian university. Same idea, every campus.
             </p>
           </div>
         </section>
 
         {/* Schools */}
         <section>
-          <p className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-widest mb-8">Where we're at</p>
+          <p className="text-xs uppercase tracking-[0.72px] text-zinc-400 mb-8">Where we&apos;re at</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {SCHOOLS_STATUS.map((s) => (
               <div
                 key={s.name}
                 data-school={s.school}
-                className={`relative rounded-2xl border p-5 flex flex-col gap-3 overflow-hidden transition-all ${
+                className={`rounded-xl border border-night-line p-5 flex flex-col gap-3 ${
                   s.status === "live"
-                    ? "border-border bg-card shadow-resting"
-                    : "border-border/60 bg-secondary/50"
+                    ? "bg-night-raised [box-shadow:inset_0_1px_0_rgba(255,255,255,0.06)]"
+                    : "bg-night"
                 }`}
               >
                 {/* color dot — takes this school's accent token */}
                 <div className="size-2 rounded-full bg-primary" />
                 <div>
-                  <p className={`text-sm font-semibold ${s.status === "live" ? "text-foreground" : "text-muted-foreground"}`}>
+                  <p className={`text-sm ${s.status === "live" ? "text-white font-[550]" : "text-zinc-400"}`}>
                     {s.name}
                   </p>
                 </div>
                 <div className="mt-auto">
                   {s.status === "live" ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-success bg-success/10 border border-success/25 px-2.5 py-1 rounded-lg">
-                      <span className="size-1.5 rounded-full bg-success" />
+                    <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.72px] rounded-full bg-primary text-primary-foreground px-2.5 py-1">
                       Live
                     </span>
                   ) : (
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                    <span className="text-[10px] uppercase tracking-[0.72px] text-zinc-500">
                       Coming soon
                     </span>
                   )}
@@ -122,21 +121,21 @@ export default function AboutPage() {
         {/* Retriive — the company behind CampusQ */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
           <div>
-            <p className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-widest mb-5">The company behind it</p>
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
+            <p className="text-xs uppercase tracking-[0.72px] text-zinc-400 mb-6">The company behind it</p>
+            <h2 className="font-[330] leading-[1.14] text-3xl md:text-5xl">
               CampusQ is built by <span className="text-primary">Retriive</span>.
             </h2>
           </div>
-          <div className="flex flex-col gap-5 text-base text-muted-foreground">
+          <div className="flex flex-col gap-5 text-base leading-relaxed text-zinc-400">
             <p>
               Retriive builds AI solutions for institutions and enterprises — systems that
-              <span className="text-secondary-foreground font-medium"> eliminate informational silos</span> and
-              <span className="text-secondary-foreground font-medium"> optimize administrative efficiency</span> across
+              <span className="text-zinc-200"> eliminate informational silos</span> and
+              <span className="text-zinc-200"> optimize administrative efficiency</span> across
               an organization.
             </p>
             <p>
-              The problem is the same everywhere: the answer already exists, but it's buried across PDFs,
-              portals, inboxes, and people's heads — so the person who needs it can't find it. Retriive
+              The problem is the same everywhere: the answer already exists, but it&apos;s buried across PDFs,
+              portals, inboxes, and people&apos;s heads — so the person who needs it can&apos;t find it. Retriive
               unifies that scattered knowledge and puts a precise, source-grounded answer one question away.
             </p>
             <p>
@@ -147,30 +146,30 @@ export default function AboutPage() {
         </section>
 
         {/* Disclaimer + Contact side by side */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="rounded-2xl border border-border/60 bg-secondary/50 p-6 flex flex-col gap-3">
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-night-line bg-night-raised p-6 flex flex-col gap-3">
             <div className="flex items-center gap-2.5">
-              <ShieldCheck className="size-4 text-muted-foreground shrink-0" />
-              <span className="text-sm font-semibold text-foreground">Heads up</span>
+              <ShieldCheck className="size-4 text-zinc-400 shrink-0" />
+              <span className="text-sm font-[550] text-white">Heads up</span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              CampusQ is an <span className="text-secondary-foreground font-medium">independent tool</span> — not
+            <p className="text-sm leading-relaxed text-zinc-400">
+              CampusQ is an <span className="text-zinc-200">independent tool</span> — not
               affiliated with, endorsed by, or operated by any university. Always verify important
               academic decisions with your advisor or official university sources.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-secondary/50 p-6 flex flex-col gap-3">
+          <div className="rounded-xl border border-night-line bg-night-raised p-6 flex flex-col gap-3">
             <div className="flex items-center gap-2.5">
-              <Mail className="size-4 text-muted-foreground shrink-0" />
-              <span className="text-sm font-semibold text-foreground">Get in touch</span>
+              <Mail className="size-4 text-zinc-400 shrink-0" />
+              <span className="text-sm font-[550] text-white">Get in touch</span>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm leading-relaxed text-zinc-400">
               Found an error, have feedback, or want to bring CampusQ to your school?
             </p>
             <a
               href="mailto:mahadmyonis@gmail.com"
-              className="mt-auto inline-flex items-center gap-1.5 text-sm font-medium text-secondary-foreground hover:text-foreground transition-colors"
+              className="mt-auto inline-flex items-center gap-1.5 text-sm text-zinc-200 hover:text-white transition-colors"
             >
               mahadmyonis@gmail.com <ArrowRight className="size-3.5" />
             </a>
@@ -179,22 +178,23 @@ export default function AboutPage() {
 
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border/60 px-6 py-6 mt-auto">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link href="/" className="text-sm font-bold">
-              Campus<span className="text-primary">Q</span>
+      {/* Footer — footer-dark */}
+      <footer className="border-t border-night-line px-6 py-16 mt-auto">
+        <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="text-sm">
+              <span className="font-[550]">Campus</span><span className="font-[330] text-primary">Q</span>
             </Link>
-            <span className="text-border">·</span>
-            <a href="https://retriive.com" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <span className="text-zinc-700">·</span>
+            <a href="https://retriive.com" className="text-xs text-night-link underline underline-offset-2 hover:text-white transition-colors">
               by Retriive
             </a>
           </div>
-          <span className="text-xs text-muted-foreground">Not affiliated with any university</span>
+          <span className="text-xs text-zinc-500">Not affiliated with any university</span>
         </div>
       </footer>
 
+    </div>
     </div>
   )
 }

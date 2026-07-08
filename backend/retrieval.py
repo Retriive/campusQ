@@ -6,6 +6,7 @@ import json
 import os
 import re
 from dataclasses import dataclass
+from collections import Counter
 
 # Intent → namespace score boosts (additive, capped at 1.0)
 INTENT_NAMESPACE_BOOSTS: dict[str, dict[str, float]] = {
@@ -57,6 +58,18 @@ ACTION_KEYWORDS = (
     "how to add a course", "registration override", "how do i appeal",
 )
 
+QUERY_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9\-/\.]{1,}")
+COURSE_CODE_RE = re.compile(r"\b([A-Za-z]{3,4})\s*([0-9]{4}[A-Za-z]?)\b")
+QUERY_STOPWORDS = frozenset({
+    "a", "about", "after", "all", "am", "an", "and", "any", "are", "as", "at",
+    "be", "because", "been", "before", "between", "by", "can", "could", "did",
+    "do", "does", "for", "from", "get", "has", "have", "how", "i", "if", "in",
+    "into", "is", "it", "its", "me", "my", "of", "on", "or", "our", "should",
+    "so", "that", "the", "their", "them", "there", "these", "they", "this",
+    "to", "us", "was", "we", "what", "when", "where", "which", "who", "why",
+    "with", "would", "you", "your",
+})
+
 
 @dataclass
 class RankedChunk:
@@ -82,6 +95,200 @@ class QueryFlags:
     is_schedule_query: bool
     is_deadline_query: bool
     is_action_query: bool
+
+
+def query_terms(query: str) -> list[str]:
+    tokens: list[str] = []
+    seen: set[str] = set()
+    for tok in QUERY_TOKEN_RE.findall(query.lower()):
+        if len(tok) < 2 or tok in QUERY_STOPWORDS or tok in seen:
+            continue
+        seen.add(tok)
+        tokens.append(tok)
+    return tokens
+
+
+def query_course_codes(query: str) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for dept, num in COURSE_CODE_RE.findall(query):
+        code = f"{dept.upper()} {num.upper()}"
+        if code not in seen:
+            seen.add(code)
+            out.append(code)
+    return out
+
+
+def _normalize_space(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _combined_chunk_text(metadata: dict) -> str:
+    parts = [
+        metadata.get("title", ""),
+        metadata.get("program", ""),
+        metadata.get("course_code", ""),
+        metadata.get("text", ""),
+    ]
+    return _normalize_space(" ".join(str(p) for p in parts if p)).lower()
+
+
+def _lexical_overlap_bonus(tokens: list[str], chunk_text: str) -> float:
+    if not tokens or not chunk_text:
+        return 0.0
+    bounded = tokens[:10]
+    hit_count = sum(
+        1
+        for tok in bounded
+        if re.search(rf"\b{re.escape(tok)}\b", chunk_text)
+    )
+    ratio = hit_count / max(1, len(bounded))
+    return min(0.18, ratio * 0.18)
+
+
+def _course_code_bonus(codes: list[str], chunk_text: str) -> float:
+    if not codes or not chunk_text:
+        return 0.0
+    for code in codes:
+        if code in chunk_text.upper():
+            return 0.18
+    return 0.0
+
+
+def _chunk_quality_penalty(metadata: dict) -> float:
+    text = (metadata.get("text") or "").strip()
+    if not text:
+        return -0.10
+    penalty = 0.0
+    if len(text) < 80:
+        penalty -= 0.05
+    unique_words = {w for w in re.findall(r"[a-zA-Z]{2,}", text.lower())}
+    if len(unique_words) < 12:
+        penalty -= 0.04
+    return penalty
+
+
+def apply_query_aware_adjustments(
+    chunk: RankedChunk,
+    *,
+    tokens: list[str],
+    course_codes: list[str],
+    flags: QueryFlags,
+) -> float:
+    text = _combined_chunk_text(chunk.metadata)
+    score = chunk.score
+    score += _lexical_overlap_bonus(tokens, text)
+    score += _course_code_bonus(course_codes, text)
+    score += _chunk_quality_penalty(chunk.metadata)
+
+    if flags.is_deadline_query and any(
+        k in text for k in ("deadline", "withdraw", "drop", "add deadline", "last day", "time ticket")
+    ):
+        score += 0.08
+    if flags.is_action_query and any(
+        k in text for k in ("carleton central", "registration", "override", "withdrawal", "drop")
+    ):
+        score += 0.08
+
+    return max(0.0, min(1.0, score))
+
+
+def chunk_fingerprint(chunk: RankedChunk) -> str:
+    source = _normalize_space((chunk.metadata.get("source") or chunk.metadata.get("url") or "").lower())
+    title = _normalize_space((chunk.metadata.get("title") or chunk.metadata.get("program") or "").lower())
+    snippet = _normalize_space((chunk.metadata.get("text") or "")[:260].lower())
+    return f"{chunk.namespace}|{source}|{title}|{snippet}"
+
+
+def dedupe_chunks(chunks: list[RankedChunk]) -> list[RankedChunk]:
+    seen_ids: set[str] = set()
+    seen_fingerprints: set[str] = set()
+    out: list[RankedChunk] = []
+    for chunk in chunks:
+        if chunk.id in seen_ids:
+            continue
+        seen_ids.add(chunk.id)
+        fp = chunk_fingerprint(chunk)
+        if fp and fp in seen_fingerprints:
+            continue
+        seen_fingerprints.add(fp)
+        out.append(chunk)
+    return out
+
+
+def _namespace_limits(flags: QueryFlags) -> dict[str, int]:
+    limits = {
+        "courses": 8,
+        "programs": 10,
+        "regulations": 8,
+        "registrar": 8,
+        "services": 6,
+        "dates": 8,
+        "tuition": 4,
+        "library": 4,
+        "facts": 4,
+        "schedule": 8,
+    }
+    if flags.is_program_query:
+        limits["programs"] = 16
+    if flags.is_schedule_query:
+        limits["schedule"] = 14
+    if flags.is_deadline_query:
+        limits["dates"] = 14
+    if flags.is_action_query:
+        limits["registrar"] = 12
+    return limits
+
+
+def diverse_pool(chunks: list[RankedChunk], limit: int, flags: QueryFlags) -> list[RankedChunk]:
+    if len(chunks) <= limit:
+        return chunks
+
+    namespace_limits = _namespace_limits(flags)
+    source_cap = 3 if flags.is_program_query else 2
+    source_counts: Counter[str] = Counter()
+    namespace_counts: Counter[str] = Counter()
+    selected: list[RankedChunk] = []
+    deferred: list[RankedChunk] = []
+
+    for chunk in chunks:
+        source = (
+            _normalize_space((chunk.metadata.get("source") or chunk.metadata.get("url") or "").lower())
+            or chunk.id
+        )
+        ns_limit = namespace_limits.get(chunk.namespace, 6)
+        if source_counts[source] >= source_cap or namespace_counts[chunk.namespace] >= ns_limit:
+            deferred.append(chunk)
+            continue
+        selected.append(chunk)
+        source_counts[source] += 1
+        namespace_counts[chunk.namespace] += 1
+        if len(selected) >= limit:
+            return selected
+
+    for chunk in deferred:
+        selected.append(chunk)
+        if len(selected) >= limit:
+            break
+    return selected
+
+
+def namespace_top_k(ns: str, flags: QueryFlags, token_count: int, has_course_codes: bool) -> int:
+    base = 8
+    if flags.is_program_query:
+        base = 25 if ns == "programs" else 5
+
+    complexity_bonus = 4 if token_count >= 10 else (2 if token_count >= 6 else 0)
+    code_bonus = 3 if has_course_codes and ns in ("courses", "schedule") else 0
+    top_k = base + complexity_bonus + code_bonus
+
+    if ns == "schedule" and flags.is_schedule_query:
+        top_k = max(top_k, 15)
+    if ns == "dates" and (flags.is_deadline_query or flags.is_action_query):
+        top_k = max(top_k, 15)
+    if ns == "registrar" and flags.is_action_query:
+        top_k = max(top_k, 12)
+    return min(30, max(4, top_k))
 
 
 def is_program_related_query(query: str) -> bool:
@@ -272,20 +479,13 @@ def retrieve_and_rerank(
     Pinecone multi-namespace retrieval → intent boosts → rerank → (RankedChunk, ns) tuples.
     """
     flags = detect_query_flags(user_query)
-
-    top_k_programs = 25 if flags.is_program_query else 8
-    top_k_other = 5 if flags.is_program_query else 8
+    tokens = query_terms(user_query)
+    course_codes = query_course_codes(user_query)
 
     chunks: list[RankedChunk] = []
 
     for ns in namespaces_for_query(flags):
-        top_k = top_k_programs if ns == "programs" else top_k_other
-        if ns == "schedule" and flags.is_schedule_query:
-            top_k = max(top_k, 15)
-        if ns == "dates" and (flags.is_deadline_query or flags.is_action_query):
-            top_k = max(top_k, 15)
-        if ns == "registrar" and flags.is_action_query:
-            top_k = max(top_k, 12)
+        top_k = namespace_top_k(ns, flags, token_count=len(tokens), has_course_codes=bool(course_codes))
 
         ns_results = index.query(
             vector=query_embedding,
@@ -310,6 +510,17 @@ def retrieve_and_rerank(
                     namespace=chunk.namespace,
                     score=adjust_se_cs_comparison_score(chunk),
                 )
+            chunk = RankedChunk(
+                id=chunk.id,
+                metadata=chunk.metadata,
+                namespace=chunk.namespace,
+                score=apply_query_aware_adjustments(
+                    chunk,
+                    tokens=tokens,
+                    course_codes=course_codes,
+                    flags=flags,
+                ),
+            )
             chunks.append(chunk)
 
     # Metadata-filtered schedule fetch by course code
@@ -327,15 +538,28 @@ def retrieve_and_rerank(
                 )
                 for m in sched.matches or []:
                     if m.id not in existing_ids:
-                        chunks.append(RankedChunk.from_match(m, "schedule", max(m.score, 0.85)))
+                        chunk = RankedChunk.from_match(m, "schedule", max(m.score, 0.85))
+                        chunk = RankedChunk(
+                            id=chunk.id,
+                            metadata=chunk.metadata,
+                            namespace=chunk.namespace,
+                            score=apply_query_aware_adjustments(
+                                chunk,
+                                tokens=tokens,
+                                course_codes=course_codes,
+                                flags=flags,
+                            ),
+                        )
+                        chunks.append(chunk)
                         existing_ids.add(m.id)
             except Exception as exc:
                 print(f"Schedule filter error: {exc}")
 
+    chunks = dedupe_chunks(chunks)
+
     # Optional hybrid fusion: BM25 keyword hits (exact codes, acronyms, form
     # names) merged in via RRF, which also sets the pool order. Any failure
     # degrades to pure vector search — chat never breaks because of this.
-    fused = False
     if os.getenv("HYBRID_SEARCH", "").strip().lower() in ("1", "true", "yes", "on"):
         try:
             from search.hybrid import fuse
@@ -349,14 +573,12 @@ def retrieve_and_rerank(
                     make_chunk=lambda cid, meta, ns, score: RankedChunk(
                         id=cid, metadata=meta, namespace=ns, score=score),
                 )
-                fused = True
                 print(f"Hybrid: fused {len(lexical_hits)} lexical hits into pool")
         except Exception as exc:
             print(f"Hybrid search unavailable, vector-only: {exc}")
-
-    if not fused:
-        chunks.sort(key=lambda c: c.score, reverse=True)
-    pool = chunks[:retrieve_top_k]
+    chunks = dedupe_chunks(chunks)
+    chunks.sort(key=lambda c: c.score, reverse=True)
+    pool = diverse_pool(chunks, limit=retrieve_top_k, flags=flags)
     ranked = rerank_chunks(openai_client, user_query, pool, rerank_top_n, chat_model)
 
     return [(c, c.namespace) for c in ranked], flags

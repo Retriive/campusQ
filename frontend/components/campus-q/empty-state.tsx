@@ -88,15 +88,15 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
         <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">
           Try asking
         </p>
-        <div className="grid grid-cols-2 gap-2.5 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full">
           {QUICK_ASKS.map(({ icon: Icon, label, question }) => (
             <button
               key={question}
               onClick={() => onSuggestionClick(question)}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card shadow-resting hover:border-border/80 hover:shadow-raised transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[var(--ease-out)] active:scale-[0.98] text-left group"
+              className="flex items-center gap-3 px-4 py-3.5 sm:py-3 rounded-xl border border-border bg-card shadow-resting hover:border-border/80 hover:shadow-raised transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[var(--ease-out)] active:scale-[0.98] text-left group"
             >
-              <div className={cn("size-7 rounded-lg flex items-center justify-center shrink-0 bg-secondary group-hover:bg-primary-soft transition-colors")}>
-                <Icon className="size-3.5 text-muted-foreground group-hover:text-primary-ink transition-colors" />
+              <div className={cn("size-8 sm:size-7 rounded-lg flex items-center justify-center shrink-0 bg-secondary group-hover:bg-primary-soft transition-colors")}>
+                <Icon className="size-4 sm:size-3.5 text-muted-foreground group-hover:text-primary-ink transition-colors" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-foreground">{label}</p>

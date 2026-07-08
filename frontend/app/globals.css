@@ -314,6 +314,9 @@
     overflow-x: hidden;
     /* iOS Safari height fix */
     height: -webkit-fill-available;
+    /* Stop iOS text auto-inflation on rotate — keeps our type ramp intact */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   body {
     @apply bg-background text-foreground;
@@ -323,6 +326,22 @@
     min-height: -webkit-fill-available;
     font-feature-settings: 'ss01' on, 'cv05' on;
     -webkit-font-smoothing: antialiased;
+  }
+  /* Touch ergonomics — kill the 300ms tap delay and the grey tap flash so
+     every button feels instant and native on mobile. */
+  button,
+  a,
+  [role='button'],
+  label,
+  summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Inputs never flash the tap highlight either. */
+  input,
+  textarea,
+  select {
+    -webkit-tap-highlight-color: transparent;
   }
   /* Display text tightens tracking as it grows — ramp discipline. */
   .text-2xl, .text-3xl, .text-4xl, .text-5xl {
@@ -368,6 +387,17 @@
 /* iOS safe area padding for the bottom nav */
 .safe-area-pb {
   padding-bottom: max(env(safe-area-inset-bottom), 8px);
+}
+
+/* Safe-area gutters so the sticky composer and content clear the notch/home bar. */
+.safe-area-inset-b {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Momentum scrolling + no rubber-band bleed into the page behind scroll regions. */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 /* Chat message entrance — subtle rise + fade. Plays once on mount (rows are

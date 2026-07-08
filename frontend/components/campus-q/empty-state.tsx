@@ -89,11 +89,16 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
           Try asking
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full">
-          {QUICK_ASKS.map(({ icon: Icon, label, question }) => (
+          {QUICK_ASKS.map(({ icon: Icon, label, question }, i) => (
             <button
               key={question}
               onClick={() => onSuggestionClick(question)}
-              className="flex items-center gap-3 px-4 py-3.5 sm:py-3 rounded-xl border border-border bg-card shadow-resting hover:border-border/80 hover:shadow-raised transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[var(--ease-out)] active:scale-[0.98] text-left group"
+              className={cn(
+                "flex items-center gap-3 px-4 py-3.5 sm:py-3 rounded-xl border border-border bg-card shadow-resting hover:border-border/80 hover:shadow-raised transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[var(--ease-out)] active:scale-[0.98] text-left group",
+                // Keep the mobile home screen focused — only surface two
+                // prompts on phones, reveal the full set from sm up.
+                i >= 2 && "hidden sm:flex"
+              )}
             >
               <div className={cn("size-8 sm:size-7 rounded-lg flex items-center justify-center shrink-0 bg-secondary group-hover:bg-primary-soft transition-colors")}>
                 <Icon className="size-4 sm:size-3.5 text-muted-foreground group-hover:text-primary-ink transition-colors" />

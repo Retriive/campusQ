@@ -89,7 +89,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
                 href="/sign-up"
                 className="group inline-flex items-center gap-1.5 rounded-full bg-primary hover:bg-primary-strong px-5 py-2 text-sm text-primary-foreground pill-press"
               >
-                Open app <ArrowRight className="size-3.5 transition-transform duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5" />
+                Open app <ArrowRight className="size-3.5 arrow-nudge" />
               </Link>
             ) : (
               <span className="text-xs text-ink-body border border-line rounded-full px-4 py-1.5">
@@ -128,7 +128,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
                 className="group inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-strong px-7 py-3 text-base text-primary-foreground pill-press"
               >
                 Ask your first question
-                <ArrowRight className="size-4 transition-transform duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5" />
+                <ArrowRight className="size-4 arrow-nudge" />
               </Link>
               <Link href="/about" className="text-sm text-ink-body hover:text-ink transition-colors">
                 Learn more →
@@ -185,7 +185,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
               <div
                 key={`${schoolId}-${i}`}
                 className={`animate-message-in flex ${msg.role === "user" ? "justify-end" : "justify-start gap-3"}`}
-                style={{ animationDelay: `${i * 160}ms` }}
+                style={{ animationDelay: `${i * 80}ms` }}
               >
                 {msg.role === "assistant" && (
                   <div className="shrink-0 size-6 rounded-full bg-primary flex items-center justify-center text-[9px] font-[550] text-primary-foreground mt-0.5 transition-colors duration-500">
@@ -322,7 +322,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
               className="group inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-strong px-7 py-3 text-base text-primary-foreground pill-press"
             >
               Open CampusQ free
-              <ArrowRight className="size-4 transition-transform duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5" />
+              <ArrowRight className="size-4 arrow-nudge" />
             </Link>
           ) : (
             <WaitlistCta school={school.shortName} />

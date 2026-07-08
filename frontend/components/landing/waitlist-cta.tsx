@@ -65,7 +65,7 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
           className="group inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-strong px-6 py-3 text-sm text-primary-foreground pill-press shrink-0 disabled:opacity-60"
         >
           {submitting ? "Joining…" : "Join waitlist"}
-          <ArrowRight className="size-4 transition-transform duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5" />
+          <ArrowRight className="size-4 arrow-nudge" />
         </button>
       </div>
       {error && <p className="animate-message-in text-xs text-red-400">{error}</p>}

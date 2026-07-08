@@ -426,6 +426,17 @@
   transform: scale(0.98);
 }
 
+/* Arrow nudge inside pill CTAs — gated to real pointers so touch taps
+   don't fire a phantom hover animation. */
+.arrow-nudge {
+  transition: transform 200ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .group:hover .arrow-nudge {
+    transform: translateX(2px);
+  }
+}
+
 /* Scroll reveal — sections rise + fade in the first time they enter the
    viewport (landing page). Hidden state only applies once JS marks the
    element, so content is never invisible without JavaScript. */

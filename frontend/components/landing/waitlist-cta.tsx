@@ -17,7 +17,7 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
 
   if (joined) {
     return (
-      <div className="inline-flex items-center gap-2 text-sm text-ink">
+      <div className="animate-message-in inline-flex items-center gap-2 text-sm text-ink">
         <Check className="size-4 text-primary-ink" />
         You're on the list — we'll email you when {school} is ready.
       </div>
@@ -62,13 +62,13 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-strong px-6 py-3 text-sm text-primary-foreground transition-colors duration-500 shrink-0 disabled:opacity-60"
+          className="group inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-strong px-6 py-3 text-sm text-primary-foreground pill-press shrink-0 disabled:opacity-60"
         >
           {submitting ? "Joining…" : "Join waitlist"}
-          <ArrowRight className="size-4" />
+          <ArrowRight className="size-4 transition-transform duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5" />
         </button>
       </div>
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="animate-message-in text-xs text-red-400">{error}</p>}
     </form>
   )
 }

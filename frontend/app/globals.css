@@ -416,6 +416,35 @@
   animation: fade-in-up 320ms var(--ease-out) forwards;
 }
 
+/* Pill CTAs: slow color crossfade (school-accent changes) but fast press
+   feedback — two durations one class can't express in utilities alone. */
+.pill-press {
+  transition: background-color 500ms, color 500ms, border-color 500ms,
+    transform 150ms var(--ease-out);
+}
+.pill-press:active {
+  transform: scale(0.98);
+}
+
+/* Scroll reveal — sections rise + fade in the first time they enter the
+   viewport (landing page). Hidden state only applies once JS marks the
+   element, so content is never invisible without JavaScript. */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 600ms var(--ease-out), transform 600ms var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Global reduced-motion safety net — collapse motion app-wide for users who
    ask for it. Component-level rules above can still opt back into a gentle fade. */
 @media (prefers-reduced-motion: reduce) {

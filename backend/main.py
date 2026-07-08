@@ -87,6 +87,7 @@ RATE_LIMITS = {
     "report": (10, 3600),
     "feedback": (60, 3600),
     "lookup": (120, 60),
+    "calendar": (120, 3600),  # feed polls from calendar apps + add-to-calendar clicks
 }
 
 
@@ -142,6 +143,7 @@ LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "90"))
 _RETAINED_LOG_FILES = [
     "queries.log", "feedback.log", "reports.log",
     "no_context.log", "course_misses.log", "waitlist.log",
+    "calendar.log",
 ]
 
 def _prune_log_file(path: str, cutoff: datetime):
@@ -1177,6 +1179,80 @@ async def waitlist_endpoint(
         "ts": datetime.utcnow().isoformat(),
         "email": email,
         "school": school.strip()[:64],
+    })
+    return {"ok": True}
+
+
+# ── Calendar feed (subscribable academic deadlines) ────────────────────────────
+# Students subscribe once from the deadline tracker; their calendar app then
+# polls this endpoint on its own schedule, which is why it is key-free (calendar
+# clients can't send auth headers) and why every fetch is logged — feed polls
+# are recurring proof that CampusQ is embedded in a student's daily tools.
+from fastapi.responses import Response
+
+from calendar_feed import CATEGORIES, build_ics, filter_deadlines
+
+
+def _parse_categories(raw: str) -> set[str] | None:
+    cats = {c.strip().lower() for c in raw.split(",") if c.strip()}
+    return cats & set(CATEGORIES) or None
+
+
+def _calendar_client(user_agent: str) -> str:
+    """Coarse provider label from the fetcher's User-Agent, for adoption stats."""
+    ua = user_agent.lower()
+    if "google" in ua:
+        return "google"
+    if "outlook" in ua or "microsoft" in ua or "office" in ua:
+        return "outlook"
+    if "ical" in ua or "cfnetwork" in ua or "dataaccessd" in ua:
+        return "apple"
+    if "mozilla" in ua:
+        return "browser"
+    return "other"
+
+
+@app.get("/api/calendar/deadlines")
+async def calendar_deadlines_json(request: Request, term: str = "", categories: str = ""):
+    check_rate_limit(request, "calendar")
+    items = filter_deadlines(term or None, _parse_categories(categories), include_past=True)
+    return {"ok": True, "deadlines": items}
+
+
+@app.get("/api/calendar/deadlines.ics")
+async def calendar_deadlines_ics(request: Request, term: str = "", categories: str = ""):
+    check_rate_limit(request, "calendar")
+    cats = _parse_categories(categories)
+    ics = build_ics(filter_deadlines(term or None, cats))
+    _log("calendar.log", {
+        "ts": datetime.utcnow().isoformat(),
+        "event": "feed_fetch",
+        "client": _calendar_client(request.headers.get("user-agent", "")),
+        "term": term[:32],
+        "categories": ",".join(sorted(cats)) if cats else "",
+    })
+    return Response(
+        content=ics,
+        media_type="text/calendar; charset=utf-8",
+        headers={"Content-Disposition": 'inline; filename="campusq-deadlines.ics"'},
+    )
+
+
+@app.post("/api/calendar/track")
+async def calendar_track(
+    request: Request,
+    provider: str = Form(...),   # "google" | "outlook" | "outlook-personal" | "apple" | "ics" | "webcal"
+    action: str = Form(...),     # "add_event" | "subscribe" | "download_all"
+    deadline_id: str = Form(""),
+):
+    check_rate_limit(request, "calendar")
+    if action not in ("add_event", "subscribe", "download_all"):
+        return {"ok": False, "error": "unknown action"}
+    _log("calendar.log", {
+        "ts": datetime.utcnow().isoformat(),
+        "event": action,
+        "provider": provider.strip()[:24],
+        "deadline_id": deadline_id.strip()[:64],
     })
     return {"ok": True}
 

@@ -6,8 +6,9 @@ hundreds. Scraped as ~500-word chunks, any single deadline gets buried and embed
 poorly. This script instead creates ONE clean, synonym-rich vector PER deadline,
 so "when's the payment deadline?" matches a focused chunk about exactly that.
 
-Source of truth is shared with the frontend deadline-tracker.tsx — keep them in
-sync when Carleton publishes a new calendar year.
+The deadline dataset lives in backend/calendar_feed.py (shared with the
+subscribable calendar feed) and is mirrored by the frontend deadline-tracker.tsx
+— keep those two in sync when Carleton publishes a new calendar year.
 
 Namespace: "dates"
 Run: py scrape_dates.py
@@ -15,12 +16,18 @@ Run: py scrape_dates.py
 
 import os
 import re
+import sys
 from dotenv import load_dotenv
 from pinecone import Pinecone
 from openai import OpenAI
 
-# .env lives in this same backend/ dir
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
+# backend/ dir — .env lives here, and so does calendar_feed.py (the shared
+# deadline dataset). sys.path insert lets this file run standalone too.
+_BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, _BACKEND_DIR)
+load_dotenv(os.path.join(_BACKEND_DIR, ".env"))
+
+from calendar_feed import DEADLINES, SOURCE_URL  # noqa: E402
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
@@ -28,54 +35,10 @@ index = pc.Index("knowledge-base")
 
 NAMESPACE = "dates"
 EMBED_MODEL = "text-embedding-3-small"
-SOURCE_URL = "https://carleton.ca/registration/academic-dates/"
 
-# (id, term, category, title, YYYY-MM-DD) — mirrors deadline-tracker.tsx
-DEADLINES = [
-    # Summer 2026
-    ("su26-term-begins",    "Summer 2026", "classes",      "Summer term begins; early and full summer classes start", "2026-05-06"),
-    ("su26-early-add",      "Summer 2026", "registration", "Last day to add or change early summer courses", "2026-05-12"),
-    ("su26-full-add",       "Summer 2026", "registration", "Last day to add full summer courses", "2026-05-20"),
-    ("su26-full-fee",       "Summer 2026", "withdrawal",   "Last day to drop full summer courses with a full fee refund", "2026-05-31"),
-    ("su26-early-withdraw", "Summer 2026", "withdrawal",   "Last day for academic withdrawal from early summer courses", "2026-06-01"),
-    ("su26-payment",        "Summer 2026", "payment",      "Summer term final tuition payment deadline", "2026-06-25"),
-    ("su26-canada-day",     "Summer 2026", "holiday",      "Canada Day — University closed", "2026-07-01"),
-    ("su26-full-withdraw",  "Summer 2026", "withdrawal",   "Last day for academic withdrawal from full and late summer courses", "2026-08-01"),
-
-    # Fall 2026
-    ("fa26-timetickets",    "Fall 2026", "registration", "Registration time tickets become available in Carleton Central", "2026-06-17"),
-    ("fa26-reg-new",        "Fall 2026", "registration", "Registration opens for new first-year undergraduate students", "2026-07-06"),
-    ("fa26-reg-returning",  "Fall 2026", "registration", "Registration opens for returning undergraduate and graduate students", "2026-07-10"),
-    ("fa26-reg-special",    "Fall 2026", "registration", "Registration opens for special and visiting students", "2026-08-05"),
-    ("fa26-payment",        "Fall 2026", "payment",      "Fall term tuition payment deadline", "2026-08-25"),
-    ("fa26-labour-day",     "Fall 2026", "holiday",      "Labour Day — University closed", "2026-09-07"),
-    ("fa26-term-begins",    "Fall 2026", "classes",      "Fall term begins; full fall and fall/winter classes start", "2026-09-09"),
-    ("fa26-early-add",      "Fall 2026", "registration", "Last day to add or change early fall courses", "2026-09-15"),
-    ("fa26-full-add",       "Fall 2026", "registration", "Last day to add full fall and fall/winter courses", "2026-09-22"),
-    ("fa26-full-fee",       "Fall 2026", "withdrawal",   "Last day to drop full fall courses with a full fee refund", "2026-09-30"),
-    ("fa26-early-withdraw", "Fall 2026", "withdrawal",   "Last day for academic withdrawal from early fall courses", "2026-10-01"),
-    ("fa26-thanksgiving",   "Fall 2026", "holiday",      "Thanksgiving — University closed", "2026-10-12"),
-    ("fa26-fall-break",     "Fall 2026", "holiday",      "Fall break begins; no classes (reading week)", "2026-10-26"),
-    ("fa26-full-withdraw",  "Fall 2026", "withdrawal",   "Last day for academic withdrawal from full and late fall courses without academic penalty", "2026-11-15"),
-    ("fa26-winter-payment", "Fall 2026", "payment",      "Winter term tuition payment deadline", "2026-11-25"),
-    ("fa26-lastday",        "Fall 2026", "classes",      "Last day of full fall and late fall classes; fall term ends", "2026-12-11"),
-    ("fa26-exams",          "Fall 2026", "exams",        "Fall term final examinations begin", "2026-12-12"),
-    ("fa26-uni-closed",     "Fall 2026", "holiday",      "University closes for the December holidays", "2026-12-24"),
-
-    # Winter 2027
-    ("wi27-term-begins",    "Winter 2027", "classes",      "Winter term begins; full winter and early winter classes start", "2027-01-06"),
-    ("wi27-early-add",      "Winter 2027", "registration", "Last day to add or change early winter courses", "2027-01-12"),
-    ("wi27-full-add",       "Winter 2027", "registration", "Last day to add full winter courses", "2027-01-19"),
-    ("wi27-full-fee",       "Winter 2027", "withdrawal",   "Last day to drop full winter courses with a full fee refund", "2027-01-31"),
-    ("wi27-early-withdraw", "Winter 2027", "withdrawal",   "Last day for academic withdrawal from early winter courses", "2027-02-01"),
-    ("wi27-family-day",     "Winter 2027", "holiday",      "Family Day — University closed", "2027-02-15"),
-    ("wi27-reading-week",   "Winter 2027", "holiday",      "Winter break / reading week begins; no classes", "2027-02-15"),
-    ("wi27-full-withdraw",  "Winter 2027", "withdrawal",   "Last day for academic withdrawal from full and late winter courses", "2027-03-15"),
-    ("wi27-good-friday",    "Winter 2027", "holiday",      "Good Friday — University closed", "2027-03-26"),
-    ("wi27-lastday",        "Winter 2027", "classes",      "Last day of winter classes; winter term ends", "2027-04-09"),
-    ("wi27-exams",          "Winter 2027", "exams",        "Winter term final examinations begin", "2027-04-11"),
-    ("wi27-takehome",       "Winter 2027", "exams",        "All winter take-home examinations due", "2027-04-23"),
-]
+# DEADLINES and SOURCE_URL now come from backend/calendar_feed.py — the shared
+# dataset that also powers the subscribable calendar feed. Old inline copy kept
+# nothing this file needs; edit calendar_feed.py when Carleton publishes dates.
 
 # Synonym hints per category — so varied phrasings all retrieve the right date
 SYNONYMS = {

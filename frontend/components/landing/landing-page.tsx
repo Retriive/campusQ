@@ -6,7 +6,7 @@ import { ArrowRight } from "lucide-react"
 import { UniversityToggle } from "@/components/landing/university-toggle"
 import { WaitlistCta } from "@/components/landing/waitlist-cta"
 import { ThemeToggle, useLandingTheme } from "@/components/landing/theme"
-import { SCHOOLS, type SchoolId } from "@/lib/landing-schools"
+import { SCHOOLS, type SchoolConfig, type SchoolId } from "@/lib/landing-schools"
 
 // Dual-track landing (frontend/DESIGN.md): warm-cream transactional canvas by
 // default, pure-black cinematic canvas in dark mode. Thin display type, pill
@@ -57,17 +57,131 @@ function Reveal({
   )
 }
 
+// Number ticker: stat digits count up (ease-out) the first time they scroll
+// into view. Server HTML carries the final value, so crawlers and no-JS
+// visitors always see the real number.
+function StatValue({ value }: { value: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [display, setDisplay] = useState(value)
+  useEffect(() => {
+    const el = ref.current
+    const target = parseInt(value.replace(/[^0-9]/g, ""), 10)
+    if (!el || isNaN(target) || target === 0) return
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return
+        io.disconnect()
+        const fmt = new Intl.NumberFormat("en-CA")
+        const t0 = performance.now()
+        const duration = 1100
+        const tick = (t: number) => {
+          const p = Math.min(1, (t - t0) / duration)
+          setDisplay(fmt.format(Math.round(target * (1 - Math.pow(1 - p, 3)))))
+          if (p < 1) requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+      },
+      { threshold: 0.5 }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [value])
+  return <span ref={ref}>{display}</span>
+}
+
+// The demo conversation plays out instead of appearing all at once: a user
+// message enters, a typing indicator pulses while CampusQ "thinks", then the
+// answer lands. Replays from the top when the school toggle switches.
+// Server HTML renders the full transcript; reduced motion keeps it that way.
+function DemoConversation({ school, schoolId }: { school: SchoolConfig; schoolId: SchoolId }) {
+  const msgs = school.demoMessages
+  const [shown, setShown] = useState(msgs.length)
+  const [typing, setTyping] = useState(false)
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setShown(msgs.length)
+      setTyping(false)
+      return
+    }
+    setShown(0)
+    setTyping(false)
+    const timers: ReturnType<typeof setTimeout>[] = []
+    let t = 500
+    msgs.forEach((msg, i) => {
+      if (msg.role === "assistant") {
+        timers.push(setTimeout(() => setTyping(true), t))
+        t += 1000
+        timers.push(setTimeout(() => { setTyping(false); setShown(i + 1) }, t))
+      } else {
+        timers.push(setTimeout(() => setShown(i + 1), t))
+      }
+      t += 700
+    })
+    return () => timers.forEach(clearTimeout)
+  }, [schoolId, msgs])
+
+  return (
+    <div className="px-6 py-8 md:px-10 md:py-10 flex flex-col gap-5 min-h-[280px]">
+      {msgs.slice(0, shown).map((msg, i) => (
+        <div
+          key={`${schoolId}-${i}`}
+          className={`animate-message-in flex ${msg.role === "user" ? "justify-end" : "justify-start gap-3"}`}
+        >
+          {msg.role === "assistant" && (
+            <div className="shrink-0 size-6 rounded-full bg-primary flex items-center justify-center text-[9px] font-[550] text-primary-foreground mt-0.5 transition-colors duration-500">
+              Q
+            </div>
+          )}
+          <div className={`max-w-[80%] md:max-w-[60%] text-sm leading-relaxed rounded-2xl px-4 py-3 transition-colors duration-300 ${
+            msg.role === "user"
+              ? "bg-ink text-canvas rounded-br-sm"
+              : "bg-canvas text-ink-body rounded-bl-sm border border-line"
+          }`}>
+            {msg.text}
+          </div>
+        </div>
+      ))}
+      {typing && (
+        <div className="animate-message-in flex justify-start gap-3">
+          <div className="shrink-0 size-6 rounded-full bg-primary flex items-center justify-center text-[9px] font-[550] text-primary-foreground mt-0.5 transition-colors duration-500">
+            Q
+          </div>
+          <div className="rounded-2xl rounded-bl-sm border border-line bg-canvas px-4 py-3 flex items-center gap-1.5">
+            {[0, 1, 2].map((d) => (
+              <span
+                key={d}
+                className="typing-dot size-1.5 rounded-full bg-ink-faint"
+                style={{ animationDelay: `${d * 180}ms` }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: SchoolId }) {
   const [schoolId, setSchoolId] = useState<SchoolId>(defaultSchool)
   const school = SCHOOLS[schoolId]
   const { theme, toggle } = useLandingTheme()
+  // Nav gains its hairline once the page scrolls — state indication that the
+  // header is now floating over content rather than sitting in the hero.
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8)
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   return (
     <div className={`landing-track ${theme === "dark" ? "dark" : ""}`}>
     <div data-school={schoolId} className="min-h-screen bg-canvas text-ink flex flex-col [font-feature-settings:'ss03'] transition-colors duration-300">
 
       {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-canvas border-b border-line transition-colors duration-300">
+      <nav className={`sticky top-0 z-50 bg-canvas border-b transition-colors duration-300 ${scrolled ? "border-line" : "border-transparent"}`}>
         <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-base tracking-tight">
@@ -111,16 +225,26 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
           {school.badge}
         </p>
 
-        <h1 className="font-[330] leading-[1.04] tracking-[0.01em] text-[clamp(2.75rem,7vw,5.5rem)] text-balance max-w-5xl stagger-item" style={{ animationDelay: "120ms" }}>
-          The academic intelligence layer for{" "}
-          <span className="text-primary-ink transition-colors duration-500">every university.</span>
+        {/* Masked line reveal — each line rises out of its own clipped wrapper */}
+        <h1 className="font-[330] leading-[1.04] tracking-[0.01em] text-[clamp(2.75rem,7vw,5.5rem)] max-w-5xl">
+          <span className="line-mask">
+            <span className="line-rise" style={{ animationDelay: "120ms" }}>The academic</span>
+          </span>
+          <span className="line-mask">
+            <span className="line-rise" style={{ animationDelay: "220ms" }}>intelligence layer</span>
+          </span>
+          <span className="line-mask">
+            <span className="line-rise" style={{ animationDelay: "320ms" }}>
+              for <span className="text-primary-ink transition-colors duration-500">every university.</span>
+            </span>
+          </span>
         </h1>
 
-        <p className="mt-8 text-xl md:text-2xl font-[330] leading-snug text-ink-body max-w-2xl stagger-item" style={{ animationDelay: "200ms" }}>
+        <p className="mt-8 text-xl md:text-2xl font-[330] leading-snug text-ink-body max-w-2xl stagger-item" style={{ animationDelay: "480ms" }}>
           Students get answers. <span className="text-ink">Advisors get their time back.</span>
         </p>
 
-        <div className="mt-10 stagger-item" style={{ animationDelay: "280ms" }}>
+        <div className="mt-10 stagger-item" style={{ animationDelay: "560ms" }}>
           {school.live ? (
             <div className="flex flex-wrap items-center gap-6">
               <Link
@@ -144,7 +268,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
           )}
         </div>
 
-        <p className="mt-7 text-xs text-ink-faint stagger-item" style={{ animationDelay: "340ms" }}>
+        <p className="mt-7 text-xs text-ink-faint stagger-item" style={{ animationDelay: "620ms" }}>
           {school.live
             ? `Free to sign up · Built on official ${school.shortName} documents`
             : `Not affiliated with ${school.name}`}
@@ -153,7 +277,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
 
       {/* Product frame — the mockup is the photography. Arrives last in the
           hero sequence, after the copy has landed. */}
-      <section className="max-w-[1400px] w-full mx-auto px-6 pb-24 md:pb-32 stagger-item" style={{ animationDelay: "420ms" }}>
+      <section className="max-w-[1400px] w-full mx-auto px-6 pb-24 md:pb-32 stagger-item" style={{ animationDelay: "680ms" }}>
         <div className="rounded-[20px] bg-canvas-raised border border-line overflow-hidden [box-shadow:var(--card-shadow)] transition-colors duration-300">
           {/* Window chrome */}
           <div className="border-b border-line px-5 py-3.5 flex items-center gap-2">
@@ -178,30 +302,9 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
             </span>
           </div>
 
-          {/* Messages — cascade in one after another; rows are keyed by school
-              so switching universities replays the conversation. */}
-          <div className="px-6 py-8 md:px-10 md:py-10 flex flex-col gap-5 min-h-[240px]">
-            {school.demoMessages.map((msg, i) => (
-              <div
-                key={`${schoolId}-${i}`}
-                className={`animate-message-in flex ${msg.role === "user" ? "justify-end" : "justify-start gap-3"}`}
-                style={{ animationDelay: `${i * 80}ms` }}
-              >
-                {msg.role === "assistant" && (
-                  <div className="shrink-0 size-6 rounded-full bg-primary flex items-center justify-center text-[9px] font-[550] text-primary-foreground mt-0.5 transition-colors duration-500">
-                    Q
-                  </div>
-                )}
-                <div className={`max-w-[80%] md:max-w-[60%] text-sm leading-relaxed rounded-2xl px-4 py-3 transition-colors duration-300 ${
-                  msg.role === "user"
-                    ? "bg-ink text-canvas rounded-br-sm"
-                    : "bg-canvas text-ink-body rounded-bl-sm border border-line"
-                }`}>
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* The conversation plays out — enter, typing pulse, answer — and
+              replays when the school toggle switches. */}
+          <DemoConversation school={school} schoolId={schoolId} />
 
           {/* Input */}
           <div className="border-t border-line px-5 py-4 flex items-center gap-3">
@@ -248,7 +351,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
       {/* The hero — advisor pull-quote band */}
       <section className="bg-primary-soft border-y border-primary-line/60 transition-colors duration-500">
         <div className="max-w-[1400px] mx-auto px-6 py-20 md:py-28">
-          <Reveal>
+          <Reveal className="reveal-blur">
             <p className="text-xs uppercase tracking-[0.72px] text-primary-ink mb-8 transition-colors duration-500">The hero</p>
             <p className="font-[330] leading-[1.2] text-2xl md:text-4xl max-w-4xl text-balance">
               Advisors who used to spend their mornings clearing inboxes now spend them with the
@@ -265,7 +368,13 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
         </Reveal>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10">
           {STEPS.map((step, i) => (
-            <Reveal key={step} delay={i * 90} className="border-t border-line pt-6 flex flex-col gap-4 transition-colors duration-300">
+            <Reveal key={step} delay={i * 90} className="flex flex-col gap-4">
+              {/* Hairline draws itself in from the left as the step reveals */}
+              <span
+                aria-hidden
+                className="draw-line block h-px w-full bg-line mb-2"
+                style={i ? { transitionDelay: `${i * 90}ms` } : undefined}
+              />
               <span className="font-[330] text-3xl tabular-nums text-primary-ink transition-colors duration-500">
                 0{i + 1}
               </span>
@@ -282,7 +391,10 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
               {school.stats.map((s, i) => (
                 <Reveal key={s.label} delay={i * 80} className="flex flex-col gap-2">
-                  <span className="font-[330] text-4xl md:text-5xl tabular-nums leading-none">{s.value}</span>
+                  {/* Number ticker — tabular-nums keeps digits from shifting */}
+                  <span className="font-[330] text-4xl md:text-5xl tabular-nums leading-none">
+                    <StatValue value={s.value} />
+                  </span>
                   <span className="text-xs uppercase tracking-[0.72px] text-ink-faint">{s.label}</span>
                 </Reveal>
               ))}

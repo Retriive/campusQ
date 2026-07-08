@@ -437,6 +437,64 @@
   }
 }
 
+/* ── Landing motion vocabulary ─────────────────────────────────────────────
+   Named for the effects they implement (see .agents/skills). Every rule
+   animates transform/opacity/filter only, and every hidden initial state is
+   gated behind a JS-applied class so no-JS visitors see a complete page. */
+
+/* Masked line reveal — headline lines rise out of clipped wrappers. */
+.line-mask {
+  display: block;
+  overflow: hidden;
+}
+@keyframes line-rise {
+  from { transform: translateY(108%); }
+  to { transform: translateY(0); }
+}
+.line-rise {
+  display: block;
+  animation: line-rise 800ms var(--ease-out) backwards;
+}
+
+/* Typing indicator — three dots pulse in a stagger while CampusQ "thinks". */
+@keyframes typing-pulse {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+.typing-dot {
+  animation: typing-pulse 1.1s var(--ease-in-out) infinite;
+}
+
+/* Blur-polished reveal — the pull quote resolves out of a soft blur. */
+.reveal.reveal-blur {
+  filter: blur(6px);
+}
+.reveal.reveal-blur.is-visible {
+  filter: blur(0);
+  transition: opacity 700ms var(--ease-out), transform 700ms var(--ease-out),
+    filter 700ms var(--ease-out);
+}
+
+/* Line drawing — a hairline draws itself in from the left when its section
+   reveals. Only hidden once the parent has the JS-applied .reveal class. */
+.reveal .draw-line {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 800ms var(--ease-out);
+}
+.reveal.is-visible .draw-line {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line-rise {
+    animation: message-fade 240ms var(--ease-out) backwards;
+  }
+  .reveal.reveal-blur {
+    filter: none;
+  }
+}
+
 /* Scroll reveal — sections rise + fade in the first time they enter the
    viewport (landing page). Hidden state only applies once JS marks the
    element, so content is never invisible without JavaScript. */

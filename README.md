@@ -1,6 +1,6 @@
 # CampusQ
 
-**CampusQ** is Retriive's AI academic assistant for university students. Students ask questions about courses, programs, deadlines, and registration — and get answers backed by official university data.
+**CampusQ** is Retriive's AI academic assistant for university students. Students ask questions about courses, programs, deadlines, and registration — and get answers backed by official university data. Every question also feeds an anonymized weekly intelligence report for advising staff: what students are asking, where official content has gaps, and how much demand happens after hours.
 
 **Live today:** Carleton University (beta)  
 **Coming soon:** uOttawa, UofT, Waterloo, Western (waitlist landing pages)
@@ -16,6 +16,7 @@
 | Run the quality tests before deploy | [docs/QUALITY_GATE.md](docs/QUALITY_GATE.md) |
 | See what each folder does | [docs/PROJECT_MAP.md](docs/PROJECT_MAP.md) |
 | Know our ship / no-ship rules | [docs/TEAM_RULES.md](docs/TEAM_RULES.md) |
+| Pitch CampusQ (positioning, deck, one-liner) | [docs/PITCH.md](docs/PITCH.md) |
 | **Start contributing (team rules)** | **[docs/HOW_WE_WORK.md](docs/HOW_WE_WORK.md)** |
 
 ---

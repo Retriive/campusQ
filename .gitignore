@@ -49,3 +49,12 @@ Thumbs.db
 .idea/
 # Eval / quality-gate outputs
 backend/evals/experiments/
+
+# Ingestion pipeline local state (SQLite + dry-run previews)
+ingest_state.db
+ingest_preview_*.jsonl
+
+# Hybrid-search keyword index (rebuilt automatically by ingestion runs)
+lexical_index.db
+
+frontend/.clerk/

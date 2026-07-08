@@ -1,37 +1,87 @@
+"""Unit tests for deterministic retrieval scoring helpers."""
+
 import os
-from dotenv import load_dotenv
-from openai import OpenAI
-from pinecone import Pinecone
+import sys
 
-# Load keys — .env lives in backend/ (one level up from tests/)
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-index = pc.Index(os.getenv("PINECONE_INDEX_NAME"))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-print("Connecting to CampusQ Brain...")
-
-# The trap question
-question = "What are the core SYSC courses required for Software Engineering?"
-print(f"\nUser Question: '{question}'\n")
-
-# 1. Turn the question into a vector
-query_embedding = openai_client.embeddings.create(
-    input=question,
-    model="text-embedding-3-small"
-).data[0].embedding
-
-# 2. Search the Carleton namespace in Pinecone
-results = index.query(
-    vector=query_embedding,
-    top_k=2, # Get the top 2 most relevant chunks
-    namespace="carleton",
-    include_metadata=True
+from retrieval import (
+    QueryFlags,
+    RankedChunk,
+    apply_query_aware_adjustments,
+    dedupe_chunks,
+    diverse_pool,
+    query_course_codes,
+    query_terms,
 )
 
-# 3. Print the exact retrieved evidence
-print("🔍 RETRIEVED EVIDENCE FROM PINECONE:\n" + "="*40)
-for i, match in enumerate(results.matches):
-    print(f"\nMatch {i+1} (Confidence Score: {round(match.score, 2)})")
-    print(f"Source URL: {match.metadata['source']}")
-    print(f"Text Snippet: {match.metadata['text'][:300]}...")
+
+def test_query_terms_removes_stopwords():
+    tokens = query_terms("How do I drop COMP 2402 in the fall term?")
+    assert "how" not in tokens
+    assert "drop" in tokens
+    assert "comp" in tokens
+    assert "2402" in tokens
+
+
+def test_query_course_codes_normalizes_case_and_spacing():
+    codes = query_course_codes("compare comp2402 and Sysc 3110 prerequisites")
+    assert codes == ["COMP 2402", "SYSC 3110"]
+
+
+def test_query_aware_adjustments_boost_deadline_and_code_hits():
+    flags = QueryFlags(
+        is_program_query=False,
+        is_schedule_query=False,
+        is_deadline_query=True,
+        is_action_query=True,
+    )
+    chunk = RankedChunk(
+        id="x",
+        namespace="dates",
+        score=0.55,
+        metadata={
+            "title": "Drop and withdrawal deadlines",
+            "course_code": "COMP 2402",
+            "text": "COMP 2402 withdrawal deadline and registration drop date are in Carleton Central.",
+        },
+    )
+    boosted = apply_query_aware_adjustments(
+        chunk,
+        tokens=query_terms("How do I drop COMP 2402 and what is the deadline?"),
+        course_codes=["COMP 2402"],
+        flags=flags,
+    )
+    assert boosted > chunk.score
+
+
+def test_dedupe_chunks_removes_duplicate_text_fingerprints():
+    a = RankedChunk(
+        id="a",
+        namespace="courses",
+        score=0.8,
+        metadata={"source": "https://x", "title": "A", "text": "Identical snippet text"},
+    )
+    b = RankedChunk(
+        id="b",
+        namespace="courses",
+        score=0.7,
+        metadata={"source": "https://x", "title": "A", "text": "Identical snippet text"},
+    )
+    out = dedupe_chunks([a, b])
+    assert [c.id for c in out] == ["a"]
+
+
+def test_diverse_pool_limits_one_source_dominance():
+    flags = QueryFlags(False, False, False, False)
+    chunks = [
+        RankedChunk(id=f"s{i}", namespace="courses", score=0.99 - i * 0.01, metadata={"source": "https://same", "text": f"same {i}"})
+        for i in range(6)
+    ] + [
+        RankedChunk(id=f"o{i}", namespace="regulations", score=0.80 - i * 0.01, metadata={"source": f"https://other{i}", "text": f"other {i}"})
+        for i in range(3)
+    ]
+    pool = diverse_pool(chunks, limit=5, flags=flags)
+    same_source = [c for c in pool if c.metadata.get("source") == "https://same"]
+    assert len(pool) == 5
+    assert len(same_source) <= 2

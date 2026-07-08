@@ -25,6 +25,16 @@ NAMESPACE_FALLBACK_URLS = {
 
 _BARE_DEPT_CODE = re.compile(r"^[A-Z]{3,4}$")
 
+
+def _is_safe_url(url: str) -> bool:
+    """Only http(s) links are safe to hand to the frontend as clickable sources.
+    Chunk metadata comes from ingested pages, so a poisoned `source` field could
+    otherwise smuggle a javascript:/data: URL into the citation list."""
+    try:
+        return urlparse(url).scheme in ("http", "https")
+    except Exception:
+        return False
+
 _PROGRAM_CITATION_NS = frozenset({"programs", "courses", "regulations", "registrar"})
 _PROGRAM_CITATION_ORDER = {"programs": 0, "courses": 1, "regulations": 2, "registrar": 3}
 
@@ -38,7 +48,7 @@ def chunk_passes_threshold(match, is_program_query: bool, threshold: float) -> b
 
 def citation_url_from_metadata(meta: dict, namespace: str = "") -> str:
     url = (meta.get("source") or "").strip()
-    if url and "Unknown" not in url:
+    if url and "Unknown" not in url and _is_safe_url(url):
         return url
     return NAMESPACE_FALLBACK_URLS.get(namespace, "https://calendar.carleton.ca")
 
@@ -138,8 +148,9 @@ def citation_from_course(structured: dict, source_url: str = "") -> dict:
     code = structured.get("courseCode", "")
     name = structured.get("courseName", "")
     title = f"{code} — {name}" if code and name else code or name or "Course Calendar"
+    safe_source = source_url if source_url and _is_safe_url(source_url) else ""
     return {
-        "url": source_url or "https://calendar.carleton.ca/undergrad/courses/",
+        "url": safe_source or "https://calendar.carleton.ca/undergrad/courses/",
         "title": title,
         "section": "Carleton Course Calendar",
         "namespace": "courses",

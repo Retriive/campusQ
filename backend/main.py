@@ -32,7 +32,19 @@ from auth import require_user, require_admin
 
 load_dotenv()
 
-app = FastAPI()
+# Production is signalled by APP_ENV=production (set on Render). Used to fail
+# closed on things that must never be exposed in prod — starting with the
+# interactive API docs, which would otherwise enumerate every route (including
+# admin/ingest) for anyone who hits /docs. openapi_url is disabled too, since
+# the docs UI can be reconstructed from the raw schema at /openapi.json.
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+IS_PRODUCTION = APP_ENV == "production"
+
+app = FastAPI(
+    docs_url=None if IS_PRODUCTION else "/docs",
+    redoc_url=None if IS_PRODUCTION else "/redoc",
+    openapi_url=None if IS_PRODUCTION else "/openapi.json",
+)
 
 # ── Server-side input limits ──────────────────────────────────────────────────
 # The frontend enforces none of these; every request must be assumed hostile.
@@ -87,6 +99,7 @@ RATE_LIMITS = {
     "report": (10, 3600),
     "feedback": (60, 3600),
     "lookup": (120, 60),
+    "degree_plan": (20, 60),  # each request fans out to N Pinecone fetches
     "calendar": (120, 3600),  # feed polls from calendar apps + add-to-calendar clicks
 }
 
@@ -612,7 +625,8 @@ async def health_check():
 
 
 @app.get("/api/documents")
-async def get_documents():
+async def get_documents(request: Request):
+    check_rate_limit(request, "lookup")
     try:
         stats = index.describe_index_stats()
         return {"count": stats.total_vector_count}
@@ -636,8 +650,9 @@ def _load_program_reqs() -> dict:
     return _PROGRAM_REQS_CACHE
 
 @app.get("/api/program-requirements")
-async def program_requirements(slug: str = ""):
+async def program_requirements(request: Request, slug: str = ""):
     """No slug -> index of programs+variants; slug -> that program's structured requirements."""
+    check_rate_limit(request, "lookup")
     data = _load_program_reqs()
     if not slug:
         return {"programs": [{"slug": k, "variants": list(v["variants"].keys())} for k, v in data.items()]}
@@ -648,11 +663,12 @@ async def program_requirements(slug: str = ""):
 
 
 @app.get("/api/degree-plan")
-async def degree_plan(slug: str = "", variant: str = ""):
+async def degree_plan(request: Request, slug: str = "", variant: str = ""):
     """
     Returns all required course nodes + prerequisite edges for a program variant.
     Used by the My Plan tree view.
     """
+    check_rate_limit(request, "degree_plan")
     data = _load_program_reqs()
     prog = data.get(slug)
     if not prog or not variant:
@@ -856,6 +872,11 @@ async def chat_endpoint(
             content = await file.read(MAX_UPLOAD_BYTES + 1)
             if len(content) > MAX_UPLOAD_BYTES:
                 return {"answer": "That PDF is too large (max 10 MB). Try uploading just the relevant pages.", "sources": []}
+            # Verify the actual bytes are a PDF, not just the declared content-type
+            # or extension (both client-controlled). The %PDF- header may sit behind
+            # a small amount of leading junk per spec, so scan the first 1 KB.
+            if b"%PDF-" not in content[:1024]:
+                return {"answer": "That file isn't a valid PDF — try uploading the document as a PDF.", "sources": []}
             try:
                 doc = fitz.open(stream=content, filetype="pdf")
             except Exception:

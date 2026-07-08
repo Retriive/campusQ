@@ -169,7 +169,7 @@ export default function AboutPage() {
               Found an error, have feedback, or want to bring CampusQ to your school?
             </p>
             <a
-              href="mailto:mahadmyonis@gmail.com"
+              href="mailto:team@retriive.com"
               className="mt-auto inline-flex items-center gap-1.5 text-sm font-medium text-secondary-foreground hover:text-foreground transition-colors"
             >
               mahadmyonis@gmail.com <ArrowRight className="size-3.5" />

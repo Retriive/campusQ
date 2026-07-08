@@ -332,7 +332,30 @@ def retrieve_and_rerank(
             except Exception as exc:
                 print(f"Schedule filter error: {exc}")
 
-    chunks.sort(key=lambda c: c.score, reverse=True)
+    # Optional hybrid fusion: BM25 keyword hits (exact codes, acronyms, form
+    # names) merged in via RRF, which also sets the pool order. Any failure
+    # degrades to pure vector search — chat never breaks because of this.
+    fused = False
+    if os.getenv("HYBRID_SEARCH", "").strip().lower() in ("1", "true", "yes", "on"):
+        try:
+            from search.hybrid import fuse
+            from search.lexical import LexicalIndex
+
+            lexical_hits = LexicalIndex().search(
+                user_query, namespaces=namespaces_for_query(flags), limit=15)
+            if lexical_hits:
+                chunks = fuse(
+                    chunks, lexical_hits,
+                    make_chunk=lambda cid, meta, ns, score: RankedChunk(
+                        id=cid, metadata=meta, namespace=ns, score=score),
+                )
+                fused = True
+                print(f"Hybrid: fused {len(lexical_hits)} lexical hits into pool")
+        except Exception as exc:
+            print(f"Hybrid search unavailable, vector-only: {exc}")
+
+    if not fused:
+        chunks.sort(key=lambda c: c.score, reverse=True)
     pool = chunks[:retrieve_top_k]
     ranked = rerank_chunks(openai_client, user_query, pool, rerank_top_n, chat_model)
 

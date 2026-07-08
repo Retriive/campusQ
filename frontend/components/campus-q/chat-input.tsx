@@ -108,21 +108,27 @@ export function ChatInput({ value, onChange, onSubmit, disabled, isHome }: ChatI
             placeholder={placeholder}
             rows={1}
             disabled={disabled}
-            className="flex-1 resize-none bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground/40 min-h-[52px] max-h-[160px] py-[14px] pl-4 pr-14 leading-relaxed"
+            enterKeyHint="send"
+            autoCapitalize="sentences"
+            autoCorrect="on"
+            spellCheck
+            aria-label="Ask CampusQ a question"
+            className="flex-1 resize-none bg-transparent outline-none text-base md:text-sm text-foreground placeholder:text-muted-foreground/40 min-h-[56px] md:min-h-[52px] max-h-[160px] py-[15px] md:py-[14px] pl-4 pr-14 leading-relaxed"
           />
 
           <button
             type="button"
             onClick={() => onSubmit()}
             disabled={!canSubmit}
+            aria-label="Send message"
             className={cn(
-              "absolute right-2.5 bottom-2.5 size-8 rounded-xl flex items-center justify-center transition-[transform,opacity,background-color] duration-150 ease-[var(--ease-out)]",
+              "absolute right-2 bottom-2 md:right-2.5 md:bottom-2.5 size-10 md:size-8 rounded-xl flex items-center justify-center transition-[transform,opacity,background-color] duration-150 ease-[var(--ease-out)]",
               canSubmit
                 ? cn(theme.bgClass, theme.hoverBgClass, "text-primary-foreground shadow-resting active:scale-90")
                 : "bg-secondary text-muted-foreground/25 cursor-not-allowed"
             )}
           >
-            <ArrowUp className="size-3.5" strokeWidth={2.5} />
+            <ArrowUp className="size-4 md:size-3.5" strokeWidth={2.5} />
           </button>
         </div>
 

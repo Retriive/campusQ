@@ -128,22 +128,24 @@ function MobileSessionList({
                 <>
                   <button
                     onClick={() => onSelect(session.id)}
-                    className="flex-1 text-left px-1.5 py-1 text-xs truncate text-muted-foreground data-[active=true]:text-foreground"
+                    className="flex-1 text-left px-2 py-2.5 text-[13px] truncate text-muted-foreground data-[active=true]:text-foreground"
                     data-active={currentSessionId === session.id}
                   >
                     {session.title}
                   </button>
                   <button
                     onClick={() => startRename(session.id, session.title)}
-                    className="p-1 text-muted-foreground/40 hover:text-foreground transition-colors rounded shrink-0"
+                    aria-label="Rename chat"
+                    className="size-9 flex items-center justify-center text-muted-foreground/50 hover:text-foreground active:bg-secondary transition-colors rounded-lg shrink-0"
                   >
-                    <Pencil className="size-3" />
+                    <Pencil className="size-3.5" />
                   </button>
                   <button
                     onClick={() => onDelete(session.id)}
-                    className="p-1 text-muted-foreground/40 hover:text-destructive transition-colors rounded shrink-0"
+                    aria-label="Delete chat"
+                    className="size-9 flex items-center justify-center text-muted-foreground/50 hover:text-destructive active:bg-destructive/10 transition-colors rounded-lg shrink-0"
                   >
-                    <Trash2 className="size-3" />
+                    <Trash2 className="size-3.5" />
                   </button>
                 </>
               )}
@@ -174,7 +176,7 @@ function CoursePills({
             key={card.courseCode}
             onClick={() => setExpanded(expanded === card.courseCode ? null : card.courseCode)}
             className={cn(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+              "inline-flex items-center gap-1.5 px-3.5 py-2 md:py-1.5 rounded-full text-xs font-medium border transition-[background-color,border-color,transform] active:scale-[0.97]",
               expanded === card.courseCode
                 ? "bg-primary/10 border-primary/30 text-primary"
                 : "bg-secondary border-border text-muted-foreground hover:text-foreground hover:border-border/80"
@@ -490,7 +492,7 @@ export function ChatContainer() {
 
         {/* Non-chat views */}
         {!isChatView && (
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto scroll-touch">
             <div className="max-w-4xl mx-auto px-4 md:px-6 py-8">
               {renderView()}
             </div>
@@ -500,7 +502,7 @@ export function ChatContainer() {
         {/* Chat view */}
         {isChatView && (
           <>
-            <main className="flex-1 overflow-y-auto">
+            <main className="flex-1 overflow-y-auto scroll-touch">
               {messages.length === 0 ? (
                 <div className="flex flex-col min-h-full">
                   <div className="flex-1 flex flex-col justify-center">
@@ -557,7 +559,7 @@ export function ChatContainer() {
                                   else if (s.view) setCurrentView(s.view)
                                 }}
                                 style={{ animationDelay: `${i * 45}ms` }}
-                                className="stagger-item px-3 py-1.5 rounded-full text-xs border border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 transition-[background-color,border-color,transform] duration-150 ease-[var(--ease-out)] active:scale-[0.97]"
+                                className="stagger-item px-3.5 py-2 md:py-1.5 rounded-full text-xs border border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50 transition-[background-color,border-color,transform] duration-150 ease-[var(--ease-out)] active:scale-[0.97]"
                               >
                                 {s.label}
                               </button>
@@ -584,8 +586,11 @@ export function ChatContainer() {
           </>
         )}
 
-        {/* Mobile bottom nav */}
-        <nav className="md:hidden flex items-center justify-around border-t border-border/40 bg-card safe-area-pb px-2">
+        {/* Mobile bottom nav — lives in the comfortable thumb zone */}
+        <nav
+          aria-label="Primary"
+          className="md:hidden flex items-stretch justify-around border-t border-border/40 bg-card/95 backdrop-blur-sm safe-area-pb px-2"
+        >
           {[
             { view: "programs"  as View, label: "Programs",  Icon: BookOpenIcon       },
             { view: "chat"      as View, label: "Chat",      Icon: MessageSquareIcon  },
@@ -597,7 +602,9 @@ export function ChatContainer() {
               <button
                 key={view}
                 onClick={() => setCurrentView(view)}
-                className="flex-1 flex flex-col items-center pt-2 pb-3 gap-1 transition-colors"
+                aria-label={label}
+                aria-current={active ? "page" : undefined}
+                className="flex-1 flex flex-col items-center justify-center pt-2 pb-2.5 gap-1 min-h-[56px] transition-transform duration-150 ease-[var(--ease-out)] active:scale-95"
               >
                 <div className={cn(
                   "flex items-center justify-center rounded-2xl transition-[background-color,padding] duration-200 ease-[var(--ease-out)]",
@@ -606,8 +613,8 @@ export function ChatContainer() {
                     : "px-3 py-1.5"
                 )}>
                   <Icon className={cn(
-                    "transition-colors duration-200",
-                    active ? "size-5 text-primary" : "size-5 text-muted-foreground/50"
+                    "size-[22px] transition-colors duration-200",
+                    active ? "text-primary" : "text-muted-foreground/50"
                   )} />
                 </div>
                 <span className={cn(

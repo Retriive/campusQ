@@ -221,6 +221,13 @@
   --font-sans: 'Geist', 'Geist Fallback';
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
 
+  /* Landing cinematic track (see frontend/DESIGN.md) — pure-black marketing
+     canvas with its own hairline + muted-link tones. Not used inside the app. */
+  --color-night: #000000;
+  --color-night-raised: #0a0a0a;
+  --color-night-line: #1e2c31;
+  --color-night-link: #9dabad;
+
   /* Type ramp — 1.250 Major Third, 16px base.
      Each step carries its own line-height; display steps tighten. */
   --text-xs: 0.75rem;

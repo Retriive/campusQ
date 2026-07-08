@@ -3,7 +3,8 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { useCampus } from "./campus-context"
-import { CalendarDays, Clock, ChevronDown, ChevronUp, CalendarPlus, X } from "lucide-react"
+import { CalendarDays, Clock, ChevronDown, ChevronUp, CalendarPlus, CalendarClock, X } from "lucide-react"
+import { CalendarSubscribeModal, trackCalendar } from "./calendar-subscribe"
 
 type Term = "Summer 2026" | "Fall 2026" | "Winter 2027"
 type Category = "registration" | "withdrawal" | "exams" | "payment" | "classes" | "holiday"
@@ -182,6 +183,55 @@ function googleCalUrl(title: string, dateStr: string): string {
   return `https://calendar.google.com/calendar/render?${params.toString()}`
 }
 
+// Works for both school (M365) and personal accounts — outlook.office.com
+// redirects personal users to outlook.live.com with the params intact.
+function outlookCalUrl(title: string, dateStr: string): string {
+  const end = new Date(parseDate(dateStr).getTime() + 86400000).toISOString().slice(0, 10)
+  const params = new URLSearchParams({
+    rru: "addevent",
+    path: "/calendar/action/compose",
+    allday: "true",
+    subject: title,
+    startdt: dateStr,
+    enddt: end,
+    body: "Carleton academic deadline (via CampusQ). Verify at carleton.ca.",
+  })
+  return `https://outlook.office.com/calendar/0/action/compose?${params.toString()}`
+}
+
+// One consistent pair of quick-add links, used in the modal / countdown / rows.
+function AddToCalendarLinks({ deadline, compact }: { deadline: Deadline; compact?: boolean }) {
+  const { theme } = useCampus()
+  const linkClass = (primary: boolean) =>
+    cn(
+      "inline-flex items-center gap-1.5 text-xs font-medium rounded-lg transition-opacity",
+      compact ? "px-2.5 py-1.5" : "px-3 py-2",
+      primary
+        ? cn("text-white hover:opacity-90", theme.bgClass)
+        : "border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+    )
+  return (
+    <>
+      <a
+        href={googleCalUrl(deadline.title, deadline.date)}
+        target="_blank" rel="noopener noreferrer"
+        onClick={() => trackCalendar("google", "add_event", deadline.id)}
+        className={linkClass(true)}
+      >
+        <CalendarPlus className={compact ? "size-3" : "size-3.5"} /> Google
+      </a>
+      <a
+        href={outlookCalUrl(deadline.title, deadline.date)}
+        target="_blank" rel="noopener noreferrer"
+        onClick={() => trackCalendar("outlook", "add_event", deadline.id)}
+        className={linkClass(false)}
+      >
+        <CalendarPlus className={compact ? "size-3" : "size-3.5"} /> Outlook
+      </a>
+    </>
+  )
+}
+
 function UrgencyBadge({ days }: { days: number }) {
   if (days < 0) return <span className="text-[10px] text-muted-foreground/40">Passed</span>
   if (days === 0) return <span className="text-[10px] font-bold text-destructive">Today</span>
@@ -275,13 +325,7 @@ function DeadlineModal({
         {/* Actions */}
         <div className="p-5">
           <div className="flex flex-wrap gap-2">
-            <a
-              href={googleCalUrl(deadline.title, deadline.date)}
-              target="_blank" rel="noopener noreferrer"
-              className={cn("inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg text-white hover:opacity-90 transition-opacity", theme.bgClass)}
-            >
-              <CalendarPlus className="size-3.5" /> Add to calendar
-            </a>
+            <AddToCalendarLinks deadline={deadline} />
             {onAsk && (
               <button
                 onClick={() => { onAsk(askQuestion(deadline)); onClose() }}
@@ -307,6 +351,7 @@ export function DeadlineTracker({ onAsk }: { onAsk?: (question: string) => void 
   const [activeCat, setActiveCat] = React.useState<Category | "All">("All")
   const [expandedId, setExpandedId] = React.useState<string | null>(null)
   const [modalId, setModalId] = React.useState<string | null>(null)
+  const [showSubscribe, setShowSubscribe] = React.useState(false)
   const modalDeadline = withDays.find((d) => d.id === modalId) || null
 
   // The single most urgent CRITICAL deadline — the big countdown
@@ -345,16 +390,28 @@ export function DeadlineTracker({ onAsk }: { onAsk?: (question: string) => void 
             Key dates for the 2025–26 and 2026–27 academic year.
           </p>
         </div>
-        <button
-          onClick={() => downloadICS(
-            withDays.filter((d) => d.days >= 0).map((d) => ({ id: d.id, title: d.title, date: d.date })),
-            "campusq-deadlines.ics"
-          )}
-          className={cn("shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg text-white transition-opacity hover:opacity-90", theme.bgClass)}
-          title="Download all upcoming deadlines as a calendar file"
-        >
-          <CalendarPlus className="size-3.5" /> Add all<span className="hidden sm:inline"> to calendar</span>
-        </button>
+        <div className="shrink-0 flex gap-1.5">
+          <button
+            onClick={() => setShowSubscribe(true)}
+            className={cn("inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg text-white transition-opacity hover:opacity-90", theme.bgClass)}
+            title="Subscribe in Google/Outlook/Apple — updates automatically"
+          >
+            <CalendarClock className="size-3.5" /> Sync<span className="hidden sm:inline"> to calendar</span>
+          </button>
+          <button
+            onClick={() => {
+              trackCalendar("ics", "download_all")
+              downloadICS(
+                withDays.filter((d) => d.days >= 0).map((d) => ({ id: d.id, title: d.title, date: d.date })),
+                "campusq-deadlines.ics"
+              )
+            }}
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            title="One-time download of all upcoming deadlines (.ics)"
+          >
+            <CalendarPlus className="size-3.5" /> <span className="hidden sm:inline">Download</span>.ics
+          </button>
+        </div>
       </div>
 
       {/* Big countdown — next critical deadline */}
@@ -383,6 +440,7 @@ export function DeadlineTracker({ onAsk }: { onAsk?: (question: string) => void 
             href={googleCalUrl(nextCritical.title, nextCritical.date)}
             target="_blank" rel="noopener noreferrer"
             title="Add to calendar"
+            onClick={() => trackCalendar("google", "add_event", nextCritical.id)}
             className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-2 rounded-lg border border-border hover:bg-secondary transition-colors"
           >
             <CalendarPlus className="size-3.5" /> <span className="hidden sm:inline">Remind me</span>
@@ -489,13 +547,7 @@ export function DeadlineTracker({ onAsk }: { onAsk?: (question: string) => void 
                       {open && (
                         <div className="px-4 pb-4 pt-1 bg-secondary/20">
                           <div className="flex flex-wrap gap-2">
-                            <a
-                              href={googleCalUrl(d.title, d.date)}
-                              target="_blank" rel="noopener noreferrer"
-                              className={cn("inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg text-white hover:opacity-90 transition-opacity", theme.bgClass)}
-                            >
-                              <CalendarPlus className="size-3" /> Add to calendar
-                            </a>
+                            <AddToCalendarLinks deadline={d} compact />
                             {onAsk && (
                               <button
                                 onClick={() => onAsk(askQuestion(d))}
@@ -528,6 +580,7 @@ export function DeadlineTracker({ onAsk }: { onAsk?: (question: string) => void 
       {modalDeadline && (
         <DeadlineModal deadline={modalDeadline} onClose={() => setModalId(null)} onAsk={onAsk} />
       )}
+      {showSubscribe && <CalendarSubscribeModal onClose={() => setShowSubscribe(false)} />}
     </div>
   )
 }

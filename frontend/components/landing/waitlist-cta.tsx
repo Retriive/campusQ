@@ -17,8 +17,8 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
 
   if (joined) {
     return (
-      <div className="inline-flex items-center gap-2 text-sm text-zinc-200">
-        <Check className="size-4 text-white" />
+      <div className="inline-flex items-center gap-2 text-sm text-ink">
+        <Check className="size-4 text-primary-ink" />
         You're on the list — we'll email you when {school} is ready.
       </div>
     )
@@ -57,7 +57,7 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@school.ca"
-          className="text-sm px-5 py-3 rounded-full border border-night-line bg-night-raised text-white placeholder:text-zinc-500 outline-none focus:border-primary transition-colors w-64"
+          className="text-sm px-5 py-3 rounded-full border border-line bg-canvas-raised text-ink placeholder:text-ink-faint outline-none focus:border-primary transition-colors w-64"
         />
         <button
           type="submit"

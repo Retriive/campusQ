@@ -10,7 +10,7 @@ export function UniversityToggle({
   onSelect: (id: SchoolId) => void
 }) {
   return (
-    <div className="inline-flex flex-wrap items-center gap-1 p-1 rounded-full border border-night-line bg-night-raised">
+    <div className="inline-flex flex-wrap items-center gap-1 p-1 rounded-full border border-line bg-canvas-raised transition-colors duration-300">
       {SCHOOL_LIST.map((s) => (
         <button
           key={s.id}
@@ -19,7 +19,7 @@ export function UniversityToggle({
           className={`text-xs px-3.5 py-1.5 rounded-full transition-colors duration-200 active:scale-[0.97] ${
             activeId === s.id
               ? "bg-primary text-primary-foreground font-[550]"
-              : "text-zinc-400 hover:text-white"
+              : "text-ink-faint hover:text-ink"
           }`}
         >
           {s.shortName}

@@ -228,6 +228,15 @@
   --color-night-line: #1e2c31;
   --color-night-link: #9dabad;
 
+  /* Landing dual-track surfaces — resolved by .landing-track below. */
+  --color-canvas: var(--canvas);
+  --color-canvas-raised: var(--canvas-raised);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-body: var(--ink-body);
+  --color-ink-faint: var(--ink-faint);
+  --color-link-muted: var(--link-muted);
+
   /* Type ramp — 1.250 Major Third, 16px base.
      Each step carries its own line-height; display steps tighten. */
   --text-xs: 0.75rem;
@@ -325,6 +334,35 @@
     font-size: var(--text-xs);
     letter-spacing: 0.01em;
   }
+}
+
+/* ── Landing two-track theming (frontend/DESIGN.md) ─────────────────────
+   Marketing pages run two canvas tracks: a warm-cream transactional track
+   (default / light) and a pure-black cinematic track (.dark on the same
+   wrapper). Components inside use bg-canvas / text-ink / border-line and
+   flip tracks with a single class. */
+.landing-track {
+  --canvas: #fbfbf5;
+  --canvas-raised: #ffffff;
+  --line: #e4e4e7;
+  --ink: #09090b;
+  --ink-body: #52525b;
+  --ink-faint: #71717a;
+  --link-muted: #6b7280;
+  /* Level-3 stacked tiny shadows — soft paper halo on light cards */
+  --card-shadow: 0 8px 8px rgba(0, 0, 0, 0.03), 0 4px 4px rgba(0, 0, 0, 0.03),
+    0 2px 2px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+.landing-track.dark {
+  --canvas: #000000;
+  --canvas-raised: #0a0a0a;
+  --line: #1e2c31;
+  --ink: #ffffff;
+  --ink-body: #a1a1aa;
+  --ink-faint: #71717a;
+  --link-muted: #9dabad;
+  /* Cinematic cards stay flat — just a top-edge inset sheen */
+  --card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* iOS safe area padding for the bottom nav */

@@ -12,6 +12,22 @@ interface Source {
   section?: string
 }
 
+/**
+ * Returns the url only if it's a safe http(s) link, otherwise undefined.
+ * Model output and citation metadata are untrusted, so javascript:/data:
+ * (and any other scheme) must never become a clickable anchor. Relative or
+ * malformed values throw in the URL parser and are treated as unsafe.
+ */
+function safeHref(url: unknown): string | undefined {
+  if (typeof url !== "string") return undefined
+  try {
+    const proto = new URL(url).protocol
+    return proto === "http:" || proto === "https:" ? url : undefined
+  } catch {
+    return undefined
+  }
+}
+
 interface ChatMessageProps {
   role: "user" | "assistant"
   content: string
@@ -93,7 +109,7 @@ function Sources({ sources }: { sources: Source[] }) {
       {sources.map((s, i) => (
         <a
           key={i}
-          href={s.url}
+          href={safeHref(s.url)}
           target="_blank"
           rel="noopener noreferrer"
           title={s.section ? `${formatTitle(s)} — ${s.section}` : formatTitle(s)}
@@ -175,10 +191,14 @@ export function ChatMessage({ role, content, sources, onFeedback, children }: Ch
                 hr: ({ node, ...props }) => (
                   <hr className="my-4 border-border/50" {...props} />
                 ),
-                a: ({ node, ...props }) => (
-                  <a className={cn("underline underline-offset-2 hover:opacity-70 transition-opacity", theme.textClass)}
-                    target="_blank" rel="noopener noreferrer" {...props} />
-                ),
+                a: ({ node, href, ...props }) => {
+                  const safe = safeHref(href)
+                  if (!safe) return <span {...props} />
+                  return (
+                    <a className={cn("underline underline-offset-2 hover:opacity-70 transition-opacity", theme.textClass)}
+                      href={safe} target="_blank" rel="noopener noreferrer" {...props} />
+                  )
+                },
                 blockquote: ({ node, ...props }) => (
                   <blockquote className="border-l-2 border-border pl-3 text-muted-foreground italic" {...props} />
                 ),

@@ -17,8 +17,8 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
 
   if (joined) {
     return (
-      <div className="inline-flex items-center gap-2 text-sm font-medium text-secondary-foreground">
-        <Check className="size-4 text-success" />
+      <div className="inline-flex items-center gap-2 text-sm text-zinc-200">
+        <Check className="size-4 text-white" />
         You're on the list — we'll email you when {school} is ready.
       </div>
     )
@@ -50,25 +50,25 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
       }}
       className="flex flex-col gap-1.5"
     >
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
         <input
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@school.ca"
-          className="text-sm px-4 py-3 rounded-xl border border-input bg-card outline-none focus:border-primary focus:ring-[3px] focus:ring-primary/15 transition-[border-color,box-shadow] w-56"
+          className="text-sm px-5 py-3 rounded-full border border-night-line bg-night-raised text-white placeholder:text-zinc-500 outline-none focus:border-zinc-400 transition-colors w-64"
         />
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex items-center gap-2 bg-primary hover:bg-primary-strong text-primary-foreground text-sm font-semibold px-5 py-3 rounded-xl transition-colors shrink-0 disabled:opacity-60 shadow-raised"
+          className="inline-flex items-center gap-2 rounded-full border-2 border-white px-6 py-[10px] text-sm text-white hover:bg-white hover:text-black transition-colors shrink-0 disabled:opacity-60"
         >
           {submitting ? "Joining…" : "Join waitlist"}
           <ArrowRight className="size-4" />
         </button>
       </div>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-red-400">{error}</p>}
     </form>
   )
 }

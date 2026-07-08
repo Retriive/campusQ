@@ -43,7 +43,7 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
   const campusName = campusThemes[selectedCampus].name
 
   return (
-    <div className="flex flex-col items-center w-full px-4 pt-10 md:pt-16 pb-6 gap-8 md:gap-10">
+    <div className="flex flex-col items-center w-full px-4 pt-12 md:pt-16 pb-6 gap-10 md:gap-10">
 
       {/* Wordmark */}
       <div className="text-center select-none">
@@ -63,8 +63,11 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
         </p>
       </div>
 
-      {/* Tools — the Programs / Compare / Deadlines buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl">
+      {/* Tools — the Programs / Compare / Deadlines buttons.
+          Hidden on mobile: they already live in the bottom nav, so showing
+          them here just clutters the phone home screen. Shown from sm up
+          where there's no bottom nav. */}
+      <div className="hidden sm:grid grid-cols-3 gap-3 w-full max-w-2xl">
         {TOOLS.map((item) => {
           const Icon = item.icon
           return (

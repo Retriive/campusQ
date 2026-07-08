@@ -4,210 +4,25 @@ import * as React from "react"
 import { track } from "@vercel/analytics"
 import { useUser, useAuth } from "@clerk/nextjs"
 import { cn } from "@/lib/utils"
-import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2 as BarChart2Icon, CalendarDays as CalendarDaysIcon, PenLine, Trash2, Pencil, Check, X } from "lucide-react"
+import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2 as BarChart2Icon, CalendarDays as CalendarDaysIcon, PenLine } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { API_BASE_URL } from "@/lib/api"
 import { Header } from "./header"
 import { Sidebar, type View, type ChatSession } from "./sidebar"
 import { ChatMessage } from "./chat-message"
 import { ChatInput } from "./chat-input"
 import { EmptyState } from "./empty-state"
-import { CourseCard } from "./course-card"
 import { FeedbackModal } from "./feedback-modal"
-import { PrereqVisualizer } from "./prereq-visualizer"
 import { CourseCompare } from "./course-compare"
 import { ProgramExplorer } from "./program-explorer"
 import { DeadlineTracker } from "./deadline-tracker"
+import { CoursePills } from "./chat/course-pills"
+import { MobileSessionList } from "./chat/mobile-session-list"
+import { extractCourseCodes, getSuggestions } from "./chat/suggestions"
+import type { CourseCardData, Message } from "./chat/types"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 const SESSIONS_KEY = "campusq-sessions"
 const MAX_SESSIONS = 20
-
-interface CourseCardData {
-  courseCode: string
-  courseName: string
-  credits: number
-  description: string
-  prerequisites: string[]
-  prerequisiteText?: string
-}
-
-interface Source {
-  url: string
-  title: string
-  section?: string
-}
-
-interface Message {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  courseCards?: CourseCardData[]
-  sources?: Source[]
-}
-
-interface Suggestion {
-  label: string
-  query?: string
-  view?: View
-}
-
-function getSuggestions(message: Message, courseCodes: string[]): Suggestion[] {
-  const suggestions: Suggestion[] = []
-  if (courseCodes.length > 0) {
-    const code = courseCodes[0]
-    suggestions.push({ label: `Prerequisite tree for ${code}`, query: `Show prerequisite chain for ${code}` })
-    if (courseCodes.length === 1) {
-      suggestions.push({ label: `Compare ${code} with another course`, view: "compare" })
-    }
-  }
-  if (message.content.toLowerCase().includes("program") || message.content.toLowerCase().includes("degree")) {
-    suggestions.push({ label: "Browse all programs", view: "programs" })
-  }
-  return suggestions.slice(0, 3)
-}
-
-function extractCourseCodes(text: string): string[] {
-  const matches = text.match(/\b[A-Z]{4}\s*\d{4}\b/g) || []
-  return [...new Set(matches.map((m) => m.replace(/\s+/, " ").trim()))]
-}
-
-function MobileSessionList({
-  sessions,
-  currentSessionId,
-  onSelect,
-  onDelete,
-  onRename,
-}: {
-  sessions: ChatSession[]
-  currentSessionId: string
-  onSelect: (id: string) => void
-  onDelete: (id: string) => void
-  onRename: (id: string, title: string) => void
-}) {
-  const [renamingId, setRenamingId] = React.useState<string | null>(null)
-  const [renameValue, setRenameValue] = React.useState("")
-
-  const startRename = (id: string, currentTitle: string) => {
-    setRenamingId(id)
-    setRenameValue(currentTitle)
-  }
-
-  const commitRename = () => {
-    if (renamingId) onRename(renamingId, renameValue)
-    setRenamingId(null)
-  }
-
-  return (
-    <div className="flex-1 overflow-y-auto px-3 pb-4">
-      {sessions.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center pt-6">No past chats yet</p>
-      ) : (
-        <div className="space-y-0.5">
-          {sessions.map((session) => (
-            <div key={session.id} className={cn(
-              "flex items-center gap-1 rounded-lg px-1 py-1 transition-colors",
-              currentSessionId === session.id ? "bg-secondary" : "hover:bg-secondary/50"
-            )}>
-              {renamingId === session.id ? (
-                <>
-                  <input
-                    autoFocus
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null) }}
-                    className="flex-1 bg-background border border-border rounded px-2 py-1 text-xs outline-none"
-                  />
-                  <button onClick={commitRename} className="p-1 text-primary rounded">
-                    <Check className="size-3.5" />
-                  </button>
-                  <button onClick={() => setRenamingId(null)} className="p-1 text-muted-foreground rounded">
-                    <X className="size-3.5" />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => onSelect(session.id)}
-                    className="flex-1 text-left px-2 py-2.5 text-[13px] truncate text-muted-foreground data-[active=true]:text-foreground"
-                    data-active={currentSessionId === session.id}
-                  >
-                    {session.title}
-                  </button>
-                  <button
-                    onClick={() => startRename(session.id, session.title)}
-                    aria-label="Rename chat"
-                    className="size-9 flex items-center justify-center text-muted-foreground/50 hover:text-foreground active:bg-secondary transition-colors rounded-lg shrink-0"
-                  >
-                    <Pencil className="size-3.5" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(session.id)}
-                    aria-label="Delete chat"
-                    className="size-9 flex items-center justify-center text-muted-foreground/50 hover:text-destructive active:bg-destructive/10 transition-colors rounded-lg shrink-0"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function CoursePills({
-  cards,
-  expandedPrereq,
-  onTogglePrereq,
-}: {
-  cards: CourseCardData[]
-  expandedPrereq: string | null
-  onTogglePrereq: (code: string) => void
-}) {
-  const [expanded, setExpanded] = React.useState<string | null>(null)
-
-  return (
-    <div className="mt-3 space-y-2">
-      <div className="flex flex-wrap gap-2">
-        {cards.map((card) => (
-          <button
-            key={card.courseCode}
-            onClick={() => setExpanded(expanded === card.courseCode ? null : card.courseCode)}
-            className={cn(
-              "inline-flex items-center gap-1.5 px-3.5 py-2 md:py-1.5 rounded-full text-xs font-medium border transition-[background-color,border-color,transform] active:scale-[0.97]",
-              expanded === card.courseCode
-                ? "bg-primary/10 border-primary/30 text-primary"
-                : "bg-secondary border-border text-muted-foreground hover:text-foreground hover:border-border/80"
-            )}
-          >
-            <span className="font-mono">{card.courseCode}</span>
-            <span className="text-[10px] opacity-60">{expanded === card.courseCode ? "▲" : "▼"}</span>
-          </button>
-        ))}
-      </div>
-      {cards.map((card) =>
-        expanded === card.courseCode ? (
-          <div key={card.courseCode} className="space-y-2">
-            <CourseCard {...card} />
-            {card.prerequisites.length > 0 && (
-              <button
-                onClick={() => onTogglePrereq(card.courseCode)}
-                className="text-xs text-primary hover:underline"
-              >
-                {expandedPrereq === card.courseCode ? "Hide prerequisite tree" : "View full prerequisite tree →"}
-              </button>
-            )}
-            {expandedPrereq === card.courseCode && (
-              <PrereqVisualizer courseCode={card.courseCode} />
-            )}
-          </div>
-        ) : null
-      )}
-    </div>
-  )
-}
 
 export function ChatContainer() {
   const { user } = useUser()
@@ -363,7 +178,7 @@ export function ChatContainer() {
     formData.append("user_id", user?.id ?? "anonymous")
 
     try {
-      const response = await fetch(`${API_URL}/api/chat/stream`, {
+      const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
         method: "POST",
         body: formData,
         headers: await authHeader(),
@@ -450,7 +265,7 @@ export function ChatContainer() {
       fd.append("question", question)
       fd.append("answer", answer)
       fd.append("session_id", currentSessionId || "none")
-      fetch(`${API_URL}/api/feedback`, { method: "POST", body: fd }).catch(() => {})
+      fetch(`${API_BASE_URL}/api/feedback`, { method: "POST", body: fd }).catch(() => {})
       track("answer_feedback", { rating })
     } catch {}
   }

@@ -3,6 +3,7 @@
 import * as React from "react"
 import { X, Send, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { API_BASE_URL } from "@/lib/api"
 
 interface FeedbackModalProps {
   open: boolean
@@ -36,12 +37,11 @@ export function FeedbackModal({ open, onClose, lastQuery = "" }: FeedbackModalPr
     if (!message.trim()) return
     setIsLoading(true)
     setError(false)
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
     try {
       const formData = new FormData()
       formData.append("message", message)
       formData.append("query", query)
-      const res = await fetch(`${API_URL}/api/report`, { method: "POST", body: formData })
+      const res = await fetch(`${API_BASE_URL}/api/report`, { method: "POST", body: formData })
       if (!res.ok) throw new Error("Failed")
       setSubmitted(true)
     } catch {

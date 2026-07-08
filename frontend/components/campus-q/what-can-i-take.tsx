@@ -5,8 +5,7 @@ import { useAuth } from "@clerk/nextjs"
 import { Plus, X, Sparkles, Loader2, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import ReactMarkdown from "react-markdown"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+import { API_BASE_URL } from "@/lib/api"
 
 export function WhatCanITake() {
   const { getToken } = useAuth()
@@ -40,7 +39,7 @@ export function WhatCanITake() {
       formData.append("history", "[]")
 
       const token = await getToken().catch(() => null)
-      const response = await fetch(`${API_URL}/api/chat/stream`, {
+      const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
         method: "POST",
         body: formData,
         headers: token ? { Authorization: `Bearer ${token}` } : {},

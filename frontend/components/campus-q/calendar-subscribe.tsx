@@ -4,10 +4,9 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { useCampus } from "./campus-context"
 import { CalendarClock, Check, Copy, X } from "lucide-react"
+import { API_BASE_URL } from "@/lib/api"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-
-const FEED_URL = `${API_URL}/api/calendar/deadlines.ics`
+const FEED_URL = `${API_BASE_URL}/api/calendar/deadlines.ics`
 const WEBCAL_URL = FEED_URL.replace(/^https?:\/\//, "webcal://")
 const FEED_NAME = "Carleton Deadlines (CampusQ)"
 
@@ -17,7 +16,7 @@ export function trackCalendar(provider: string, action: "add_event" | "subscribe
   body.append("provider", provider)
   body.append("action", action)
   body.append("deadline_id", deadlineId)
-  fetch(`${API_URL}/api/calendar/track`, { method: "POST", body, keepalive: true }).catch(() => {})
+  fetch(`${API_BASE_URL}/api/calendar/track`, { method: "POST", body, keepalive: true }).catch(() => {})
 }
 
 const PROVIDERS: { id: string; label: string; hint: string; href: string }[] = [

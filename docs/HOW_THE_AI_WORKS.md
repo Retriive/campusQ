@@ -106,8 +106,8 @@ The quality gate CSV tells you which type — look at the `reason` column.
 | `backend/main.py` | API endpoints, chat flow, system prompt |
 | `backend/retrieval.py` | Search + intent boosts + reranker |
 | `backend/citations.py` | Source link formatting |
-| `backend/scrapers/` | Scripts that pull data from Carleton websites |
-| `backend/run_pipeline.py` | Runs all scrapers to refresh data |
+| `backend/ingestion/` | Canonical ingestion pipeline namespace |
+| `backend/scrapers/` | Legacy scraper workflow (reference/archive) |
 | `backend/evals/quality_gate.py` | Automated quality tests |
 
 ---
@@ -118,17 +118,14 @@ When Carleton updates the calendar:
 
 ```bash
 cd backend
-py wipe.py              # clears old Pinecone data (asks for confirmation)
-py run_pipeline.py      # re-scrapes and re-indexes everything
+py -m ingestion.run --school carleton --force
 ```
-
-**Warning:** `wipe.py` deletes data. Only run when intentionally re-indexing.
 
 For a single category:
 
 ```bash
-py run_pipeline.py courses
-py run_pipeline.py dates
+py -m ingestion.run --school carleton --category courses
+py -m ingestion.run --school carleton --category dates
 ```
 
 ---

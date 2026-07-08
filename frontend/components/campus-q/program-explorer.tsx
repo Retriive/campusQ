@@ -6,10 +6,9 @@ import { DegreePlan } from "./degree-plan"
 import { Button } from "@/components/ui/button"
 import ReactMarkdown from "react-markdown"
 import { cn } from "@/lib/utils"
+import { API_BASE_URL } from "@/lib/api"
 import { useCampus } from "./campus-context"
 import { useAuth } from "@clerk/nextjs"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 interface Stream {
   label: string
@@ -609,7 +608,7 @@ export function ProgramExplorer() {
     if (progIndex.current) return progIndex.current
     let list: ProgIndexEntry[] = []
     try {
-      const d = await fetch(`${API_URL}/api/program-requirements`).then((r) => r.json())
+      const d = await fetch(`${API_BASE_URL}/api/program-requirements`).then((r) => r.json())
       list = d.programs || []
     } catch {
       list = []
@@ -626,7 +625,7 @@ export function ProgramExplorer() {
     formData.append("history", "[]")
     formData.append("session_id", "program-explorer")
     const token = await getToken().catch(() => null)
-    const response = await fetch(`${API_URL}/api/chat/stream`, {
+    const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
       method: "POST",
       body: formData,
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -662,7 +661,7 @@ export function ProgramExplorer() {
       const index = await getIndex()
       const match = matchVariant(queryName, index)
       if (match) {
-        const data = await fetch(`${API_URL}/api/program-requirements?slug=${encodeURIComponent(match.slug)}`).then((r) => r.json())
+        const data = await fetch(`${API_BASE_URL}/api/program-requirements?slug=${encodeURIComponent(match.slug)}`).then((r) => r.json())
         const groups: ReqGroup[] = data?.variants?.[match.variant]
         if (groups && groups.length > 0) {
           setStructured({ groups, variant: match.variant })

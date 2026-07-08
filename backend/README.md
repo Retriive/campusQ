@@ -10,11 +10,15 @@ FastAPI server that powers CampusQ chat, retrieval, and quality testing.
 
 | File / folder | Purpose |
 |---------------|---------|
-| `main.py` | API routes, chat logic, system prompt |
+| `main.py` | FastAPI app entrypoint (chat + admin APIs) |
 | `retrieval.py` | Search Pinecone, rerank results |
 | `citations.py` | Format and filter source links |
-| `ingest.py` | Load Carleton calendar into Pinecone |
+| `ingestion/` | **Canonical ingestion workflow + CLI wrappers** |
+| `ingest/` | Backward-compatible ingestion namespace (legacy import path) |
+| `scrapers/` | Legacy scraper workflow kept for reference only |
+| `scripts/` | One-off operational/debug scripts (non-pytest) |
 | `evals/` | Automated quality tests |
+| `tests/` | Deterministic pytest unit/integration tests only |
 | `data/` | Scraped calendar text files |
 | `requirements.txt` | Python dependencies |
 
@@ -48,22 +52,27 @@ COHERE_API_KEY=...   # optional — better reranking
 
 | Endpoint | What it does |
 |----------|--------------|
-| `POST /chat` | Main chat (used by frontend) |
-| `POST /chat/stream` | Streaming chat |
-| `GET /health` | Health check |
+| `POST /api/chat` | Main chat (used by frontend) |
+| `POST /api/chat/stream` | Streaming chat |
+| `GET /` | Health check |
 | `GET /docs` | Interactive API docs |
 
 ---
 
-## Re-index calendar data
+## Ingestion (canonical workflow)
 
-Only needed when calendar content changes:
+Use the canonical ingestion namespace:
 
 ```powershell
-py ingest.py
+py -m ingestion.run --school carleton --list
+py -m ingestion.run --school carleton --category dates
+py -m ingestion.run --school carleton --force
 ```
 
-This wipes and rebuilds the Pinecone index. Takes several minutes.
+Legacy commands still work, but they now print a deprecation notice:
+
+- `py run_pipeline.py ...`
+- imports from `ingest.*`
 
 ---
 
@@ -74,6 +83,8 @@ Server must be running first.
 ```powershell
 py evals\quality_gate.py --tier smoke
 py evals\quality_gate.py --tier core
+py evals\run_eval.py
+py evals\schedule_chatbot_eval.py
 ```
 
 Full guide: [docs/QUALITY_GATE.md](../docs/QUALITY_GATE.md)

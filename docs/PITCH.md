@@ -80,7 +80,7 @@ rest of higher ed, with the same engine applicable to any policy-dense
 institution.
 
 **The expansion proof is engineering, not narrative:** our ingest pipeline
-(`backend/ingest/`, `backend/run_pipeline.py`, per-category Pinecone
+(`backend/ingestion/`, `py -m ingestion.run`, per-category Pinecone
 namespaces) makes onboarding a new institution a *data* problem, not a
 *build* problem. School #2 at near-zero marginal engineering cost is the
 slide. Don't claim hospitals and governments before we've proven the second

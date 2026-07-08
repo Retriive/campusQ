@@ -1,37 +1,16 @@
+"""Legacy wrapper for CampusQ ingestion.
+
+Canonical command:
+  py -m ingestion.run --school carleton [--category <name>] [--force]
 """
-run_pipeline.py — Master ingestion orchestrator for CampusQ.
 
-Run wipe.py first to clear old data, then run this.
-
-All active scrapers live in scrapers/active/.
-Superseded scrapers are in scrapers/archive/ (kept for reference only).
-
-Usage:
-  py run_pipeline.py              # Run everything
-  py run_pipeline.py courses      # Run only courses
-  py run_pipeline.py programs     # Run only programs
-  py run_pipeline.py regulations  # Run only regulations
-  py run_pipeline.py registrar    # Run only registrar
-  py run_pipeline.py dates        # Run only dates
-  py run_pipeline.py facts        # Run only facts
-  py run_pipeline.py campus       # Run only campus services (PMC/CSAS/Awards/TLS/AI)
-  py run_pipeline.py tuition      # Run only tuition
-  py run_pipeline.py library      # Run only library
-"""
+from __future__ import annotations
 
 import sys
-import time
-import importlib.util
-import os
 
-from dotenv import load_dotenv
+from ingest.run import main as ingest_main
 
-BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
-load_dotenv(os.path.join(BACKEND_DIR, ".env"))
-
-SCRAPERS_DIR = os.path.join(BACKEND_DIR, "scrapers", "active")
-
-ALL_SCRAPERS = [
+LEGACY_CATEGORIES = {
     "courses",
     "programs",
     "regulations",
@@ -41,49 +20,27 @@ ALL_SCRAPERS = [
     "campus",
     "tuition",
     "library",
-]
+}
 
 
-def load_and_run(name: str):
-    path = os.path.join(SCRAPERS_DIR, f"scrape_{name}.py")
-    spec = importlib.util.spec_from_file_location(f"scrape_{name}", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    mod.run()
-
-
-def run_all():
-    start = time.time()
-
-    print("\n" + "=" * 60)
-    print("  CampusQ — Full Ingestion Pipeline")
-    print("=" * 60)
-    print("\nMake sure you ran wipe.py first to clear old data.\n")
-
+def main() -> int:
+    category = None
     if len(sys.argv) > 1:
-        target = sys.argv[1].lower()
-        if target not in ALL_SCRAPERS:
-            print(f"Unknown target: {target}")
-            print(f"Valid options: {', '.join(ALL_SCRAPERS)}")
-            sys.exit(1)
-        scrapers = [target]
-    else:
-        scrapers = ALL_SCRAPERS
+        candidate = sys.argv[1].lower().strip()
+        if candidate not in LEGACY_CATEGORIES:
+            print(f"Unknown target: {candidate}")
+            print(f"Valid options: {', '.join(sorted(LEGACY_CATEGORIES))}")
+            return 1
+        category = candidate
 
-    for scraper in scrapers:
-        print(f"\n{'=' * 60}")
-        print(f"  Running: {scraper}")
-        print(f"{'=' * 60}")
-        try:
-            load_and_run(scraper)
-        except Exception as e:
-            print(f"  ERROR running {scraper}: {e}")
+    print("[deprecated] run_pipeline.py is legacy. Use: py -m ingestion.run ...")
 
-    elapsed = round((time.time() - start) / 60, 1)
-    print(f"\n{'=' * 60}")
-    print(f"  PIPELINE COMPLETE in {elapsed} minutes")
-    print(f"{'=' * 60}\n")
+    argv = ["ingestion.run", "--school", "carleton"]
+    if category:
+        argv += ["--category", category]
+    sys.argv = argv
+    return ingest_main()
 
 
 if __name__ == "__main__":
-    run_all()
+    raise SystemExit(main())

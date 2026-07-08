@@ -4,8 +4,7 @@ import * as React from "react"
 import { X, Search, Plus, BarChart2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+import { API_BASE_URL } from "@/lib/api"
 
 interface CourseData {
   courseCode: string
@@ -34,7 +33,7 @@ export function CourseCompare({ initialCourses = [] }: { initialCourses?: Course
     if (courses.find((c) => c.courseCode === code)) { setError("Already added."); return }
     setLoading(true); setError("")
     try {
-      const res = await fetch(`${API_URL}/api/course/${encodeURIComponent(code)}`)
+      const res = await fetch(`${API_BASE_URL}/api/course/${encodeURIComponent(code)}`)
       const data = await res.json()
       if (data.found === false || data.error) {
         setError(`${code} not found.`)

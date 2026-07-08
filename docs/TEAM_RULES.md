@@ -79,7 +79,7 @@ Copy this for every production deploy:
 |---|---|---|
 | AI / chat quality | Backend dev | `main.py`, `retrieval.py`, `citations.py` |
 | Quality tests | Anyone on team | `evals/quality_gate.py`, `golden.csv` |
-| University data | Backend dev | `scrapers/`, `run_pipeline.py` |
+| University data | Backend dev | `ingestion/` (`py -m ingestion.run`), `scrapers/` (legacy) |
 | Student app | Frontend dev | `frontend/` |
 | Deploy | Whoever ships | Render + Vercel dashboards |
 | Product calls | Mahad | Thresholds, expansion timing |

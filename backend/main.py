@@ -238,7 +238,7 @@ def classify_intent(query: str) -> str:
         return "program_requirements"
     if any(k in q for k in ["co-op", "transcript", "financial aid", "bursary", "scholarship", "defer", "enrolment"]):
         return "services"
-    if re.search(r'[a-zA-Z]{4}\s*\d{4}', query):
+    if re.search(r"[a-zA-Z]{3,4}\s*\d{4}[a-zA-Z]?", query):
         return "course_lookup"
     return "general"
 
@@ -796,9 +796,9 @@ async def chat_endpoint(
     past_messages = sanitize_history(history)
 
     # Inject last-mentioned course code from history for vague follow-up queries
-    if not re.search(r'[A-Z]{3,4}\s*\d{4}', user_query, re.IGNORECASE):
+    if not re.search(r"[A-Z]{3,4}\s*\d{4}[A-Z]?", user_query, re.IGNORECASE):
         for _msg in reversed(past_messages):
-            _found = re.search(r'([A-Z]{3,4}\s*\d{4})', _msg["content"], re.IGNORECASE)
+            _found = re.search(r"([A-Z]{3,4}\s*\d{4}[A-Z]?)", _msg["content"], re.IGNORECASE)
             if _found:
                 user_query = f"{user_query} ({_found.group(1)})"
                 break
@@ -806,7 +806,11 @@ async def chat_endpoint(
     print(f"Searching database for: {user_query}")
 
     _TERM_WORDS = {"fall", "fall", "term", "year", "from", "this", "last", "next", "that", "what", "when", "with", "they", "them", "into", "will", "have", "been", "also", "than", "then", "each", "more", "does", "over", "just", "some", "only", "even", "such"}
-    course_matches = [(d, n) for d, n in re.findall(r'([a-zA-Z]{4})\s*(\d{4})', user_query, re.IGNORECASE) if d.lower() not in _TERM_WORDS]
+    course_matches = [
+        (d, n.upper())
+        for d, n in re.findall(r"([a-zA-Z]{3,4})\s*(\d{4}[a-zA-Z]?)", user_query, re.IGNORECASE)
+        if d.lower() not in _TERM_WORDS
+    ]
 
     if course_matches and not file:
         responses = []
@@ -1009,23 +1013,27 @@ async def chat_stream(
 
     # If the query has no course code but is a follow-up (e.g. "what semester is this taught?"),
     # inject the last-mentioned course code from history so RAG can find the right data.
-    _course_in_query = re.search(r'[A-Z]{3,4}\s*\d{4}', user_query, re.IGNORECASE)
+    _course_in_query = re.search(r"[A-Z]{3,4}\s*\d{4}[A-Z]?", user_query, re.IGNORECASE)
     if not _course_in_query:
         for _msg in reversed(past_messages):
-            _found = re.search(r'([A-Z]{3,4}\s*\d{4})', _msg["content"], re.IGNORECASE)
+            _found = re.search(r"([A-Z]{3,4}\s*\d{4}[A-Z]?)", _msg["content"], re.IGNORECASE)
             if _found:
                 user_query = f"{user_query} ({_found.group(1)})"
                 break
 
     # Patterns that indicate the user wants course details directly (pill cards shown)
     DIRECT_LOOKUP_PATTERNS = re.compile(
-        r'^(what is|what\'s|tell me about|describe|show me|info on|information on|details (on|about)|look up|lookup)\s+[a-zA-Z]{4}\s*\d{4}',
+        r"^(what is|what's|tell me about|describe|show me|info on|information on|details (on|about)|look up|lookup)\s+[a-zA-Z]{3,4}\s*\d{4}[a-zA-Z]?",
         re.IGNORECASE
     )
 
     async def generate():
         _TERM_WORDS = {"fall", "term", "year", "from", "this", "last", "next", "that", "what", "when", "with", "they", "them", "into", "will", "have", "been", "also", "than", "then", "each", "more", "does", "over", "just", "some", "only", "even", "such"}
-        course_matches = [(d, n) for d, n in re.findall(r'([a-zA-Z]{4})\s*(\d{4})', user_query, re.IGNORECASE) if d.lower() not in _TERM_WORDS]
+        course_matches = [
+            (d, n.upper())
+            for d, n in re.findall(r"([a-zA-Z]{3,4})\s*(\d{4}[a-zA-Z]?)", user_query, re.IGNORECASE)
+            if d.lower() not in _TERM_WORDS
+        ]
 
         # Only show pill cards when user is directly asking for course details
         is_direct_lookup = bool(DIRECT_LOOKUP_PATTERNS.match(user_query.strip()))

@@ -9,6 +9,7 @@ from retrieval import (
     QueryFlags,
     RankedChunk,
     apply_query_aware_adjustments,
+    course_code_filter_values,
     dedupe_chunks,
     diverse_pool,
     query_course_codes,
@@ -27,6 +28,16 @@ def test_query_terms_removes_stopwords():
 def test_query_course_codes_normalizes_case_and_spacing():
     codes = query_course_codes("compare comp2402 and Sysc 3110 prerequisites")
     assert codes == ["COMP 2402", "SYSC 3110"]
+
+
+def test_query_course_codes_supports_three_letter_and_suffix():
+    codes = query_course_codes("Is bit1001a offered and how about LAW 1000?")
+    assert codes == ["BIT 1001A", "LAW 1000"]
+
+
+def test_course_code_filter_values_include_spaced_and_compact_forms():
+    values = course_code_filter_values("comp 2402")
+    assert values == ["COMP 2402", "COMP2402"]
 
 
 def test_query_aware_adjustments_boost_deadline_and_code_hits():

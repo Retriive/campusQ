@@ -119,6 +119,15 @@ def query_course_codes(query: str) -> list[str]:
     return out
 
 
+def course_code_filter_values(code: str) -> list[str]:
+    """Return common metadata forms for an exact course-code filter."""
+    normalized = _normalize_space(code.upper())
+    compact = normalized.replace(" ", "")
+    if compact == normalized:
+        return [normalized]
+    return [normalized, compact]
+
+
 def _normalize_space(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
@@ -361,6 +370,37 @@ def _chunk_text(match_metadata: dict, max_len: int = 2000) -> str:
     return (match_metadata.get("text") or "")[:max_len]
 
 
+def _boosted_namespace_score(base_score: float, namespace: str, flags: QueryFlags, intent: str) -> float:
+    score = base_score
+    if flags.is_schedule_query and namespace == "schedule":
+        score = min(1.0, score + 0.25)
+    if flags.is_deadline_query and namespace == "dates":
+        score = min(1.0, score + 0.25)
+    if flags.is_action_query and namespace in ("registrar", "dates"):
+        score = min(1.0, score + 0.20)
+    return _apply_intent_boost(score, namespace, intent)
+
+
+def _rerank_preview(chunk: RankedChunk, max_len: int = 350) -> str:
+    meta = chunk.metadata
+    labels = [
+        str(meta.get("course_code") or "").strip(),
+        str(meta.get("course_name") or "").strip(),
+        str(meta.get("program") or "").strip(),
+        str(meta.get("title") or "").strip(),
+        str(meta.get("section") or "").strip(),
+        str(meta.get("term") or "").strip(),
+        str(meta.get("category") or "").strip(),
+    ]
+    label = " | ".join(part for part in labels if part)[:220]
+    body = _chunk_text(meta, max_len).replace("\n", " ").strip()
+    if not body:
+        body = _combined_chunk_text(meta)[:max_len]
+    if label and body:
+        return f"{label} :: {body}"
+    return label or body
+
+
 def rerank_with_cohere(query: str, chunks: list[RankedChunk], top_n: int) -> list[RankedChunk] | None:
     api_key = os.getenv("COHERE_API_KEY", "").strip()
     if not api_key or len(chunks) <= top_n:
@@ -406,7 +446,7 @@ def rerank_with_llm(
 
     lines = []
     for i, chunk in enumerate(chunks[:30]):
-        preview = _chunk_text(chunk.metadata, 350).replace("\n", " ")
+        preview = _rerank_preview(chunk)
         lines.append(f"[{i}] ({chunk.namespace}, score={chunk.score:.2f}) {preview}")
 
     prompt = f"""You are a retrieval reranker for Carleton University academic Q&A.
@@ -494,14 +534,7 @@ def retrieve_and_rerank(
             namespace=ns,
         )
         for m in ns_results.matches or []:
-            score = m.score
-            if flags.is_schedule_query and ns == "schedule":
-                score = min(1.0, score + 0.25)
-            if flags.is_deadline_query and ns == "dates":
-                score = min(1.0, score + 0.25)
-            if flags.is_action_query and ns in ("registrar", "dates"):
-                score = min(1.0, score + 0.20)
-            score = _apply_intent_boost(score, ns, intent)
+            score = _boosted_namespace_score(m.score, ns, flags, intent)
             chunk = RankedChunk.from_match(m, ns, score)
             if is_software_eng_vs_cs_comparison(user_query):
                 chunk = RankedChunk(
@@ -522,6 +555,47 @@ def retrieve_and_rerank(
                 ),
             )
             chunks.append(chunk)
+
+    # Exact-code metadata fetch to recover recall when vector search misses
+    # explicit course lookups or schedule questions.
+    if course_codes:
+        existing_ids = {c.id for c in chunks}
+        exact_namespaces = ["courses"]
+        if flags.is_schedule_query:
+            exact_namespaces.append("schedule")
+        for code in course_codes:
+            for filter_code in course_code_filter_values(code):
+                for ns in exact_namespaces:
+                    try:
+                        exact_results = index.query(
+                            vector=query_embedding,
+                            top_k=12 if ns == "schedule" else 8,
+                            include_metadata=True,
+                            namespace=ns,
+                            filter={"course_code": {"$eq": filter_code}},
+                        )
+                    except Exception as exc:
+                        print(f"Exact code filter error ({ns}, {filter_code}): {exc}")
+                        continue
+                    for m in exact_results.matches or []:
+                        if m.id in existing_ids:
+                            continue
+                        base_floor = 0.90 if ns == "schedule" else 0.88
+                        boosted = _boosted_namespace_score(max(m.score, base_floor), ns, flags, intent)
+                        chunk = RankedChunk.from_match(m, ns, boosted)
+                        chunk = RankedChunk(
+                            id=chunk.id,
+                            metadata=chunk.metadata,
+                            namespace=chunk.namespace,
+                            score=apply_query_aware_adjustments(
+                                chunk,
+                                tokens=tokens,
+                                course_codes=course_codes,
+                                flags=flags,
+                            ),
+                        )
+                        chunks.append(chunk)
+                        existing_ids.add(m.id)
 
     # Metadata-filtered schedule fetch by course code
     if flags.is_schedule_query and course_matches:

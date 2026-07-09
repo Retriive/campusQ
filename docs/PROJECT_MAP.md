@@ -159,5 +159,7 @@ Kept as an archive/reference path while ingestion migrates. Do not add new logic
 | [GETTING_STARTED.md](GETTING_STARTED.md) | First-time setup |
 | [HOW_THE_AI_WORKS.md](HOW_THE_AI_WORKS.md) | Understanding the pipeline |
 | [QUALITY_GATE.md](QUALITY_GATE.md) | Testing before deploy |
+| [DATA_HANDLING_SUMMARY.md](DATA_HANDLING_SUMMARY.md) | Partner / university data overview |
+| [INCIDENT_RUNBOOK.md](INCIDENT_RUNBOOK.md) | Production incidents & on-call |
 | [TEAM_RULES.md](TEAM_RULES.md) | Ship / no-ship policy |
 | [HOW_WE_WORK.md](HOW_WE_WORK.md) | Contribution rules for the team |

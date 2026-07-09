@@ -350,7 +350,8 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
           <div className="flex items-center gap-8 text-xs">
             <Link href="/chat" className="text-link-muted underline underline-offset-2 hover:text-ink transition-colors">App</Link>
             <Link href="/about" className="text-link-muted underline underline-offset-2 hover:text-ink transition-colors">About</Link>
-            <a href="mailto:mahadmyonis@gmail.com" className="text-link-muted underline underline-offset-2 hover:text-ink transition-colors">Contact</a>
+            <Link href="/privacy" className="text-link-muted underline underline-offset-2 hover:text-ink transition-colors">Privacy</Link>
+            <a href="mailto:hello@retriive.com" className="text-link-muted underline underline-offset-2 hover:text-ink transition-colors">Contact</a>
           </div>
         </div>
       </footer>

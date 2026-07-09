@@ -1,7 +1,9 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { track } from "@vercel/analytics"
+import { classifyIntent } from "@/lib/classify-intent"
 import { useUser, useAuth } from "@clerk/nextjs"
 import { cn } from "@/lib/utils"
 import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2 as BarChart2Icon, CalendarDays as CalendarDaysIcon, PenLine } from "lucide-react"
@@ -23,6 +25,17 @@ import type { CourseCardData, Message } from "./chat/types"
 
 const SESSIONS_KEY = "campusq-sessions"
 const MAX_SESSIONS = 20
+
+function ChatPrivacyNotice() {
+  return (
+    <p className="text-[10px] text-center text-muted-foreground/80 px-4 pt-2 leading-relaxed max-w-2xl mx-auto">
+      Chat history is stored on this device only (browser localStorage). Delete chats in the sidebar or clear site data.{" "}
+      <Link href="/privacy" className="underline hover:text-foreground">
+        Privacy Policy
+      </Link>
+    </p>
+  )
+}
 
 export function ChatContainer() {
   const { user } = useUser()
@@ -149,8 +162,8 @@ export function ChatContainer() {
     // Detect prereq-chain queries so we can auto-expand the visualizer
     const isPrereqQuery = /prereq(uisite)?(\s+chain|\s+tree)?|show.*(prereq|chain|tree)|chain for|tree for/i.test(queryText)
 
-    // Track analytics
-    try { track("chat_query", { query: queryText.slice(0, 100) }) } catch {}
+    // Track analytics — intent only, not raw query text
+    try { track("chat_query", { intent: classifyIntent(queryText) }) } catch {}
 
     const assistantId = (Date.now() + 1).toString()
     const assistantPlaceholder: Message = {
@@ -212,7 +225,7 @@ export function ChatContainer() {
             } else if (parsed.type === "courses") {
               const codes = (parsed.data as CourseCardData[]).map((c) => c.courseCode)
               if (codes.length > 0) {
-                try { track("course_lookup", { courses: codes.join(",") }) } catch {}
+                try { track("course_lookup", { intent: "course_lookup", course_count: codes.length }) } catch {}
               }
               setMessages((prev) =>
                 prev.map((m) =>
@@ -335,6 +348,7 @@ export function ChatContainer() {
                       disabled={isLoading}
                       isHome
                     />
+                    <ChatPrivacyNotice />
                   </div>
                 </div>
               ) : (
@@ -391,12 +405,15 @@ export function ChatContainer() {
             </main>
 
             {messages.length > 0 && (
-              <ChatInput
-                value={input}
-                onChange={setInput}
-                onSubmit={handleSubmit}
-                disabled={isLoading}
-              />
+              <div className="max-w-2xl mx-auto w-full">
+                <ChatInput
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={handleSubmit}
+                  disabled={isLoading}
+                />
+                <ChatPrivacyNotice />
+              </div>
             )}
           </>
         )}
@@ -475,4 +492,3 @@ export function ChatContainer() {
     </div>
   )
 }
-

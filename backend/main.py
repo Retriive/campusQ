@@ -5,6 +5,7 @@ import time
 import uuid
 import hmac
 import hashlib
+import asyncio
 import contextvars
 from datetime import datetime, date, timedelta
 
@@ -15,7 +16,7 @@ from collections import defaultdict, deque
 
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pinecone import Pinecone
 from openai import OpenAI, AsyncOpenAI
 from dotenv import load_dotenv
@@ -31,6 +32,21 @@ from retrieval import retrieve_and_rerank
 from auth import require_user, require_admin
 
 load_dotenv()
+
+# ── Error monitoring (optional — enabled when SENTRY_DSN is set) ───────────────
+_sentry_dsn = os.getenv("SENTRY_DSN", "").strip()
+if _sentry_dsn:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        integrations=[FastApiIntegration(), StarletteIntegration()],
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        environment=os.getenv("SENTRY_ENVIRONMENT", "development"),
+        send_default_pii=False,
+    )
 
 # Production is signalled by APP_ENV=production (set on Render). Used to fail
 # closed on things that must never be exposed in prod — starting with the
@@ -624,6 +640,39 @@ async def health_check():
     return {"status": "CampusQ Brain is active and listening."}
 
 
+@app.get("/health/ready")
+async def health_ready():
+    """Deep readiness probe — verifies Pinecone and OpenAI connectivity."""
+    checks: dict[str, dict] = {}
+    all_ok = True
+
+    def _check_pinecone():
+        if not os.getenv("PINECONE_API_KEY"):
+            return {"ok": False, "error": "PINECONE_API_KEY not set"}
+        stats = index.describe_index_stats()
+        return {"ok": True, "vector_count": getattr(stats, "total_vector_count", None)}
+
+    def _check_openai():
+        if not os.getenv("OPENAI_API_KEY"):
+            return {"ok": False, "error": "OPENAI_API_KEY not set"}
+        # Lightweight connectivity check — list one model page.
+        next(openai_client.models.list(limit=1))
+        return {"ok": True}
+
+    for name, fn in (("pinecone", _check_pinecone), ("openai", _check_openai)):
+        try:
+            result = await asyncio.to_thread(fn)
+            checks[name] = result
+            if not result.get("ok"):
+                all_ok = False
+        except Exception as exc:
+            checks[name] = {"ok": False, "error": str(exc)[:200]}
+            all_ok = False
+
+    payload = {"status": "ready" if all_ok else "degraded", "checks": checks}
+    return JSONResponse(payload, status_code=200 if all_ok else 503)
+
+
 @app.get("/api/documents")
 async def get_documents(request: Request):
     check_rate_limit(request, "lookup")
@@ -1199,8 +1248,11 @@ async def waitlist_endpoint(
     request: Request,
     email: str = Form(...),
     school: str = Form(...),
+    consented: str = Form(default=""),
 ):
     check_rate_limit(request, "waitlist")
+    if consented.strip().lower() not in {"true", "on", "1", "yes"}:
+        return {"ok": False, "error": "consent required"}
     email = email.strip().lower()
     if len(email) > MAX_EMAIL_CHARS or not _EMAIL_RE.match(email):
         return {"ok": False, "error": "invalid email"}
@@ -1208,6 +1260,7 @@ async def waitlist_endpoint(
         "ts": datetime.utcnow().isoformat(),
         "email": email,
         "school": school.strip()[:64],
+        "consented_at": datetime.utcnow().isoformat(),
     })
     return {"ok": True}
 

@@ -37,3 +37,19 @@ jobs:
           name: smoke-gate-results
           path: backend/evals/experiments/
           if-no-files-found: ignore
+
+      - name: Notify Slack on smoke gate failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            payload=$(printf '{"text":"🚨 CampusQ smoke gate failed on %s\nRun: %s/%s/actions/runs/%s"}' \
+              "${{ github.ref_name }}" \
+              "${{ github.server_url }}" \
+              "${{ github.repository }}" \
+              "${{ github.run_id }}")
+            curl -fsS -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+          else
+            echo "SLACK_WEBHOOK_URL not set — skipping Slack notification"
+          fi

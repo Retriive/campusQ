@@ -189,7 +189,10 @@ export function AboutContent() {
               by Retriive
             </a>
           </div>
-          <span className="text-xs text-ink-faint">Not affiliated with any university</span>
+          <div className="flex items-center gap-8 text-xs">
+            <Link href="/privacy" className="text-link-muted underline underline-offset-2 hover:text-ink transition-colors">Privacy</Link>
+            <a href="mailto:hello@retriive.com" className="text-link-muted underline underline-offset-2 hover:text-ink transition-colors">Contact</a>
+          </div>
         </div>
       </footer>
 

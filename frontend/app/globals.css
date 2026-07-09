@@ -314,6 +314,9 @@
     overflow-x: hidden;
     /* iOS Safari height fix */
     height: -webkit-fill-available;
+    /* Stop iOS text auto-inflation on rotate — keeps our type ramp intact */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   body {
     @apply bg-background text-foreground;
@@ -323,6 +326,22 @@
     min-height: -webkit-fill-available;
     font-feature-settings: 'ss01' on, 'cv05' on;
     -webkit-font-smoothing: antialiased;
+  }
+  /* Touch ergonomics — kill the 300ms tap delay and the grey tap flash so
+     every button feels instant and native on mobile. */
+  button,
+  a,
+  [role='button'],
+  label,
+  summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Inputs never flash the tap highlight either. */
+  input,
+  textarea,
+  select {
+    -webkit-tap-highlight-color: transparent;
   }
   /* Display text tightens tracking as it grows — ramp discipline. */
   .text-2xl, .text-3xl, .text-4xl, .text-5xl {
@@ -370,6 +389,17 @@
   padding-bottom: max(env(safe-area-inset-bottom), 8px);
 }
 
+/* Safe-area gutters so the sticky composer and content clear the notch/home bar. */
+.safe-area-inset-b {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Momentum scrolling + no rubber-band bleed into the page behind scroll regions. */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
 /* Chat message entrance — subtle rise + fade. Plays once on mount (rows are
    keyed by message id), so it never replays while a reply streams in. */
 @keyframes message-in {
@@ -414,6 +444,35 @@
 .stagger-item {
   opacity: 0;
   animation: fade-in-up 320ms var(--ease-out) forwards;
+}
+
+/* Pill CTAs: slow color crossfade (school-accent changes) but fast press
+   feedback — two durations one class can't express in utilities alone. */
+.pill-press {
+  transition: background-color 500ms, color 500ms, border-color 500ms,
+    transform 150ms var(--ease-out);
+}
+.pill-press:active {
+  transform: scale(0.98);
+}
+
+/* Scroll reveal — sections rise + fade in the first time they enter the
+   viewport (landing page). Hidden state only applies once JS marks the
+   element, so content is never invisible without JavaScript. */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 600ms var(--ease-out), transform 600ms var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Global reduced-motion safety net — collapse motion app-wide for users who

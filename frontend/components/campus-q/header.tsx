@@ -18,23 +18,8 @@ export function Header({ isDark, onToggleDark, onOpenHistory, onHome }: HeaderPr
 
   return (
     <header className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-border/40 bg-card">
-      {/* Wordmark — hidden on mobile (bottom nav handles nav) */}
-      <div className="hidden md:flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={onHome}
-          aria-label="Back to home"
-          className="text-sm font-semibold tracking-tight text-foreground select-none cursor-pointer transition-opacity duration-150 ease-[var(--ease-out)] hover:opacity-70 active:scale-[0.98]"
-        >
-          Campus<span className={theme.textClass}>Q</span>
-        </button>
-        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground select-none">
-          beta
-        </span>
-      </div>
-
-      {/* Mobile: just the wordmark centered */}
-      <div className="md:hidden flex items-center gap-1.5">
+      {/* Wordmark — tap to return home. Shown on every breakpoint. */}
+      <div className="flex items-center gap-1.5">
         <button
           type="button"
           onClick={onHome}
@@ -49,21 +34,22 @@ export function Header({ isDark, onToggleDark, onOpenHistory, onHome }: HeaderPr
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5 md:gap-1">
         {onOpenHistory && (
           <button
             onClick={onOpenHistory}
-            className="md:hidden size-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            className="md:hidden size-10 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary active:bg-secondary transition-colors"
             aria-label="Chat history"
           >
-            <History className="size-3.5" />
+            <History className="size-[18px]" />
           </button>
         )}
         <button
           onClick={onToggleDark}
-          className="size-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          className="size-10 md:size-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary active:bg-secondary transition-colors"
         >
-          {isDark ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+          {isDark ? <Sun className="size-[18px] md:size-3.5" /> : <Moon className="size-[18px] md:size-3.5" />}
         </button>
 
         {isLoaded && (

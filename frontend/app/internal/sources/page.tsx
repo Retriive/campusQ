@@ -3,8 +3,7 @@
 import * as React from "react"
 import { Database, RefreshCw, Loader2, Plus, Play } from "lucide-react"
 import { AdminKeyGate, adminHeaders, clearAdminKey } from "@/components/admin-key-gate"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+import { API_BASE_URL } from "@/lib/api"
 
 interface SourceRow {
   category: string
@@ -57,7 +56,7 @@ export default function InternalSourcesPage() {
   const load = async () => {
     setLoading(true); setError("")
     try {
-      const res = await fetch(`${API_URL}/api/admin/ingest/sources?school=carleton`, { headers: adminHeaders() })
+      const res = await fetch(`${API_BASE_URL}/api/admin/ingest/sources?school=carleton`, { headers: adminHeaders() })
       if (res.status === 401) { clearAdminKey(); setNeedsKey(true); setKeyError("That key didn't work."); return }
       if (res.status === 503) { setNeedsKey(true); setKeyError("The backend has no ADMIN_API_KEY configured yet."); return }
       const json = await res.json()
@@ -86,7 +85,7 @@ export default function InternalSourcesPage() {
     fd.append("school", "carleton")
     fd.append("category", newCategory)
     fd.append("url", newUrl.trim())
-    const res = await fetch(`${API_URL}/api/admin/ingest/sources`, { method: "POST", body: fd, headers: adminHeaders() })
+    const res = await fetch(`${API_BASE_URL}/api/admin/ingest/sources`, { method: "POST", body: fd, headers: adminHeaders() })
     const json = await res.json()
     if (json.ok) { setNewUrl(""); setBanner("Source added — it'll be picked up on the next run."); load() }
     else setBanner(json.error || "Couldn't add source.")
@@ -96,7 +95,7 @@ export default function InternalSourcesPage() {
     const fd = new FormData()
     fd.append("school", "carleton")
     if (category) fd.append("category", category)
-    const res = await fetch(`${API_URL}/api/admin/ingest/run`, { method: "POST", body: fd, headers: adminHeaders() })
+    const res = await fetch(`${API_BASE_URL}/api/admin/ingest/run`, { method: "POST", body: fd, headers: adminHeaders() })
     const json = await res.json()
     setBanner(json.ok ? json.message : json.error)
     load()

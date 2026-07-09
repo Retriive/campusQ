@@ -3,8 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { ArrowRight, Check } from "lucide-react"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+import { API_BASE_URL } from "@/lib/api"
 
 interface WaitlistCtaProps {
   school: string
@@ -19,7 +18,7 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
 
   if (joined) {
     return (
-      <div className="inline-flex items-center gap-2 text-sm text-ink">
+      <div className="animate-message-in inline-flex items-center gap-2 text-sm text-ink">
         <Check className="size-4 text-primary-ink" />
         You&apos;re on the list — we&apos;ll email you when {school} is ready.
       </div>
@@ -38,7 +37,7 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
           fd.append("email", email.trim())
           fd.append("school", school)
           fd.append("consented", "true")
-          const res = await fetch(`${API_URL}/api/waitlist`, { method: "POST", body: fd })
+          const res = await fetch(`${API_BASE_URL}/api/waitlist`, { method: "POST", body: fd })
           const data = await res.json()
           if (data.ok) {
             setJoined(true)
@@ -53,7 +52,7 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
           setSubmitting(false)
         }
       }}
-      className="flex flex-col gap-2"
+      className="flex flex-col gap-1.5"
     >
       <div className="flex flex-wrap items-center gap-3">
         <input
@@ -67,10 +66,10 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
         <button
           type="submit"
           disabled={submitting || !consented}
-          className="inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-strong px-6 py-3 text-sm text-primary-foreground transition-colors duration-500 shrink-0 disabled:opacity-60"
+          className="group inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-strong px-6 py-3 text-sm text-primary-foreground pill-press shrink-0 disabled:opacity-60"
         >
           {submitting ? "Joining…" : "Join waitlist"}
-          <ArrowRight className="size-4" />
+          <ArrowRight className="size-4 transition-transform duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5" />
         </button>
       </div>
       <label className="flex items-start gap-2 max-w-md text-xs text-ink-faint cursor-pointer">
@@ -89,7 +88,7 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
           .
         </span>
       </label>
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="animate-message-in text-xs text-red-400">{error}</p>}
     </form>
   )
 }

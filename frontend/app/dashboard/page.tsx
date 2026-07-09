@@ -3,8 +3,7 @@
 import * as React from "react"
 import { ArrowUp, ArrowDown, Minus, RefreshCw, AlertTriangle, ThumbsDown, Loader2, MessageSquare } from "lucide-react"
 import { AdminKeyGate, adminHeaders, clearAdminKey } from "@/components/admin-key-gate"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+import { API_BASE_URL } from "@/lib/api"
 
 interface IntentRow { intent: string; label: string; count: number; example: string; trend: "up" | "down" | "flat"; prev_count: number }
 interface UnansweredGroup { theme: string; count: number; examples: string[] }
@@ -122,7 +121,7 @@ export default function DashboardPage() {
   const load = async (days: number = selectedDays) => {
     setLoading(true); setError("")
     try {
-      const res = await fetch(`${API_URL}/api/dashboard?days=${days}`, { headers: adminHeaders() })
+      const res = await fetch(`${API_BASE_URL}/api/dashboard?days=${days}`, { headers: adminHeaders() })
       if (res.status === 401) {
         clearAdminKey()
         setNeedsKey(true)

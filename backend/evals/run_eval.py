@@ -3,7 +3,7 @@ run_eval.py — Automated accuracy harness for CampusQ.
 
 Fires all 65 test questions at the LIVE /api/chat/stream endpoint, captures the
 streamed answer + sources, then reads the matching line from queries.log to pull
-the real retrieval signals (top_score, chunks, had_context) straight from main.py.
+the real retrieval signals.
 
 Produces eval_results.csv with everything you need for the two-pattern analysis:
   • had_context = False        → DATA GAP   (the namespace doesn't have it)
@@ -15,21 +15,20 @@ The harness fills in the diagnostic column automatically so you know WHERE to lo
 
 Prereqs:
   • Backend running on http://localhost:8000  (uvicorn main:app --reload)
-  • Run from the backend/ dir:  py run_eval.py
+  • Run from the backend/ dir:  py evals/run_eval.py
 """
 
-import os
 import csv
 import json
+import os
 import time
+
 import requests
 
 API_URL = os.getenv("CAMPUSQ_API_URL", "http://localhost:8000")
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _BACKEND_DIR = os.path.dirname(_THIS_DIR)
-# queries.log is written by main.py into backend/ (one level up from tests/)
 QUERIES_LOG = os.path.join(_BACKEND_DIR, "queries.log")
-# results land alongside this script, inside tests/
 OUT_CSV = os.path.join(_THIS_DIR, "eval_results.csv")
 
 # (category, question, expected answer / grading guidance)
@@ -118,8 +117,8 @@ TESTS: list[tuple[str, str, str]] = [
 def read_last_log_line() -> dict | None:
     """Return the most recent queries.log entry, or None."""
     try:
-        with open(QUERIES_LOG, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        with open(QUERIES_LOG, "r", encoding="utf-8") as handle:
+            lines = handle.readlines()
         for line in reversed(lines):
             line = line.strip()
             if line:
@@ -134,13 +133,13 @@ def ask(question: str) -> tuple[str, int]:
     answer = ""
     source_count = 0
     try:
-        resp = requests.post(
+        response = requests.post(
             f"{API_URL}/api/chat/stream",
             data={"question": question, "history": "[]"},
             stream=True,
             timeout=120,
         )
-        for raw in resp.iter_lines(decode_unicode=True):
+        for raw in response.iter_lines(decode_unicode=True):
             if not raw or not raw.startswith("data: "):
                 continue
             try:
@@ -151,13 +150,13 @@ def ask(question: str) -> tuple[str, int]:
                 answer += parsed.get("content", "")
             elif parsed.get("type") == "sources":
                 source_count = len(parsed.get("data", []))
-    except Exception as e:
-        answer = f"[REQUEST ERROR: {e}]"
+    except Exception as exc:
+        answer = f"[REQUEST ERROR: {exc}]"
     return answer.strip(), source_count
 
 
 def diagnose(log: dict | None) -> str:
-    """Auto-classify the retrieval signal so you know WHERE a wrong answer fails."""
+    """Auto-classify retrieval signal so you know where to debug."""
     if not log:
         return "NO LOG"
     if log.get("type") == "stream_course":
@@ -180,7 +179,6 @@ def main():
     print("=" * 60)
     print(f"Target: {API_URL}\nQuestions: {len(TESTS)}\n")
 
-    # health check
     try:
         requests.get(API_URL, timeout=5)
     except Exception:
@@ -189,17 +187,17 @@ def main():
         return
 
     rows = []
-    for i, (cat, q, expected) in enumerate(TESTS, 1):
-        print(f"[{i}/{len(TESTS)}] {cat[:18]:<18} {q[:50]}")
-        answer, src_count = ask(q)
-        time.sleep(0.3)  # let the log flush
+    for i, (cat, question, expected) in enumerate(TESTS, 1):
+        print(f"[{i}/{len(TESTS)}] {cat[:18]:<18} {question[:50]}")
+        answer, src_count = ask(question)
+        time.sleep(0.3)
         log = read_last_log_line()
         rows.append({
             "Category": cat,
-            "Question": q,
+            "Question": question,
             "Expected / Guidance": expected,
             "Actual Answer": answer,
-            "Score (0/1/2)": "",          # you grade this
+            "Score (0/1/2)": "",
             "Diagnostic": diagnose(log),
             "top_score": log.get("top_score") if log else "",
             "chunks": log.get("chunks") if log else "",
@@ -215,26 +213,25 @@ def main():
         "Score (0/1/2)", "Diagnostic", "top_score", "chunks",
         "had_context", "type", "sources", "ms", "Notes",
     ]
-    with open(OUT_CSV, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+    with open(OUT_CSV, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
-    # quick summary
-    data_gaps = sum(1 for r in rows if "DATA GAP" in r["Diagnostic"])
-    weak = sum(1 for r in rows if "WEAK" in r["Diagnostic"])
-    strong = sum(1 for r in rows if "STRONG" in r["Diagnostic"])
-    cards = sum(1 for r in rows if "COURSE CARD" in r["Diagnostic"])
+    data_gaps = sum(1 for row in rows if "DATA GAP" in row["Diagnostic"])
+    weak = sum(1 for row in rows if "WEAK" in row["Diagnostic"])
+    strong = sum(1 for row in rows if "STRONG" in row["Diagnostic"])
+    cards = sum(1 for row in rows if "COURSE CARD" in row["Diagnostic"])
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"DONE → {OUT_CSV}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"  Course-card answers : {cards}")
     print(f"  Strong retrieval    : {strong}   (if wrong → prompt issue)")
     print(f"  Weak retrieval      : {weak}   (chunking/embeddings)")
     print(f"  Data gaps           : {data_gaps}   (namespace missing the info)")
-    print(f"\nNext: open eval_results.csv, fill the Score column (0/1/2),")
-    print(f"then sort by Diagnostic to see exactly where failures cluster.\n")
+    print("\nNext: open eval_results.csv, fill the Score column (0/1/2),")
+    print("then sort by Diagnostic to see exactly where failures cluster.\n")
 
 
 if __name__ == "__main__":

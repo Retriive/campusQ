@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart2, BookOpen, CalendarDays, GitBranch, ShieldAlert, GraduationCap, Lightbulb } from "lucide-react"
+import { BarChart2, BookOpen, CalendarDays, ShieldAlert, GraduationCap } from "lucide-react"
 import { useCampus, campusThemes } from "./campus-context"
 import { cn } from "@/lib/utils"
 
@@ -17,11 +17,6 @@ const TOOLS = [
 
 const QUICK_ASKS = [
   {
-    icon: GitBranch,
-    label: "Academic rules",
-    question: "When does the first ACE evaluation happen at Carleton?",
-  },
-  {
     icon: ShieldAlert,
     label: "Check prereqs",
     question: "Can I take COMP 3000 without COMP 2401?",
@@ -31,11 +26,6 @@ const QUICK_ASKS = [
     label: "Academic rules",
     question: "What happens if I fail a required course twice?",
   },
-  {
-    icon: Lightbulb,
-    label: "Course advice",
-    question: "Is COMP 1405 or COMP 1005 better to start with?",
-  },
 ]
 
 export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps) {
@@ -43,12 +33,12 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
   const campusName = campusThemes[selectedCampus].name
 
   return (
-    <div className="flex flex-col items-center w-full px-4 pt-10 md:pt-16 pb-6 gap-8 md:gap-10">
+    <div className="flex flex-col items-center w-full px-4 pt-6 md:pt-16 pb-4 md:pb-6 gap-6 md:gap-10">
 
       {/* Wordmark */}
       <div className="text-center select-none">
         <div className="inline-flex items-start gap-2">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-none">
+          <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground leading-none">
             Campus<span className={theme.textClass}>Q</span>
           </h1>
           <span className={cn(
@@ -63,8 +53,8 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
         </p>
       </div>
 
-      {/* Tools — the Programs / Compare / Deadlines buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl">
+      {/* Tools — desktop only; mobile uses the bottom tab bar */}
+      <div className="hidden sm:grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl">
         {TOOLS.map((item) => {
           const Icon = item.icon
           return (
@@ -83,24 +73,26 @@ export function EmptyState({ onSuggestionClick, onViewChange }: EmptyStateProps)
         })}
       </div>
 
-      {/* Quick asks */}
-      <div className="flex flex-col items-center gap-3 w-full max-w-2xl">
+      {/* Quick asks — two prompts only */}
+      <div className="flex flex-col items-center gap-2.5 md:gap-3 w-full max-w-2xl">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/70">
           Try asking
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full">
+        <div className="grid grid-cols-1 gap-2 w-full sm:grid-cols-2 sm:gap-2.5">
           {QUICK_ASKS.map(({ icon: Icon, label, question }) => (
             <button
               key={question}
               onClick={() => onSuggestionClick(question)}
-              className="flex items-center gap-3 px-4 py-3.5 sm:py-3 rounded-xl border border-border bg-card shadow-resting hover:border-border/80 hover:shadow-raised transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[var(--ease-out)] active:scale-[0.98] text-left group"
+              className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-border bg-card shadow-resting hover:border-border/80 hover:shadow-raised transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[var(--ease-out)] active:scale-[0.98] text-left group"
             >
-              <div className={cn("size-8 sm:size-7 rounded-lg flex items-center justify-center shrink-0 bg-secondary group-hover:bg-primary-soft transition-colors")}>
+              <div className={cn("size-9 sm:size-7 rounded-xl sm:rounded-lg flex items-center justify-center shrink-0 bg-secondary group-hover:bg-primary-soft transition-colors")}>
                 <Icon className="size-4 sm:size-3.5 text-muted-foreground group-hover:text-primary-ink transition-colors" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-foreground">{label}</p>
-                <p className="text-[11px] text-muted-foreground truncate mt-0.5">{question}</p>
+                <p className="text-[12px] sm:text-[11px] text-muted-foreground line-clamp-2 sm:truncate mt-0.5 leading-snug">
+                  {question}
+                </p>
               </div>
             </button>
           ))}

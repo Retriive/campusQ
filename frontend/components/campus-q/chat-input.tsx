@@ -77,28 +77,28 @@ export function ChatInput({ value, onChange, onSubmit, disabled, isHome }: ChatI
     const el = textareaRef.current
     if (!el) return
     el.style.height = "auto"
-    el.style.height = `${Math.min(el.scrollHeight, 180)}px`
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
   }, [value])
 
   const canSubmit = value.trim().length > 0 && !disabled
 
   return (
     <div className={cn(
-      "px-4 pb-5",
       isHome
-        ? "pt-0"
-        : "pt-3 sticky bottom-0 z-10 bg-gradient-to-t from-background via-background/95 to-transparent"
+        ? "px-0 pb-0 pt-0"
+        : "px-3 pt-2 pb-2 md:px-4 md:pt-3 md:pb-4 sticky bottom-0 z-10 bg-gradient-to-t from-background via-background/95 to-transparent"
     )}>
       <div className="max-w-2xl mx-auto">
 
-        {/* Input box */}
+        {/* Input box — fuller capsule on mobile */}
         <div className={cn(
-          "relative flex items-end rounded-2xl border bg-card transition-[box-shadow,border-color] duration-200 ease-[var(--ease-out)]",
-          "focus-within:border-primary/60 focus-within:ring-[3px] focus-within:ring-primary/15",
+          "relative flex items-end border bg-card transition-[box-shadow,border-color] duration-200 ease-[var(--ease-out)]",
+          "rounded-[22px] md:rounded-2xl",
+          "focus-within:border-primary/55 focus-within:ring-[3px] focus-within:ring-primary/12",
           isHome
-            ? "shadow-raised border-border/70 hover:shadow-overlay hover:border-border"
-            : "shadow-resting border-border/60",
-          value && !isHome && "border-border/80"
+            ? "shadow-raised border-border/80"
+            : "shadow-resting border-border/70",
+          value && "border-border"
         )}>
           <textarea
             ref={textareaRef}
@@ -113,7 +113,13 @@ export function ChatInput({ value, onChange, onSubmit, disabled, isHome }: ChatI
             autoCorrect="on"
             spellCheck
             aria-label="Ask CampusQ a question"
-            className="flex-1 resize-none bg-transparent outline-none text-base md:text-sm text-foreground placeholder:text-muted-foreground/40 min-h-[56px] md:min-h-[52px] max-h-[160px] py-[15px] md:py-[14px] pl-4 pr-14 leading-relaxed"
+            className={cn(
+              "flex-1 resize-none bg-transparent outline-none text-foreground",
+              "placeholder:text-muted-foreground/45",
+              "text-[16px] md:text-sm leading-relaxed",
+              "min-h-[52px] md:min-h-[52px] max-h-[140px]",
+              "py-3.5 pl-4 pr-[52px] md:py-[14px] md:pl-4 md:pr-14"
+            )}
           />
 
           <button
@@ -122,21 +128,23 @@ export function ChatInput({ value, onChange, onSubmit, disabled, isHome }: ChatI
             disabled={!canSubmit}
             aria-label="Send message"
             className={cn(
-              "absolute right-2 bottom-2 md:right-2.5 md:bottom-2.5 size-10 md:size-8 rounded-xl flex items-center justify-center transition-[transform,opacity,background-color] duration-150 ease-[var(--ease-out)]",
+              "absolute right-2 bottom-2 size-10 md:size-8 rounded-full md:rounded-xl",
+              "flex items-center justify-center",
+              "transition-[transform,opacity,background-color] duration-150 ease-[var(--ease-out)]",
               canSubmit
                 ? cn(theme.bgClass, theme.hoverBgClass, "text-primary-foreground shadow-resting active:scale-90")
-                : "bg-secondary text-muted-foreground/25 cursor-not-allowed"
+                : "bg-secondary text-muted-foreground/30 cursor-not-allowed"
             )}
           >
             <ArrowUp className="size-4 md:size-3.5" strokeWidth={2.5} />
           </button>
         </div>
 
-        {/* Disclaimer */}
-        <p className="text-[11px] text-center text-muted-foreground/60 mt-2.5 tracking-wide">
+        {/* Disclaimer — quieter on mobile */}
+        <p className="hidden sm:block text-[11px] text-center text-muted-foreground/60 mt-2.5 tracking-wide">
           {isHome
             ? "Independent tool — not affiliated with Carleton University"
-            : "CampusQ is AI and can make mistakes — verify important decisions with your advisor"          }
+            : "CampusQ is AI and can make mistakes — verify important decisions with your advisor"}
         </p>
       </div>
     </div>

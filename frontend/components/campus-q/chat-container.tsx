@@ -340,7 +340,7 @@ export function ChatContainer() {
                     />
                   </div>
                   {/* Input lives here on home screen, centered with content */}
-                  <div className="max-w-2xl mx-auto w-full px-4 pb-6">
+                  <div className="max-w-2xl mx-auto w-full px-4 pb-3 md:pb-6">
                     <ChatInput
                       value={input}
                       onChange={setInput}
@@ -348,7 +348,9 @@ export function ChatContainer() {
                       disabled={isLoading}
                       isHome
                     />
-                    <ChatPrivacyNotice />
+                    <div className="hidden sm:block">
+                      <ChatPrivacyNotice />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -412,7 +414,9 @@ export function ChatContainer() {
                   onSubmit={handleSubmit}
                   disabled={isLoading}
                 />
-                <ChatPrivacyNotice />
+                <div className="hidden sm:block">
+                  <ChatPrivacyNotice />
+                </div>
               </div>
             )}
           </>

@@ -12,7 +12,7 @@ export function SignupNudge({ onDismiss }: SignupNudgeProps) {
   return (
     <div className="mx-4 mb-2 md:mx-0 flex items-center gap-2.5 rounded-xl border border-border/50 bg-secondary/50 px-3 py-2.5 animate-in fade-in slide-in-from-bottom-1 duration-200">
       <p className="flex-1 min-w-0 text-xs text-muted-foreground leading-snug">
-        Enjoying the answer? Create a free account — it helps us keep CampusQ growing.
+        Keep this chat on every device — create a free account.
       </p>
       <SignUpButton mode="redirect">
         <button

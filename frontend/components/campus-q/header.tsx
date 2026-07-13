@@ -58,7 +58,7 @@ export function Header({ isDark, onToggleDark, onOpenHistory, onHome }: HeaderPr
           ) : (
             <SignUpButton mode="redirect">
               <button className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors active:scale-[0.98]">
-                Sign up free
+                Save chats
               </button>
             </SignUpButton>
           )

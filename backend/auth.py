@@ -115,6 +115,49 @@ async def require_user(request: Request) -> str:
     return claims.get("sub", "anonymous")
 
 
+async def require_signed_in(request: Request) -> str:
+    """
+    Always requires a verified Clerk user id — for account-only features
+    like cloud chat sync. Independent of REQUIRE_AUTH so guests can still
+    use chat while signed-in students get cross-device history.
+    """
+    if _authenticated_via_quality_gate_key(request):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Quality gate key cannot access account data",
+        )
+
+    if not _CLERK_JWKS_URL:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Account sync is not configured",
+        )
+
+    token = _bearer_token(request)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sign in required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        claims = _verify_token(token)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user_id = claims.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user_id
+
+
 # ── Admin gate for internal/aggregated data endpoints ─────────────────────────
 # Unlike require_user's safe-rollout default, this is DEFAULT-CLOSED: the
 # dashboard endpoints expose waitlist emails and student query text, so they

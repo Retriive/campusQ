@@ -146,7 +146,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
 
         <p className="mt-7 text-xs text-ink-faint stagger-item" style={{ animationDelay: "340ms" }}>
           {school.live
-            ? `Try free — no account needed · Sign up later if you like it`
+            ? `Try free — no account needed · Sign up to sync chats`
             : `Not affiliated with ${school.name}`}
         </p>
       </section>

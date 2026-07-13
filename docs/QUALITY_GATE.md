@@ -28,8 +28,11 @@ py evals\quality_gate.py --tier core
 
 **Against production:**
 
+Production chat requires a Clerk session token. Create a dedicated test user in Clerk, sign in once, and copy a session JWT (or use a long-lived CI token).
+
 ```powershell
 $env:CAMPUSQ_API_URL = "https://your-render-url.onrender.com"
+$env:CAMPUSQ_CLERK_TOKEN = "<clerk-session-jwt>"
 py evals\quality_gate.py --tier smoke
 ```
 
@@ -44,6 +47,7 @@ After every push to `main`, GitHub Actions runs the same smoke gate against **pr
 | Secret | Purpose |
 |---|---|
 | `CAMPUSQ_API_URL` | Render production backend URL (no trailing slash) |
+| `CAMPUSQ_CLERK_TOKEN` | Clerk session JWT for the quality-gate test user (prod requires auth) |
 | `OPENAI_API_KEY` | Powers the LLM judge in `quality_gate.py` |
 
 ### Reading a failed Action

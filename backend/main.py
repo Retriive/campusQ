@@ -398,7 +398,7 @@ app.add_middleware(
     allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Admin-Key"],
+    allow_headers=["Authorization", "Content-Type", "X-Admin-Key", "X-Quality-Gate-Key"],
 )
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))

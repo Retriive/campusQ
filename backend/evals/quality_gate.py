@@ -49,6 +49,18 @@ def _clerk_token() -> str:
     return os.getenv("CAMPUSQ_CLERK_TOKEN", "").strip()
 
 
+def _quality_gate_key() -> str:
+    return os.getenv("CAMPUSQ_QUALITY_GATE_KEY", os.getenv("QUALITY_GATE_KEY", "")).strip()
+
+
+def has_remote_credentials() -> bool:
+    return bool(
+        _clerk_token()
+        or os.getenv("CLERK_SECRET_KEY", "").strip()
+        or _quality_gate_key()
+    )
+
+
 def bootstrap_clerk_token() -> None:
     """Mint a short-lived JWT from CLERK_SECRET_KEY when no token is provided."""
     if _clerk_token():
@@ -61,15 +73,48 @@ def bootstrap_clerk_token() -> None:
 
 
 def chat_auth_headers() -> dict[str, str]:
+    headers: dict[str, str] = {}
+    key = _quality_gate_key()
+    if key:
+        headers["X-Quality-Gate-Key"] = key
     token = _clerk_token()
     if token:
-        return {"Authorization": f"Bearer {token}"}
-    return {}
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+def ensure_credentials_for_remote(api_url: str) -> None:
+    if "localhost" in api_url or "127.0.0.1" in api_url:
+        return
+    if has_remote_credentials():
+        return
+    print("ERROR: Production quality gate needs auth credentials.")
+    print("Set one of:")
+    print("  CLERK_SECRET_KEY          — auto-mints a Clerk JWT (recommended for CI)")
+    print("  CAMPUSQ_CLERK_TOKEN       — pre-minted Clerk JWT")
+    print("  CAMPUSQ_QUALITY_GATE_KEY  — shared secret (set QUALITY_GATE_KEY on Render too)")
+    sys.exit(2)
+
+
+def warmup_api(api_url: str, attempts: int = 6, pause: float = 10.0) -> None:
+    """Wait for Render cold starts — GET / until the API answers 200."""
+    for attempt in range(1, attempts + 1):
+        try:
+            resp = requests.get(api_url, timeout=30)
+            if resp.status_code == 200:
+                return
+        except requests.RequestException:
+            pass
+        if attempt < attempts:
+            print(f"API not ready (attempt {attempt}/{attempts}) — retrying in {pause:.0f}s…")
+            time.sleep(pause)
+    print(f"ERROR: Cannot reach {api_url} after {attempts} attempts.")
+    sys.exit(2)
 
 
 def ensure_chat_auth(api_url: str) -> None:
     """Fail fast when production requires Clerk auth but no token is configured."""
-    if _clerk_token():
+    if has_remote_credentials():
         return
     if "localhost" in api_url or "127.0.0.1" in api_url:
         return
@@ -83,13 +128,13 @@ def ensure_chat_auth(api_url: str) -> None:
                 "session_id": "quality-gate-probe",
                 "user_id": "quality-gate",
             },
+            headers=chat_auth_headers(),
             timeout=30,
             stream=True,
         )
         if resp.status_code == 401:
-            print("ERROR: API requires Clerk auth (401 on /api/chat/stream).")
-            print("Set CAMPUSQ_CLERK_TOKEN to a valid Clerk session JWT,")
-            print("or set CLERK_SECRET_KEY to mint one automatically (recommended for CI).")
+            print("ERROR: API requires auth (401 on /api/chat/stream).")
+            print("Set CLERK_SECRET_KEY, CAMPUSQ_CLERK_TOKEN, or CAMPUSQ_QUALITY_GATE_KEY.")
             sys.exit(2)
     except requests.RequestException:
         pass
@@ -336,17 +381,13 @@ def main() -> int:
     args = parser.parse_args()
 
     api_url = args.api_url.rstrip("/")
+    ensure_credentials_for_remote(api_url)
     bootstrap_clerk_token()
+    warmup_api(api_url)
     ensure_chat_auth(api_url)
 
     if not os.getenv("OPENAI_API_KEY"):
         print("ERROR: OPENAI_API_KEY is required for the LLM judge.")
-        return 2
-
-    try:
-        requests.get(api_url, timeout=5)
-    except Exception as exc:
-        print(f"ERROR: Cannot reach {api_url} — start the backend first. ({exc})")
         return 2
 
     all_rows = load_golden_rows()

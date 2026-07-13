@@ -51,9 +51,13 @@ After every push to `main`, GitHub Actions runs the same smoke gate against **pr
 |---|---|
 | `CAMPUSQ_API_URL` | Render production backend URL (no trailing slash) |
 | `CLERK_SECRET_KEY` | Clerk secret key — CI mints a fresh session JWT each run |
+| `QUALITY_GATE_KEY` | Shared eval secret — also set as `QUALITY_GATE_KEY` on Render |
 | `OPENAI_API_KEY` | Powers the LLM judge in `quality_gate.py` |
 
-`CAMPUSQ_CLERK_TOKEN` is optional if `CLERK_SECRET_KEY` is set (manual runs can use either).
+`CAMPUSQ_CLERK_TOKEN` is optional if `CLERK_SECRET_KEY` is set.  
+`CAMPUSQ_QUALITY_GATE_KEY` is optional if `QUALITY_GATE_KEY` is set (maps from the GitHub secret).
+
+Generate a new shared secret: `bash scripts/setup-quality-gate-secrets.sh`
 
 ### Reading a failed Action
 

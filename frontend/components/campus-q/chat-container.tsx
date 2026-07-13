@@ -18,6 +18,7 @@ import {
   LOCAL_SESSIONS_KEY,
   MAX_SYNCED_SESSIONS,
 } from "@/lib/chat-sync"
+import { fetchGuestQuota, guestHeaders, isGuestLimitError, type GuestQuota } from "@/lib/guest-quota"
 import { Header } from "./header"
 import { Sidebar, type View, type ChatSession } from "./sidebar"
 import { ChatMessage } from "./chat-message"
@@ -28,6 +29,7 @@ import { CourseCompare } from "./course-compare"
 import { ProgramExplorer } from "./program-explorer"
 import { DeadlineTracker } from "./deadline-tracker"
 import { SignupNudge } from "./signup-nudge"
+import { GuestLimitWall } from "./guest-limit-wall"
 import { CoursePills } from "./chat/course-pills"
 import { MobileSessionList } from "./chat/mobile-session-list"
 import { extractCourseCodes, getSuggestions } from "./chat/suggestions"
@@ -56,13 +58,14 @@ export function ChatContainer() {
 
   // Build the Authorization header from the current Clerk session token.
   // Returns {} when signed out so calls still work while backend auth is off.
+  // Guests also send a stable X-Guest-Id for the daily free-question quota.
   const authHeader = async (): Promise<HeadersInit> => {
+    const headers: Record<string, string> = { ...guestHeaders() as Record<string, string> }
     try {
       const token = await getToken()
-      return token ? { Authorization: `Bearer ${token}` } : {}
-    } catch {
-      return {}
-    }
+      if (token) headers.Authorization = `Bearer ${token}`
+    } catch {}
+    return headers
   }
   const [messages, setMessages] = React.useState<Message[]>([])
   const [sessions, setSessions] = React.useState<ChatSession[]>([])
@@ -78,6 +81,8 @@ export function ChatContainer() {
   const [expandedPrereq, setExpandedPrereq] = React.useState<string | null>(null)
   const [nudgeDismissed, setNudgeDismissed] = React.useState(true)
   const [gotFirstAnswer, setGotFirstAnswer] = React.useState(false)
+  const [guestQuota, setGuestQuota] = React.useState<GuestQuota | null>(null)
+  const [guestLimitReached, setGuestLimitReached] = React.useState(false)
   const messagesEndRef = React.useRef<HTMLDivElement>(null)
   const syncReadyRef = React.useRef(false)
   const syncTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -101,10 +106,20 @@ export function ChatContainer() {
       setNudgeDismissed(localStorage.getItem(SIGNUP_NUDGE_DISMISS_KEY) === "1")
     } catch {}
 
-    if (!isLoaded || !isSignedIn) {
-      syncReadyRef.current = !isSignedIn
+    if (!isLoaded) return
+
+    if (!isSignedIn) {
+      syncReadyRef.current = true
+      fetchGuestQuota().then((q) => {
+        if (!q) return
+        setGuestQuota(q)
+        setGuestLimitReached(q.remaining <= 0)
+      })
       return
     }
+
+    setGuestLimitReached(false)
+    setGuestQuota(null)
 
     let cancelled = false
     ;(async () => {
@@ -145,9 +160,13 @@ export function ChatContainer() {
     isLoaded &&
     !isSignedIn &&
     !nudgeDismissed &&
+    !guestLimitReached &&
     gotFirstAnswer &&
     !isLoading &&
     messages.some((m) => m.role === "assistant" && m.content.trim().length > 0)
+
+  const guestQuestionsLeft =
+    !isSignedIn && guestQuota ? guestQuota.remaining : null
 
   // Auto-scroll
   React.useEffect(() => {
@@ -221,6 +240,11 @@ export function ChatContainer() {
     const queryText = (overrideInput ?? input).trim()
     if (!queryText || isLoading) return
 
+    if (!isSignedIn && guestLimitReached) {
+      try { track("guest_limit_blocked_submit") } catch {}
+      return
+    }
+
     // If no session ID yet, create one
     const sessionId = currentSessionId || Date.now().toString()
     if (!currentSessionId) setCurrentSessionId(sessionId)
@@ -276,6 +300,23 @@ export function ChatContainer() {
         headers: await authHeader(),
       })
 
+      if (!response.ok) {
+        let detail: unknown = null
+        try { detail = await response.json() } catch {}
+        const limitDetail = (detail as { detail?: unknown } | null)?.detail ?? detail
+        if (isGuestLimitError(response.status, limitDetail)) {
+          const limit = typeof limitDetail === "object" && limitDetail && "limit" in limitDetail
+            ? Number((limitDetail as { limit: number }).limit) || 10
+            : 10
+          setGuestQuota({ used: limit, limit, remaining: 0 })
+          setGuestLimitReached(true)
+          try { track("guest_limit_hit") } catch {}
+          setMessages((prev) => prev.filter((m) => m.id !== assistantId && m.id !== userMessage.id))
+          return
+        }
+        throw new Error(`Chat failed: ${response.status}`)
+      }
+
       if (!response.body) throw new Error("No response body")
 
       const reader = response.body.getReader()
@@ -295,7 +336,15 @@ export function ChatContainer() {
           if (!jsonStr.trim()) continue
           try {
             const parsed = JSON.parse(jsonStr)
-            if (parsed.type === "token") {
+            if (parsed.type === "quota") {
+              const next: GuestQuota = {
+                used: Number(parsed.used) || 0,
+                limit: Number(parsed.limit) || 10,
+                remaining: Number(parsed.remaining) || 0,
+              }
+              setGuestQuota(next)
+              setGuestLimitReached(next.remaining <= 0)
+            } else if (parsed.type === "token") {
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId ? { ...m, content: m.content + parsed.content } : m

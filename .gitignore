@@ -54,6 +54,9 @@ backend/evals/experiments/
 ingest_state.db
 ingest_preview_*.jsonl
 
+# Signed-in user chat sync store (local/dev; /data/user_data.db on Render)
+user_data.db
+
 # Hybrid-search keyword index (rebuilt automatically by ingestion runs)
 lexical_index.db
 

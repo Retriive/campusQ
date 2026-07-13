@@ -32,6 +32,13 @@ from retrieval import retrieve_and_rerank
 from auth import require_user, require_admin, require_signed_in, optional_user
 from user_store import UserStore
 from guest_quota import GuestQuotaStore, GuestQuotaExceeded, normalize_guest_id
+from grounding import (
+    classify_intent,
+    maybe_inject_course_from_history,
+    filter_matches_for_intent,
+    context_is_weak,
+    NO_CONTEXT_ANSWER,
+)
 
 load_dotenv()
 
@@ -275,27 +282,7 @@ DEPT_BY_KEYWORD = [
     ("data science", "Data Science"), ("math", "Mathematics"),
 ]
 
-# Question-intent classification (what KIND of thing is being asked) — separate
-# from query_type (which is the retrieval path). This is what advising cares about.
-def classify_intent(query: str) -> str:
-    q = query.lower()
-    if any(k in q for k in ["prerequisite", "prereq", "before taking", "without taking"]):
-        return "prerequisites"
-    if any(k in q for k in ["deadline", "last day", "when is", "when do", "when does", "what date"]):
-        return "deadlines"
-    if any(k in q for k in ["cgpa", "gpa", "good standing", "fail", "repeat", "withdraw", "ace ", "academic standing"]):
-        return "regulations"
-    if "engineering" in q and any(k in q for k in ["how many times", "attempt", "retake", "try again"]):
-        return "regulations"
-    if any(k in q for k in ["register", "registration", "add a course", "drop", "override", "waitlist", "time ticket"]):
-        return "registration"
-    if any(k in q for k in ["required courses", "graduate", "degree", "program", "stream", "concentration", "minor", "credits to"]):
-        return "program_requirements"
-    if any(k in q for k in ["co-op", "transcript", "financial aid", "bursary", "scholarship", "defer", "enrolment"]):
-        return "services"
-    if re.search(r"[a-zA-Z]{3,4}\s*\d{4}[a-zA-Z]?", query):
-        return "course_lookup"
-    return "general"
+# Intent classification lives in grounding.py (shared by chat + dashboard routing).
 
 
 ENGINEERING_ATTEMPTS_CONTEXT = """[Authoritative — Engineering course attempt limit, Calendar §3.2.2]
@@ -885,13 +872,9 @@ async def chat_endpoint(
 
     past_messages = sanitize_history(history)
 
-    # Inject last-mentioned course code from history for vague follow-up queries
-    if not re.search(r"[A-Z]{3,4}\s*\d{4}[A-Z]?", user_query, re.IGNORECASE):
-        for _msg in reversed(past_messages):
-            _found = re.search(r"([A-Z]{3,4}\s*\d{4}[A-Z]?)", _msg["content"], re.IGNORECASE)
-            if _found:
-                user_query = f"{user_query} ({_found.group(1)})"
-                break
+    # Inject last course code only for genuine course follow-ups (not VPN/aid/etc).
+    user_query = maybe_inject_course_from_history(user_query, past_messages)
+    intent = classify_intent(user_query, past_messages)
 
     print(f"Searching database for: {user_query}")
 
@@ -993,22 +976,24 @@ async def chat_endpoint(
             index=index,
             user_query=user_query,
             query_embedding=query_embedding,
-            intent=classify_intent(user_query),
+            intent=intent,
             course_matches=course_matches,
             openai_client=openai_client,
             chat_model=CHAT_MODEL,
         )
         is_program_query = query_flags.is_program_query
+        all_matches = filter_matches_for_intent(all_matches, intent, user_query)
 
         context_text, sources, chunks_used = build_context_and_citations(
-            all_matches, is_program_query, SIMILARITY_THRESHOLD
+            all_matches, is_program_query, SIMILARITY_THRESHOLD, intent=intent
         )
         context_text = prepend_engineering_attempts_context(context_text, user_query)
 
         top_score = all_matches[0][0].score if all_matches else None
         print(f"RAG: {chunks_used} chunks passed threshold {SIMILARITY_THRESHOLD}")
 
-        if not context_text and not attachment_text:
+        if (context_is_weak(all_matches, context_text, intent, SIMILARITY_THRESHOLD)
+                and not attachment_text):
             log_no_context(user_query, "rag")
             ms = int((time.time() - t_start) * 1000)
             log_query(
@@ -1021,11 +1006,7 @@ async def chat_endpoint(
                 had_context=False,
                 user_id=user_id,
             )
-            fallback = (
-                "That's outside of what I currently know. "
-                "If you think this should be covered, use the Report a Problem button and we'll add it."
-            )
-            return {"answer": with_advisor_escalation(fallback, user_query), "sources": []}
+            return {"answer": with_advisor_escalation(NO_CONTEXT_ANSWER, user_query), "sources": []}
 
         system_prompt = build_system_prompt(context_text, attachment_text)
 
@@ -1102,15 +1083,9 @@ async def chat_stream(
 
     past_messages = sanitize_history(history)
 
-    # If the query has no course code but is a follow-up (e.g. "what semester is this taught?"),
-    # inject the last-mentioned course code from history so RAG can find the right data.
-    _course_in_query = re.search(r"[A-Z]{3,4}\s*\d{4}[A-Z]?", user_query, re.IGNORECASE)
-    if not _course_in_query:
-        for _msg in reversed(past_messages):
-            _found = re.search(r"([A-Z]{3,4}\s*\d{4}[A-Z]?)", _msg["content"], re.IGNORECASE)
-            if _found:
-                user_query = f"{user_query} ({_found.group(1)})"
-                break
+    # Inject last course code only for genuine course follow-ups (not VPN/aid/etc).
+    user_query = maybe_inject_course_from_history(user_query, past_messages)
+    intent = classify_intent(user_query, past_messages)
 
     # Patterns that indicate the user wants course details directly (pill cards shown)
     DIRECT_LOOKUP_PATTERNS = re.compile(
@@ -1170,23 +1145,24 @@ async def chat_stream(
                 index=index,
                 user_query=user_query,
                 query_embedding=query_embedding,
-                intent=classify_intent(user_query),
+                intent=intent,
                 course_matches=course_matches,
                 openai_client=openai_client,
                 chat_model=CHAT_MODEL,
             )
             is_program_query = query_flags.is_program_query
             is_schedule_query = query_flags.is_schedule_query
+            all_matches = filter_matches_for_intent(all_matches, intent, user_query)
 
             context_text, sources_list, chunks_used = build_context_and_citations(
-                all_matches, is_program_query, SIMILARITY_THRESHOLD
+                all_matches, is_program_query, SIMILARITY_THRESHOLD, intent=intent
             )
             context_text = prepend_engineering_attempts_context(context_text, user_query)
             top_score = all_matches[0][0].score if all_matches else None
 
-            # If course cards were fetched, add their data directly to context
+            # If course cards were fetched for an explicit course query, keep them.
             course_citations = []
-            if course_matches and structured_courses:
+            if course_matches and structured_courses and intent in ("course_lookup", "prerequisites", "general"):
                 course_context = "\n--- Course Data (fetched directly) ---\n"
                 for c in structured_courses:
                     course_context += f"{c['courseCode']} — {c['courseName']} [{c['credits']} credits]\n"
@@ -1195,10 +1171,26 @@ async def chat_stream(
                     course_context += f"Prerequisites: {prereqs}\n\n"
                     course_citations.append(citation_from_course(c))
                 context_text = course_context + context_text
-                sources_list = finalize_citations(course_citations + sources_list, is_program_query)
+                sources_list = finalize_citations(
+                    course_citations + sources_list, is_program_query, intent=intent
+                )
 
-            if not context_text:
+            if context_is_weak(all_matches, context_text, intent, SIMILARITY_THRESHOLD):
                 log_no_context(user_query, "stream_rag")
+                ms = int((time.time() - t_start) * 1000)
+                log_query(
+                    query=user_query,
+                    query_type="stream_rag",
+                    chunks_retrieved=0,
+                    top_score=top_score,
+                    course_codes_found=[],
+                    response_ms=ms,
+                    had_context=False,
+                    user_id=user_id,
+                )
+                yield f"data: {json.dumps({'type': 'token', 'content': NO_CONTEXT_ANSWER})}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                return
 
             system_prompt = build_system_prompt(context_text)
 

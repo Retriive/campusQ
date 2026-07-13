@@ -19,6 +19,7 @@ import {
   Check,
   X,
 } from "lucide-react"
+import { SignUpButton } from "@clerk/nextjs"
 import { cn } from "@/lib/utils"
 import { useCampus } from "./campus-context"
 
@@ -42,6 +43,8 @@ interface SidebarProps {
   onDeleteSession: (id: string) => void
   onRenameSession: (id: string, title: string) => void
   onOpenFeedback: () => void
+  /** Guests cannot browse recent chats — signup unlocks history. */
+  historyLocked?: boolean
 }
 
 const NAV_ITEMS: { view: View; icon: React.ElementType; label: string }[] = [
@@ -63,6 +66,7 @@ export function Sidebar({
   onDeleteSession,
   onRenameSession,
   onOpenFeedback,
+  historyLocked = false,
 }: SidebarProps) {
   const { theme } = useCampus()
   const [hoverSession, setHoverSession] = React.useState<string | null>(null)
@@ -142,10 +146,27 @@ export function Sidebar({
       {/* Divider */}
       {!collapsed && <div className="mx-3 mb-3 border-t border-border/40" />}
 
-      {/* Chat history */}
+      {/* Chat history — signed-in only */}
       {!collapsed && (
         <div className="flex-1 px-2 overflow-y-auto min-h-0">
-          {sessions.length > 0 && (
+          {historyLocked ? (
+            <div className="mx-1 rounded-xl border border-border/50 bg-secondary/30 px-3 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 mb-1.5">
+                Recent
+              </p>
+              <p className="text-xs text-muted-foreground leading-snug mb-3">
+                Sign up free to reopen past chats and sync across devices.
+              </p>
+              <SignUpButton mode="redirect">
+                <button
+                  type="button"
+                  className="w-full text-xs font-semibold px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  Unlock chat history
+                </button>
+              </SignUpButton>
+            </div>
+          ) : sessions.length > 0 ? (
             <>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50 px-2 mb-2">
                 Recent
@@ -212,7 +233,7 @@ export function Sidebar({
                 ))}
               </div>
             </>
-          )}
+          ) : null}
         </div>
       )}
 

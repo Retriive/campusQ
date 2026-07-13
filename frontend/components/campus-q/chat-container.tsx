@@ -43,7 +43,7 @@ function ChatPrivacyNotice({ synced }: { synced: boolean }) {
     <p className="text-[10px] text-center text-muted-foreground/80 px-4 pt-2 leading-relaxed max-w-2xl mx-auto">
       {synced
         ? "Signed in — chat history syncs to your CampusQ account across devices. "
-        : "Chat history is stored on this device only. Sign up to sync across devices. "}
+        : "Guest mode — past chats stay locked until you sign up. "}
       Delete chats in the sidebar or clear site data.{" "}
       <Link href="/privacy" className="underline hover:text-foreground">
         Privacy Policy
@@ -208,6 +208,11 @@ export function ChatContainer() {
   }
 
   const handleSelectSession = (id: string) => {
+    // Guests don't get recent-chat access — signup unlocks history.
+    if (!isSignedIn) {
+      setShowHistory(true)
+      return
+    }
     if (messages.length > 0) saveCurrentChat(messages, currentSessionId)
     const msgs = JSON.parse(localStorage.getItem(`campusq-msgs-${id}`) || "[]")
     setMessages(msgs)
@@ -436,12 +441,13 @@ export function ChatContainer() {
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
           currentView={currentView}
           onViewChange={(v) => { setCurrentView(v) }}
-          sessions={sessions}
+          sessions={isSignedIn ? sessions : []}
           currentSessionId={currentSessionId}
           onSelectSession={handleSelectSession}
           onDeleteSession={handleDeleteSession}
           onRenameSession={handleRenameSession}
           onOpenFeedback={() => setShowFeedback(true)}
+          historyLocked={!isSignedIn}
         />
       </div>
 
@@ -471,13 +477,22 @@ export function ChatContainer() {
                   </div>
                   {/* Input lives here on home screen, centered with content */}
                   <div className="max-w-2xl mx-auto w-full px-4 pb-3 md:pb-6">
-                    <ChatInput
-                      value={input}
-                      onChange={setInput}
-                      onSubmit={handleSubmit}
-                      disabled={isLoading}
-                      isHome
-                    />
+                    {guestLimitReached && !isSignedIn ? (
+                      <GuestLimitWall limit={guestQuota?.limit ?? 10} />
+                    ) : (
+                      <ChatInput
+                        value={input}
+                        onChange={setInput}
+                        onSubmit={handleSubmit}
+                        disabled={isLoading || (!!isLoaded && !isSignedIn && guestLimitReached)}
+                        isHome
+                      />
+                    )}
+                    {guestQuestionsLeft !== null && !guestLimitReached && (
+                      <p className="text-[10px] text-center text-muted-foreground/70 pt-2">
+                        {guestQuestionsLeft} free {guestQuestionsLeft === 1 ? "question" : "questions"} left today
+                      </p>
+                    )}
                     <div className="hidden sm:block">
                       <ChatPrivacyNotice synced={!!isSignedIn} />
                     </div>
@@ -539,12 +554,21 @@ export function ChatContainer() {
             {messages.length > 0 && (
               <div className="max-w-2xl mx-auto w-full">
                 {showSignupNudge && <SignupNudge onDismiss={dismissSignupNudge} />}
-                <ChatInput
-                  value={input}
-                  onChange={setInput}
-                  onSubmit={handleSubmit}
-                  disabled={isLoading}
-                />
+                {guestLimitReached && !isSignedIn ? (
+                  <GuestLimitWall limit={guestQuota?.limit ?? 10} />
+                ) : (
+                  <ChatInput
+                    value={input}
+                    onChange={setInput}
+                    onSubmit={handleSubmit}
+                    disabled={isLoading || (!!isLoaded && !isSignedIn && guestLimitReached)}
+                  />
+                )}
+                {guestQuestionsLeft !== null && !guestLimitReached && (
+                  <p className="text-[10px] text-center text-muted-foreground/70 px-4 pt-1.5">
+                    {guestQuestionsLeft} free {guestQuestionsLeft === 1 ? "question" : "questions"} left today
+                  </p>
+                )}
                 <div className="hidden sm:block">
                   <ChatPrivacyNotice synced={!!isSignedIn} />
                 </div>
@@ -609,13 +633,29 @@ export function ChatContainer() {
               <span>New Chat</span>
             </button>
           </div>
-          <MobileSessionList
-            sessions={sessions}
-            currentSessionId={currentSessionId}
-            onSelect={(id) => { handleSelectSession(id); setShowHistory(false) }}
-            onDelete={handleDeleteSession}
-            onRename={handleRenameSession}
-          />
+          {!isSignedIn ? (
+            <div className="px-4 py-2 flex flex-col gap-3">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Sign up free to reopen past chats and keep them across devices.
+              </p>
+              <SignUpButton mode="redirect">
+                <button
+                  type="button"
+                  className="w-full text-sm font-semibold px-3 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  Unlock chat history
+                </button>
+              </SignUpButton>
+            </div>
+          ) : (
+            <MobileSessionList
+              sessions={sessions}
+              currentSessionId={currentSessionId}
+              onSelect={(id) => { handleSelectSession(id); setShowHistory(false) }}
+              onDelete={handleDeleteSession}
+              onRename={handleRenameSession}
+            />
+          )}
         </SheetContent>
       </Sheet>
 

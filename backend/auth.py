@@ -17,6 +17,7 @@ Env vars:
   CLERK_JWKS_URL             e.g. https://<your-domain>/.well-known/jwks.json
   CLERK_ISSUER               e.g. https://clerk.<your-domain>.com  (optional but recommended)
   CLERK_AUTHORIZED_PARTIES   comma-separated allowed `azp` origins (optional)
+  QUALITY_GATE_KEY           shared secret for automated evals (X-Quality-Gate-Key header)
 """
 import hmac
 import os
@@ -67,6 +68,14 @@ def _bearer_token(request: Request) -> str | None:
     return None
 
 
+_QUALITY_GATE_KEY = os.getenv("QUALITY_GATE_KEY", "").strip()
+
+
+def _authenticated_via_quality_gate_key(request: Request) -> bool:
+    supplied = request.headers.get("x-quality-gate-key", "")
+    return bool(_QUALITY_GATE_KEY) and bool(supplied) and hmac.compare_digest(supplied, _QUALITY_GATE_KEY)
+
+
 async def require_user(request: Request) -> str:
     """
     FastAPI dependency. Returns the authenticated Clerk user id (the `sub` claim).
@@ -75,6 +84,9 @@ async def require_user(request: Request) -> str:
     - Not enforcing: returns the verified `sub` if a good token is present,
       otherwise "anonymous" — never blocks. This is the pre-flip state.
     """
+    if _authenticated_via_quality_gate_key(request):
+        return "quality-gate"
+
     token = _bearer_token(request)
     enforce = _REQUIRE_AUTH and bool(_CLERK_JWKS_URL)
 

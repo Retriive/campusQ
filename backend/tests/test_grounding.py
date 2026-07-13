@@ -5,8 +5,6 @@ from grounding import (
     maybe_inject_course_from_history,
     filter_matches_for_intent,
     context_is_weak,
-    prepend_its_contact_context,
-    is_its_contact_query,
 )
 
 
@@ -47,10 +45,3 @@ def test_filter_drops_courses_for_services_intent():
 def test_weak_context_when_services_only_has_courses():
     matches = [(FakeMatch(0.4), "courses")]
     assert context_is_weak(matches, "course junk", "services", threshold=0.25) is True
-
-
-def test_its_contact_context_prefetched_for_phone_followup():
-    history = [{"role": "assistant", "content": "Ask ITS about VPN access."}]
-    assert is_its_contact_query("What's their phone number", history)
-    out = prepend_its_contact_context("", "What's their phone number", history)
-    assert "613-520-3700" in out

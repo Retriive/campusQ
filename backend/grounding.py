@@ -41,22 +41,6 @@ INTENT_ALLOWED_NAMESPACES: dict[str, frozenset[str] | None] = {
     "general": None,
 }
 
-ITS_CONTACT_CONTEXT = """[Authoritative — Carleton ITS Service Desk]
-
-Information Technology Services (ITS) Service Desk contact:
-- Phone: 613-520-3700 (have your student ID ready)
-- Email: its.service.desk@carleton.ca
-- Hours (monitored): Monday–Friday 8:30 am – 4:30 pm
-- Help Centre / portal: https://carleton.ca/its/contact/
-- Walk-up desks in MacOdrum Library (4th floor Mon–Fri 8:30–4:30; 2nd floor Mon–Fri 12:00–4:00)
-
-Student VPN access:
-- Students do NOT get VPN by default; request access via ITS.
-- VPN student guide: https://carleton.ca/its/help-centre/student-requiring-vpn-access/
-- After starting setup, students must call the ITS Service Desk at 613-520-3700
-  (Mon–Fri 8:30–4:30) to finish identity verification.
-"""
-
 NO_CONTEXT_ANSWER = (
     "That's outside of what I currently know. "
     "If you think this should be covered, use the Report a Problem button and we'll add it."
@@ -171,21 +155,3 @@ def context_is_weak(
     if intent == "services" and namespaces and namespaces <= {"courses", "schedule"}:
         return "[Authoritative" not in context_text
     return False
-
-
-def is_its_contact_query(query: str, history: list[dict] | None = None) -> bool:
-    q = query.lower()
-    hist = " ".join((m.get("content") or "") for m in (history or [])[-6:]).lower()
-    if any(k in q for k in ("vpn", "service desk")) or re.search(r"\bits\b", q):
-        return True
-    if any(k in q for k in ("phone", "contact them", "their number", "call them", "email them", "how can i contact", "how do i contact")):
-        return any(k in hist for k in ("its", "vpn", "service desk", "information technology"))
-    return False
-
-
-def prepend_its_contact_context(context_text: str, query: str, history: list[dict] | None = None) -> str:
-    if not is_its_contact_query(query, history):
-        return context_text
-    if context_text:
-        return f"{ITS_CONTACT_CONTEXT}\n\n{context_text}"
-    return ITS_CONTACT_CONTEXT

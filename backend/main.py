@@ -37,7 +37,6 @@ from grounding import (
     maybe_inject_course_from_history,
     filter_matches_for_intent,
     context_is_weak,
-    prepend_its_contact_context,
     NO_CONTEXT_ANSWER,
 )
 
@@ -989,7 +988,6 @@ async def chat_endpoint(
             all_matches, is_program_query, SIMILARITY_THRESHOLD, intent=intent
         )
         context_text = prepend_engineering_attempts_context(context_text, user_query)
-        context_text = prepend_its_contact_context(context_text, user_query, past_messages)
 
         top_score = all_matches[0][0].score if all_matches else None
         print(f"RAG: {chunks_used} chunks passed threshold {SIMILARITY_THRESHOLD}")
@@ -1160,7 +1158,6 @@ async def chat_stream(
                 all_matches, is_program_query, SIMILARITY_THRESHOLD, intent=intent
             )
             context_text = prepend_engineering_attempts_context(context_text, user_query)
-            context_text = prepend_its_contact_context(context_text, user_query, past_messages)
             top_score = all_matches[0][0].score if all_matches else None
 
             # If course cards were fetched for an explicit course query, keep them.

@@ -24,7 +24,7 @@ index = pc.Index("knowledge-base")
 NAMESPACE = "facts"
 EMBED_MODEL = "text-embedding-3-small"
 
-# Each fact: (id, title, body) or (id, title, body, source_url)
+# Each fact: (id, title, body)
 # Body is rich, synonym-heavy so varied phrasings retrieve it.
 FACTS = [
 
@@ -327,51 +327,6 @@ Related terms: failed a course, F grade, what happens if I fail, repeat after fa
 must retake, required course fail, failed required class, CGPA after failing,
 academic consequences of failing.""",
     ),
-
-    # ── ITS Service Desk contact + student VPN ───────────────────────────────
-    (
-        "its-service-desk-contact",
-        "Carleton ITS Service Desk Contact Information",
-        """Carleton University Information Technology Services (ITS) Service Desk Contact
-
-Phone number: 613-520-3700
-Email: its.service.desk@carleton.ca
-Monitored hours: Monday to Friday, 8:30 am to 4:30 pm
-Website / contact page: https://carleton.ca/its/contact/
-Help Centre: https://carleton.ca/its/help-centre/
-
-Walk-up Service Desk:
-- MacOdrum Library 4th floor: Mon–Fri 8:30 am – 4:30 pm
-- MacOdrum Library 2nd floor: Mon–Fri 12:00 pm – 4:00 pm
-
-When you call, have your Student ID ready.
-
-Related terms: ITS phone number, ITS contact, service desk number, how to contact ITS,
-ITS email, call ITS, IT help desk phone, Carleton IT support contact.""",
-        "https://carleton.ca/its/contact/",
-    ),
-    (
-        "its-student-vpn-access",
-        "Student VPN Access at Carleton University",
-        """Student VPN Access — Carleton University ITS
-
-Students do NOT get VPN access by default. If a course requires VPN, the student
-must request VPN access through ITS and finish identity verification with the
-ITS Service Desk.
-
-Steps (summary):
-1. Follow the student VPN request guide: https://carleton.ca/its/help-centre/student-requiring-vpn-access/
-2. Call the ITS Service Desk at 613-520-3700 to verify your ID and complete setup.
-3. Access can only be granted Mon–Fri 8:30 am – 4:30 pm.
-4. Only current students can request VPN; alumni do not get VPN access.
-
-VPN connection server (once approved): cuvpn.carleton.ca/mfa
-Windows guide: https://carleton.ca/its/help-centre/remote-access/vpn-for-windows-10/
-
-Related terms: student VPN, class requires VPN, COMP VPN, course VPN, remote access,
-how to get VPN, VPN for students, Carleton VPN phone number, ITS VPN setup.""",
-        "https://carleton.ca/its/help-centre/student-requiring-vpn-access/",
-    ),
 ]
 
 
@@ -380,23 +335,21 @@ def run():
     print("CampusQ - Structured Facts Ingestion")
     print("=" * 55 + "\n")
 
-    texts = [f"{fact[1]}\n\n{fact[2]}" for fact in FACTS]
+    texts = [f"{title}\n\n{body}" for (_, title, body) in FACTS]
 
     print(f"Embedding {len(texts)} fact vectors...")
     resp = openai_client.embeddings.create(input=texts, model=EMBED_MODEL)
 
     vectors = []
     for i, emb in enumerate(resp.data):
-        fact = FACTS[i]
-        fact_id, title, body = fact[0], fact[1], fact[2]
-        source = fact[3] if len(fact) > 3 else "https://calendar.carleton.ca"
+        fact_id, title, body = FACTS[i]
         vectors.append({
             "id": f"fact-{fact_id}",
             "values": emb.embedding,
             "metadata": {
                 "title": title,
                 "text": f"{title}\n\n{body}",
-                "source": source,
+                "source": "https://calendar.carleton.ca",
                 "category": "structured_fact",
             },
         })

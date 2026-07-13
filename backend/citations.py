@@ -171,11 +171,25 @@ def dedupe_citations(citations: list[dict], limit: int = 3) -> list[dict]:
     return out
 
 
-def finalize_citations(citations: list[dict], is_program_query: bool, limit: int = 3) -> list[dict]:
+def finalize_citations(
+    citations: list[dict],
+    is_program_query: bool,
+    limit: int = 3,
+    intent: str = "general",
+) -> list[dict]:
     """Drop irrelevant namespaces and rank program sources first."""
+    # Lazy import avoids circular imports with grounding helpers.
+    from grounding import INTENT_ALLOWED_NAMESPACES
+
     if is_program_query:
         citations = [c for c in citations if c.get("namespace") in _PROGRAM_CITATION_NS]
         citations.sort(key=lambda c: _PROGRAM_CITATION_ORDER.get(c.get("namespace", ""), 99))
+    else:
+        allow = INTENT_ALLOWED_NAMESPACES.get(intent)
+        if allow is not None:
+            filtered = [c for c in citations if c.get("namespace") in allow]
+            # Keep filtered list even if empty — off-intent sources must not show.
+            citations = filtered
     cleaned = dedupe_citations(citations, limit)
     for c in cleaned:
         c.pop("namespace", None)
@@ -193,6 +207,7 @@ def build_context_and_citations(
     matches_with_ns: list[tuple],
     is_program_query: bool,
     threshold: float,
+    intent: str = "general",
 ) -> tuple[str, list[dict], int]:
     context_text = ""
     citations: list[dict] = []
@@ -212,4 +227,4 @@ def build_context_and_citations(
         if citation:
             citations.append(citation)
 
-    return context_text, finalize_citations(citations, is_program_query), chunks_used
+    return context_text, finalize_citations(citations, is_program_query, intent=intent), chunks_used

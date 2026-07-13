@@ -10,6 +10,7 @@ from citations import (
     citation_from_match,
     citation_title_from_metadata,
     dedupe_citations,
+    finalize_citations,
     should_emit_citations,
 )
 
@@ -90,7 +91,6 @@ def test_direct_course_citation():
 
 
 def test_program_citations_exclude_tuition():
-    from citations import finalize_citations
     citations = [
         {"url": "https://a.com", "title": "B.Eng Software Engineering", "namespace": "programs"},
         {"url": "https://b.com", "title": "Miscellaneous Fees", "namespace": "tuition"},
@@ -102,3 +102,14 @@ def test_program_citations_exclude_tuition():
     assert "Miscellaneous Fees" not in titles
     assert "Course Selection Guide" not in titles
     assert titles[0] == "B.Eng Software Engineering"
+
+
+def test_services_intent_drops_course_citations():
+    citations = [
+        {"url": "https://calendar.carleton.ca/COMP/", "title": "COMP 3000 — Operating Systems", "namespace": "courses"},
+        {"url": "https://carleton.ca/awards/...", "title": "Awards — Out Of Province Aid", "namespace": "services"},
+    ]
+    out = finalize_citations(citations, is_program_query=False, intent="services")
+    titles = [c["title"] for c in out]
+    assert "COMP 3000 — Operating Systems" not in titles
+    assert "Awards — Out Of Province Aid" in titles

@@ -117,6 +117,18 @@ URLS = [
     ("Awards — Budgeting FLM",                  "https://carleton.ca/awards/budgeting/flm/"),
     ("Awards — Online Budgeting Resources",     "https://carleton.ca/awards/budgeting/online-budgeting-resources/"),
     ("Awards — Budget Calculator",              "https://carleton.ca/awards/budgeting/budget-calculator/"),
+
+    # ── Information Technology Services (ITS) ────────────────────────────────
+    ("ITS — Contact / Service Desk",            "https://carleton.ca/its/contact/"),
+    ("ITS — Help Centre Home",                  "https://carleton.ca/its/help-centre/"),
+    ("ITS — Student VPN Access",                "https://carleton.ca/its/help-centre/student-requiring-vpn-access/"),
+    ("ITS — VPN for Windows",                   "https://carleton.ca/its/help-centre/remote-access/vpn-for-windows-10/"),
+    ("ITS — VPN for macOS",                     "https://carleton.ca/its/help-centre/remote-access/vpn-for-mac/"),
+    ("ITS — Remote Access Overview",            "https://carleton.ca/its/help-centre/remote-access/"),
+    ("ITS — Accounts and Passwords",            "https://carleton.ca/its/help-centre/accounts-and-passwords/"),
+    ("ITS — Email Help",                        "https://carleton.ca/its/help-centre/email/"),
+    ("ITS — Wireless / Eduroam",                "https://carleton.ca/its/help-centre/network/"),
+    ("ITS — Students Department Page",          "https://students.carleton.ca/departments/information-technology-services/"),
 ]
 
 

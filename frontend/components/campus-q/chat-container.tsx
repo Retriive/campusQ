@@ -10,6 +10,8 @@ import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { API_BASE_URL } from "@/lib/api"
 import {
+  clearLocalChatPayload,
+  deleteCloudChats,
   fetchCloudChats,
   mergeChatPayloads,
   pushCloudChats,
@@ -236,6 +238,24 @@ export function ChatContainer() {
     }
   }
 
+  const handleClearSyncedChats = React.useCallback(async () => {
+    if (!isSignedIn) return
+    const ok = window.confirm(
+      "Clear all synced chats on this account? This removes cloud history and this device's saved chats.",
+    )
+    if (!ok) return
+    try {
+      await deleteCloudChats(() => getTokenRef.current())
+    } catch {
+      // Still clear local so the student isn't stuck with data they wanted gone.
+    }
+    clearLocalChatPayload()
+    setSessions([])
+    setMessages([])
+    setCurrentSessionId(Date.now().toString())
+    try { track("clear_synced_chats") } catch {}
+  }, [isSignedIn])
+
   const saveMessages = (msgs: Message[], sessionId: string) => {
     localStorage.setItem(`campusq-msgs-${sessionId}`, JSON.stringify(msgs))
     if (syncReadyRef.current) scheduleCloudPush()
@@ -452,7 +472,13 @@ export function ChatContainer() {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <Header isDark={isDark} onToggleDark={() => setIsDark(!isDark)} onOpenHistory={() => setShowHistory(true)} onHome={handleNewChat} />
+        <Header
+          isDark={isDark}
+          onToggleDark={() => setIsDark(!isDark)}
+          onOpenHistory={() => setShowHistory(true)}
+          onHome={handleNewChat}
+          onClearSyncedChats={isSignedIn ? handleClearSyncedChats : undefined}
+        />
 
         {/* Non-chat views */}
         {!isChatView && (

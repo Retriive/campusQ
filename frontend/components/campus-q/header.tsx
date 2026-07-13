@@ -3,16 +3,16 @@
 import { Moon, Sun, History } from "lucide-react"
 import { SignUpButton, UserButton, useUser } from "@clerk/nextjs"
 import { useCampus } from "./campus-context"
-import { cn } from "@/lib/utils"
 
 interface HeaderProps {
   isDark: boolean
   onToggleDark: () => void
   onOpenHistory?: () => void
   onHome?: () => void
+  onClearSyncedChats?: () => void
 }
 
-export function Header({ isDark, onToggleDark, onOpenHistory, onHome }: HeaderProps) {
+export function Header({ isDark, onToggleDark, onOpenHistory, onHome, onClearSyncedChats }: HeaderProps) {
   const { theme } = useCampus()
   const { isSignedIn, isLoaded } = useUser()
 
@@ -54,7 +54,17 @@ export function Header({ isDark, onToggleDark, onOpenHistory, onHome }: HeaderPr
 
         {isLoaded && (
           isSignedIn ? (
-            <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: "size-7" } }} />
+            <UserButton appearance={{ elements: { avatarBox: "size-7" } }}>
+              {onClearSyncedChats && (
+                <UserButton.MenuItems>
+                  <UserButton.Action
+                    label="Clear synced chats"
+                    labelIcon={<span aria-hidden className="text-[11px] leading-none">⌫</span>}
+                    onClick={onClearSyncedChats}
+                  />
+                </UserButton.MenuItems>
+              )}
+            </UserButton>
           ) : (
             <SignUpButton mode="redirect">
               <button className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors active:scale-[0.98]">

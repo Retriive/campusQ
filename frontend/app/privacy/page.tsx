@@ -1,5 +1,6 @@
 import Link from "next/link"
 import type { Metadata } from "next"
+import { WaitlistUnsubscribeForm } from "@/components/privacy/waitlist-unsubscribe-form"
 
 export const metadata: Metadata = {
   title: "Privacy Policy — CampusQ",
@@ -76,10 +77,13 @@ export default function PrivacyPage() {
 
         <h2>Your choices</h2>
         <ul>
-          <li><strong>Clear chat history</strong> — Delete chats in the sidebar or clear site data in your browser. If you are signed in, deleting a chat also removes it from synced account storage.</li>
-          <li><strong>Deletion requests</strong> — Email <a href="mailto:hello@retriive.com">hello@retriive.com</a> with the email used to sign in or join the waitlist. We will delete matching server-side records within 30 days.</li>
-          <li><strong>Waitlist</strong> — Reply to any waitlist email to unsubscribe.</li>
+          <li><strong>Clear chat history</strong> — Delete chats in the sidebar, or use <strong>Clear synced chats</strong> in your account menu (signed-in). That removes cloud history and this device&apos;s saved chats.</li>
+          <li><strong>Waitlist unsubscribe</strong> — Use the form below, or email us.</li>
+          <li><strong>Account / deeper deletion</strong> — Email <a href="mailto:hello@retriive.com">hello@retriive.com</a> with the email used to sign in. We will delete matching server-side records within 30 days. You can also manage or delete your Clerk sign-in via the account menu.</li>
         </ul>
+
+        <h3>Leave the waitlist</h3>
+        <WaitlistUnsubscribeForm />
 
         <h2>Contact</h2>
         <p>

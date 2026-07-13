@@ -49,6 +49,17 @@ def _clerk_token() -> str:
     return os.getenv("CAMPUSQ_CLERK_TOKEN", "").strip()
 
 
+def bootstrap_clerk_token() -> None:
+    """Mint a short-lived JWT from CLERK_SECRET_KEY when no token is provided."""
+    if _clerk_token():
+        return
+    if not os.getenv("CLERK_SECRET_KEY", "").strip():
+        return
+    from mint_clerk_token import mint_clerk_session_token
+
+    os.environ["CAMPUSQ_CLERK_TOKEN"] = mint_clerk_session_token()
+
+
 def chat_auth_headers() -> dict[str, str]:
     token = _clerk_token()
     if token:
@@ -77,8 +88,8 @@ def ensure_chat_auth(api_url: str) -> None:
         )
         if resp.status_code == 401:
             print("ERROR: API requires Clerk auth (401 on /api/chat/stream).")
-            print("Set CAMPUSQ_CLERK_TOKEN to a valid Clerk session JWT.")
-            print("For CI: add CAMPUSQ_CLERK_TOKEN to GitHub Actions secrets.")
+            print("Set CAMPUSQ_CLERK_TOKEN to a valid Clerk session JWT,")
+            print("or set CLERK_SECRET_KEY to mint one automatically (recommended for CI).")
             sys.exit(2)
     except requests.RequestException:
         pass
@@ -325,6 +336,7 @@ def main() -> int:
     args = parser.parse_args()
 
     api_url = args.api_url.rstrip("/")
+    bootstrap_clerk_token()
     ensure_chat_auth(api_url)
 
     if not os.getenv("OPENAI_API_KEY"):

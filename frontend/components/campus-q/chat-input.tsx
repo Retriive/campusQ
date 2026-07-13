@@ -5,13 +5,14 @@ import { ArrowUp } from "lucide-react"
 import { useCampus } from "./campus-context"
 import { cn } from "@/lib/utils"
 
+// Keep these short enough to fully fit a phone-width input (~32 chars).
 const PLACEHOLDER_STRINGS = [
-  "What are the prerequisites for SYSC 3110?",
-  "What courses do I need for Software Engineering?",
-  "How many credits to graduate from Computer Science?",
+  "Prereqs for SYSC 3110?",
+  "Courses for Software Eng?",
+  "Credits to graduate CS?",
   "What is COMP 2804 about?",
-  "Can I take SYSC 4906 without SYSC 4101?",
-  "What electives can I take in third year?",
+  "Can I take COMP 3000 yet?",
+  "Third-year electives?",
 ]
 
 function useAnimatedPlaceholder(strings: string[], active: boolean) {

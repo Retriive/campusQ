@@ -5,14 +5,14 @@ import { ArrowUp } from "lucide-react"
 import { useCampus } from "./campus-context"
 import { cn } from "@/lib/utils"
 
-// Keep these short enough to fully fit a phone-width input (~32 chars).
+// Phone-width inputs clip past ~18–20 chars at 16px.
 const PLACEHOLDER_STRINGS = [
-  "Prereqs for SYSC 3110?",
-  "Courses for Software Eng?",
-  "Credits to graduate CS?",
-  "What is COMP 2804 about?",
-  "Can I take COMP 3000 yet?",
-  "Third-year electives?",
+  "SYSC 3110 prereqs?",
+  "CS degree courses?",
+  "Credits to graduate?",
+  "What is COMP 2804?",
+  "Take COMP 3000 yet?",
+  "Year 3 electives?",
 ]
 
 function useAnimatedPlaceholder(strings: string[], active: boolean) {

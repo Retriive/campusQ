@@ -655,8 +655,8 @@ async def health_ready():
     def _check_openai():
         if not os.getenv("OPENAI_API_KEY"):
             return {"ok": False, "error": "OPENAI_API_KEY not set"}
-        # Lightweight connectivity check — list one model page.
-        next(openai_client.models.list(limit=1))
+        # Lightweight connectivity check — fetch first model from the list API.
+        next(iter(openai_client.models.list()))
         return {"ok": True}
 
     for name, fn in (("pinecone", _check_pinecone), ("openai", _check_openai)):

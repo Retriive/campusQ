@@ -27,6 +27,7 @@ jobs:
       - name: Run smoke quality gate against production
         env:
           CAMPUSQ_API_URL: ${{ secrets.CAMPUSQ_API_URL }}
+          CAMPUSQ_CLERK_TOKEN: ${{ secrets.CAMPUSQ_CLERK_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python evals/quality_gate.py --tier smoke
 

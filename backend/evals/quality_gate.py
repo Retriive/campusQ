@@ -44,6 +44,48 @@ EXPERIMENTS_DIR = EVALS_DIR / "experiments"
 API_URL = os.getenv("CAMPUSQ_API_URL", "http://localhost:8000")
 JUDGE_MODEL = os.getenv("CAMPUSQ_JUDGE_MODEL", "gpt-4o-mini")
 
+
+def _clerk_token() -> str:
+    return os.getenv("CAMPUSQ_CLERK_TOKEN", "").strip()
+
+
+def chat_auth_headers() -> dict[str, str]:
+    token = _clerk_token()
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+    return {}
+
+
+def ensure_chat_auth(api_url: str) -> None:
+    """Fail fast when production requires Clerk auth but no token is configured."""
+    if _clerk_token():
+        return
+    if "localhost" in api_url or "127.0.0.1" in api_url:
+        return
+    resp = None
+    try:
+        resp = requests.post(
+            f"{api_url}/api/chat/stream",
+            data={
+                "question": "ping",
+                "history": "[]",
+                "session_id": "quality-gate-probe",
+                "user_id": "quality-gate",
+            },
+            timeout=30,
+            stream=True,
+        )
+        if resp.status_code == 401:
+            print("ERROR: API requires Clerk auth (401 on /api/chat/stream).")
+            print("Set CAMPUSQ_CLERK_TOKEN to a valid Clerk session JWT.")
+            print("For CI: add CAMPUSQ_CLERK_TOKEN to GitHub Actions secrets.")
+            sys.exit(2)
+    except requests.RequestException:
+        pass
+    finally:
+        if resp is not None:
+            resp.close()
+
 # ── Official Retriive quality gate thresholds ────────────────────────────────
 GATE_THRESHOLDS = {
     "smoke": {"min_pass_rate": 1.00, "label": "Deploy gate — block production deploy if any smoke test fails"},
@@ -109,6 +151,7 @@ def ask_stream(question: str, api_url: str) -> tuple[str, list[dict]]:
     resp = requests.post(
         f"{api_url}/api/chat/stream",
         data={"question": question, "history": "[]", "session_id": "quality-gate", "user_id": "quality-gate"},
+        headers=chat_auth_headers(),
         stream=True,
         timeout=120,
     )
@@ -282,6 +325,7 @@ def main() -> int:
     args = parser.parse_args()
 
     api_url = args.api_url.rstrip("/")
+    ensure_chat_auth(api_url)
 
     if not os.getenv("OPENAI_API_KEY"):
         print("ERROR: OPENAI_API_KEY is required for the LLM judge.")

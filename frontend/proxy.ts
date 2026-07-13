@@ -1,12 +1,8 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { clerkMiddleware } from '@clerk/nextjs/server'
 
-const isProtected = createRouteMatcher(['/chat(.*)'])
-
-export default clerkMiddleware(async (auth, req) => {
-  if (isProtected(req)) {
-    await auth.protect()
-  }
-})
+// Chat is public so students can try CampusQ without hitting a login wall.
+// Clerk still runs so signed-in sessions (history sync, account menu) work.
+export default clerkMiddleware()
 
 export const config = {
   matcher: [

@@ -115,6 +115,26 @@ async def require_user(request: Request) -> str:
     return claims.get("sub", "anonymous")
 
 
+async def optional_user(request: Request) -> str:
+    """
+    Guest-friendly identity for chat.
+
+    Always allows anonymous (so freemium guests work even when REQUIRE_AUTH is
+    on). If a valid Clerk token is present, returns that user id instead.
+    Account-only routes should keep using require_signed_in.
+    """
+    if _authenticated_via_quality_gate_key(request):
+        return "quality-gate"
+
+    token = _bearer_token(request)
+    if token and _CLERK_JWKS_URL:
+        try:
+            return _verify_token(token).get("sub", "anonymous")
+        except Exception:
+            return "anonymous"
+    return "anonymous"
+
+
 async def require_signed_in(request: Request) -> str:
     """
     Always requires a verified Clerk user id — for account-only features

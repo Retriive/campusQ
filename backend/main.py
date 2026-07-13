@@ -29,8 +29,9 @@ from citations import (
     should_emit_citations,
 )
 from retrieval import retrieve_and_rerank
-from auth import require_user, require_admin, require_signed_in
+from auth import require_user, require_admin, require_signed_in, optional_user
 from user_store import UserStore
+from guest_quota import GuestQuotaStore, GuestQuotaExceeded, normalize_guest_id
 
 load_dotenv()
 
@@ -140,6 +141,42 @@ def check_rate_limit(request: Request, scope: str):
     if len(bucket) >= max_calls:
         raise HTTPException(status_code=429, detail="Too many requests — slow down and try again shortly.")
     bucket.append(now)
+
+
+# ── Guest daily quota (signed-out only) ───────────────────────────────────────
+# Soft freemium: try a few questions, then sign up. Resets on the campus day
+# boundary (America/Toronto by default).
+_guest_quota = GuestQuotaStore()
+
+
+def _guest_quota_id(request: Request) -> str:
+    guest_id = normalize_guest_id(request.headers.get("x-guest-id"))
+    if guest_id:
+        return guest_id
+    # Fallback so a missing header can't unlock unlimited anonymous traffic.
+    digest = hashlib.sha256(_client_ip(request).encode()).hexdigest()[:24]
+    return f"ip-{digest}"
+
+
+def consume_guest_quota_if_needed(request: Request, auth_user: str) -> dict | None:
+    """Return quota status for guests; None for signed-in users. Raises 429 at cap."""
+    if auth_user != "anonymous":
+        return None
+    guest_id = _guest_quota_id(request)
+    try:
+        return _guest_quota.consume(guest_id)
+    except GuestQuotaExceeded as exc:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "guest_daily_limit",
+                "message": "You've used today's free questions. Sign up free to keep asking.",
+                "used": exc.used,
+                "limit": exc.limit,
+                "remaining": 0,
+                "day": exc.day,
+            },
+        )
 
 # ── Logging setup ─────────────────────────────────────────────────────────────
 
@@ -399,8 +436,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Admin-Key", "X-Quality-Gate-Key"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Admin-Key", "X-Quality-Gate-Key", "X-Guest-Id"],
+    expose_headers=["X-Guest-Remaining", "X-Guest-Limit"],
 )
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -830,7 +868,7 @@ async def chat_endpoint(
     session_id: str = Form("none"),
     user_id: str = Form("anonymous"),
     file: UploadFile = File(None),
-    auth_user: str = Depends(require_user),
+    auth_user: str = Depends(optional_user),
 ):
     check_rate_limit(request, "chat")
     if not question.strip():
@@ -841,6 +879,7 @@ async def chat_endpoint(
     if auth_user != "anonymous":
         user_id = auth_user
     user_id = user_id[:100]
+    guest_quota = consume_guest_quota_if_needed(request, auth_user)
     user_query = question
     t_start = time.time()
 
@@ -1047,7 +1086,7 @@ async def chat_stream(
     history: str = Form("[]"),
     session_id: str = Form("none"),
     user_id: str = Form("anonymous"),
-    auth_user: str = Depends(require_user),
+    auth_user: str = Depends(optional_user),
 ):
     check_rate_limit(request, "chat")
     question = question[:MAX_QUESTION_CHARS]
@@ -1056,6 +1095,7 @@ async def chat_stream(
     if auth_user != "anonymous":
         user_id = auth_user
     user_id = user_id[:100]
+    guest_quota = consume_guest_quota_if_needed(request, auth_user)
     user_query = question
 
     t_start = time.time()
@@ -1079,6 +1119,9 @@ async def chat_stream(
     )
 
     async def generate():
+        if guest_quota:
+            yield f"data: {json.dumps({'type': 'quota', 'remaining': guest_quota['remaining'], 'limit': guest_quota['limit'], 'used': guest_quota['used']})}\n\n"
+
         _TERM_WORDS = {"fall", "term", "year", "from", "this", "last", "next", "that", "what", "when", "with", "they", "them", "into", "will", "have", "been", "also", "than", "then", "each", "more", "does", "over", "just", "some", "only", "even", "such"}
         course_matches = [
             (d, n.upper())
@@ -1226,6 +1269,10 @@ async def chat_stream(
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
             "Connection": "keep-alive",
+            **({
+                "X-Guest-Remaining": str(guest_quota["remaining"]),
+                "X-Guest-Limit": str(guest_quota["limit"]),
+            } if guest_quota else {}),
         },
     )
 
@@ -1274,6 +1321,14 @@ async def delete_my_chats(request: Request, user_id: str = Depends(require_signe
     check_rate_limit(request, "account")
     _user_store.delete_chats(user_id)
     return {"ok": True}
+
+
+@app.get("/api/guest/quota")
+async def get_guest_quota(request: Request):
+    """Remaining free questions for the current browser guest id (does not consume)."""
+    check_rate_limit(request, "account")
+    guest_id = _guest_quota_id(request)
+    return _guest_quota.status(guest_id)
 
 
 @app.post("/api/waitlist")

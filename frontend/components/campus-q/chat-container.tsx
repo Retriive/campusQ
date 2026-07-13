@@ -18,6 +18,7 @@ import { FeedbackModal } from "./feedback-modal"
 import { CourseCompare } from "./course-compare"
 import { ProgramExplorer } from "./program-explorer"
 import { DeadlineTracker } from "./deadline-tracker"
+import { SignupNudge } from "./signup-nudge"
 import { CoursePills } from "./chat/course-pills"
 import { MobileSessionList } from "./chat/mobile-session-list"
 import { extractCourseCodes, getSuggestions } from "./chat/suggestions"
@@ -25,6 +26,7 @@ import type { CourseCardData, Message } from "./chat/types"
 
 const SESSIONS_KEY = "campusq-sessions"
 const MAX_SESSIONS = 20
+const SIGNUP_NUDGE_DISMISS_KEY = "campusq-signup-nudge-dismissed"
 
 function ChatPrivacyNotice() {
   return (
@@ -38,7 +40,7 @@ function ChatPrivacyNotice() {
 }
 
 export function ChatContainer() {
-  const { user } = useUser()
+  const { user, isSignedIn, isLoaded } = useUser()
   const { getToken } = useAuth()
 
   // Build the Authorization header from the current Clerk session token.
@@ -63,15 +65,34 @@ export function ChatContainer() {
   const [showHistory, setShowHistory] = React.useState(false)
   const [lastQuery, setLastQuery] = React.useState("")
   const [expandedPrereq, setExpandedPrereq] = React.useState<string | null>(null)
+  const [nudgeDismissed, setNudgeDismissed] = React.useState(true)
+  const [gotFirstAnswer, setGotFirstAnswer] = React.useState(false)
   const messagesEndRef = React.useRef<HTMLDivElement>(null)
 
-  // Load sessions from localStorage
+  // Load sessions + signup-nudge dismiss flag from localStorage
   React.useEffect(() => {
     try {
       const stored = localStorage.getItem(SESSIONS_KEY)
       if (stored) setSessions(JSON.parse(stored))
+      setNudgeDismissed(localStorage.getItem(SIGNUP_NUDGE_DISMISS_KEY) === "1")
     } catch {}
   }, [])
+
+  const dismissSignupNudge = React.useCallback(() => {
+    setNudgeDismissed(true)
+    try {
+      localStorage.setItem(SIGNUP_NUDGE_DISMISS_KEY, "1")
+      track("signup_nudge_dismiss")
+    } catch {}
+  }, [])
+
+  const showSignupNudge =
+    isLoaded &&
+    !isSignedIn &&
+    !nudgeDismissed &&
+    gotFirstAnswer &&
+    !isLoading &&
+    messages.some((m) => m.role === "assistant" && m.content.trim().length > 0)
 
   // Auto-scroll
   React.useEffect(() => {
@@ -253,6 +274,8 @@ export function ChatContainer() {
         saveCurrentChat(prev, sessionId)
         return prev
       })
+      // Soft signup push: ask after the student has already gotten value
+      setGotFirstAnswer(true)
     } catch (error) {
       console.error("Chat error:", error)
       setMessages((prev) =>
@@ -408,6 +431,7 @@ export function ChatContainer() {
 
             {messages.length > 0 && (
               <div className="max-w-2xl mx-auto w-full">
+                {showSignupNudge && <SignupNudge onDismiss={dismissSignupNudge} />}
                 <ChatInput
                   value={input}
                   onChange={setInput}

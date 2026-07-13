@@ -130,8 +130,8 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
                 Ask your first question
                 <ArrowRight className="size-4 transition-transform duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5" />
               </Link>
-              <Link href="/about" className="text-sm text-ink-body hover:text-ink transition-colors">
-                Learn more →
+              <Link href="/sign-up" className="text-sm text-ink-body hover:text-ink transition-colors">
+                Create account →
               </Link>
             </div>
           ) : (
@@ -146,7 +146,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
 
         <p className="mt-7 text-xs text-ink-faint stagger-item" style={{ animationDelay: "340ms" }}>
           {school.live
-            ? `No account needed · Built on official ${school.shortName} documents`
+            ? `Try free — no account needed · Sign up later if you like it`
             : `Not affiliated with ${school.name}`}
         </p>
       </section>

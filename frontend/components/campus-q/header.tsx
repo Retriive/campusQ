@@ -57,8 +57,8 @@ export function Header({ isDark, onToggleDark, onOpenHistory, onHome }: HeaderPr
             <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: "size-7" } }} />
           ) : (
             <SignUpButton mode="redirect">
-              <button className="text-xs font-medium px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-                Sign up
+              <button className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors active:scale-[0.98]">
+                Sign up free
               </button>
             </SignUpButton>
           )

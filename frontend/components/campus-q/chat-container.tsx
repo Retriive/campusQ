@@ -9,6 +9,15 @@ import { cn } from "@/lib/utils"
 import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2 as BarChart2Icon, CalendarDays as CalendarDaysIcon, PenLine } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { API_BASE_URL } from "@/lib/api"
+import {
+  fetchCloudChats,
+  mergeChatPayloads,
+  pushCloudChats,
+  readLocalChatPayload,
+  writeLocalChatPayload,
+  LOCAL_SESSIONS_KEY,
+  MAX_SYNCED_SESSIONS,
+} from "@/lib/chat-sync"
 import { Header } from "./header"
 import { Sidebar, type View, type ChatSession } from "./sidebar"
 import { ChatMessage } from "./chat-message"
@@ -18,18 +27,22 @@ import { FeedbackModal } from "./feedback-modal"
 import { CourseCompare } from "./course-compare"
 import { ProgramExplorer } from "./program-explorer"
 import { DeadlineTracker } from "./deadline-tracker"
+import { SignupNudge } from "./signup-nudge"
 import { CoursePills } from "./chat/course-pills"
 import { MobileSessionList } from "./chat/mobile-session-list"
 import { extractCourseCodes, getSuggestions } from "./chat/suggestions"
 import type { CourseCardData, Message } from "./chat/types"
 
-const SESSIONS_KEY = "campusq-sessions"
-const MAX_SESSIONS = 20
+const MAX_SESSIONS = MAX_SYNCED_SESSIONS
+const SIGNUP_NUDGE_DISMISS_KEY = "campusq-signup-nudge-dismissed"
 
-function ChatPrivacyNotice() {
+function ChatPrivacyNotice({ synced }: { synced: boolean }) {
   return (
     <p className="text-[10px] text-center text-muted-foreground/80 px-4 pt-2 leading-relaxed max-w-2xl mx-auto">
-      Chat history is stored on this device only (browser localStorage). Delete chats in the sidebar or clear site data.{" "}
+      {synced
+        ? "Signed in — chat history syncs to your CampusQ account across devices. "
+        : "Chat history is stored on this device only. Sign up to sync across devices. "}
+      Delete chats in the sidebar or clear site data.{" "}
       <Link href="/privacy" className="underline hover:text-foreground">
         Privacy Policy
       </Link>
@@ -38,7 +51,7 @@ function ChatPrivacyNotice() {
 }
 
 export function ChatContainer() {
-  const { user } = useUser()
+  const { user, isSignedIn, isLoaded } = useUser()
   const { getToken } = useAuth()
 
   // Build the Authorization header from the current Clerk session token.
@@ -63,15 +76,78 @@ export function ChatContainer() {
   const [showHistory, setShowHistory] = React.useState(false)
   const [lastQuery, setLastQuery] = React.useState("")
   const [expandedPrereq, setExpandedPrereq] = React.useState<string | null>(null)
+  const [nudgeDismissed, setNudgeDismissed] = React.useState(true)
+  const [gotFirstAnswer, setGotFirstAnswer] = React.useState(false)
   const messagesEndRef = React.useRef<HTMLDivElement>(null)
+  const syncReadyRef = React.useRef(false)
+  const syncTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const getTokenRef = React.useRef(getToken)
+  getTokenRef.current = getToken
 
-  // Load sessions from localStorage
+  const scheduleCloudPush = React.useCallback(() => {
+    if (!isSignedIn) return
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+    syncTimerRef.current = setTimeout(() => {
+      const payload = readLocalChatPayload()
+      pushCloudChats(() => getTokenRef.current(), payload).catch(() => {})
+    }, 800)
+  }, [isSignedIn])
+
+  // Load local sessions; if signed in, merge with cloud and pull history across devices.
   React.useEffect(() => {
     try {
-      const stored = localStorage.getItem(SESSIONS_KEY)
-      if (stored) setSessions(JSON.parse(stored))
+      const local = readLocalChatPayload()
+      setSessions(local.sessions)
+      setNudgeDismissed(localStorage.getItem(SIGNUP_NUDGE_DISMISS_KEY) === "1")
+    } catch {}
+
+    if (!isLoaded || !isSignedIn) {
+      syncReadyRef.current = !isSignedIn
+      return
+    }
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const cloud = await fetchCloudChats(() => getTokenRef.current())
+        if (cancelled) return
+        const local = readLocalChatPayload()
+        if (!cloud) {
+          syncReadyRef.current = true
+          return
+        }
+        const merged = mergeChatPayloads(local, cloud)
+        writeLocalChatPayload(merged)
+        setSessions(merged.sessions)
+        await pushCloudChats(() => getTokenRef.current(), merged)
+        try { track("chat_sync_hydrated", { sessions: merged.sessions.length }) } catch {}
+      } catch {
+        // Stay on local history if cloud sync is unavailable.
+      } finally {
+        if (!cancelled) syncReadyRef.current = true
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isLoaded, isSignedIn])
+
+  const dismissSignupNudge = React.useCallback(() => {
+    setNudgeDismissed(true)
+    try {
+      localStorage.setItem(SIGNUP_NUDGE_DISMISS_KEY, "1")
+      track("signup_nudge_dismiss")
     } catch {}
   }, [])
+
+  const showSignupNudge =
+    isLoaded &&
+    !isSignedIn &&
+    !nudgeDismissed &&
+    gotFirstAnswer &&
+    !isLoading &&
+    messages.some((m) => m.role === "assistant" && m.content.trim().length > 0)
 
   // Auto-scroll
   React.useEffect(() => {
@@ -90,7 +166,8 @@ export function ChatContainer() {
 
   const persistSessions = (updated: ChatSession[]) => {
     setSessions(updated)
-    localStorage.setItem(SESSIONS_KEY, JSON.stringify(updated))
+    localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(updated))
+    if (syncReadyRef.current) scheduleCloudPush()
   }
 
   const saveCurrentChat = (msgs: Message[], sessionId: string) => {
@@ -128,6 +205,7 @@ export function ChatContainer() {
   const handleDeleteSession = (id: string) => {
     persistSessions(sessions.filter((s) => s.id !== id))
     localStorage.removeItem(`campusq-msgs-${id}`)
+    if (syncReadyRef.current) scheduleCloudPush()
     if (currentSessionId === id) {
       setMessages([])
       setCurrentSessionId(Date.now().toString())
@@ -136,6 +214,7 @@ export function ChatContainer() {
 
   const saveMessages = (msgs: Message[], sessionId: string) => {
     localStorage.setItem(`campusq-msgs-${sessionId}`, JSON.stringify(msgs))
+    if (syncReadyRef.current) scheduleCloudPush()
   }
 
   const handleSubmit = async (overrideInput?: string) => {
@@ -253,6 +332,8 @@ export function ChatContainer() {
         saveCurrentChat(prev, sessionId)
         return prev
       })
+      // Soft signup push: ask after the student has already gotten value
+      setGotFirstAnswer(true)
     } catch (error) {
       console.error("Chat error:", error)
       setMessages((prev) =>
@@ -349,7 +430,7 @@ export function ChatContainer() {
                       isHome
                     />
                     <div className="hidden sm:block">
-                      <ChatPrivacyNotice />
+                      <ChatPrivacyNotice synced={!!isSignedIn} />
                     </div>
                   </div>
                 </div>
@@ -408,6 +489,7 @@ export function ChatContainer() {
 
             {messages.length > 0 && (
               <div className="max-w-2xl mx-auto w-full">
+                {showSignupNudge && <SignupNudge onDismiss={dismissSignupNudge} />}
                 <ChatInput
                   value={input}
                   onChange={setInput}
@@ -415,7 +497,7 @@ export function ChatContainer() {
                   disabled={isLoading}
                 />
                 <div className="hidden sm:block">
-                  <ChatPrivacyNotice />
+                  <ChatPrivacyNotice synced={!!isSignedIn} />
                 </div>
               </div>
             )}

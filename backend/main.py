@@ -29,7 +29,8 @@ from citations import (
     should_emit_citations,
 )
 from retrieval import retrieve_and_rerank
-from auth import require_user, require_admin
+from auth import require_user, require_admin, require_signed_in
+from user_store import UserStore
 
 load_dotenv()
 
@@ -117,6 +118,7 @@ RATE_LIMITS = {
     "lookup": (120, 60),
     "degree_plan": (20, 60),  # each request fans out to N Pinecone fetches
     "calendar": (120, 3600),  # feed polls from calendar apps + add-to-calendar clicks
+    "account": (60, 60),      # cloud chat sync for signed-in users
 }
 
 
@@ -1240,6 +1242,37 @@ async def feedback_endpoint(
     if rating not in ("up", "down"):
         return {"ok": False, "error": "rating must be 'up' or 'down'"}
     log_feedback(session_id[:100], question, answer, rating)
+    return {"ok": True}
+
+
+# ── Account features (signed-in only) ─────────────────────────────────────────
+# Cloud chat sync is the signup benefit: guests stay on-device; accounts roam.
+_user_store = UserStore()
+
+
+@app.get("/api/me/chats")
+async def get_my_chats(request: Request, user_id: str = Depends(require_signed_in)):
+    check_rate_limit(request, "account")
+    return _user_store.get_chats(user_id)
+
+
+@app.put("/api/me/chats")
+async def put_my_chats(request: Request, user_id: str = Depends(require_signed_in)):
+    check_rate_limit(request, "account")
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    try:
+        return _user_store.put_chats(user_id, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.delete("/api/me/chats")
+async def delete_my_chats(request: Request, user_id: str = Depends(require_signed_in)):
+    check_rate_limit(request, "account")
+    _user_store.delete_chats(user_id)
     return {"ok": True}
 
 

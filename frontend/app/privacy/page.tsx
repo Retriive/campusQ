@@ -33,7 +33,8 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Account info</strong> — If you sign in, authentication is handled by Clerk (email, profile basics).</li>
           <li><strong>Chat questions</strong> — Questions you submit are processed to generate answers. Server logs store a truncated copy (up to 300 characters) with a pseudonymized user identifier — never your raw Clerk ID.</li>
-          <li><strong>Chat history on your device</strong> — Conversations are stored in your browser&apos;s <code>localStorage</code> on the device you use. We do not sync chat history to our servers by default.</li>
+          <li><strong>Chat history on your device</strong> — Conversations are stored in your browser&apos;s <code>localStorage</code> on the device you use.</li>
+          <li><strong>Synced chat history (signed-in only)</strong> — If you create an account, we store your recent chat sessions on our servers so you can open them on another device. Guests are not synced.</li>
           <li><strong>Waitlist</strong> — Email address and school interest when you join a waitlist (with your consent).</li>
           <li><strong>Usage analytics</strong> — Anonymous page views and event categories (e.g. question intent type, not full question text).</li>
           <li><strong>Feedback</strong> — Thumbs up/down and optional problem reports you submit.</li>
@@ -49,8 +50,9 @@ export default function PrivacyPage() {
 
         <h2>Data retention</h2>
         <p>
-          Server-side logs are automatically deleted after <strong>90 days</strong>. Chat history in your browser
-          remains until you clear it or delete individual chats in the app.
+          Server-side logs are automatically deleted after <strong>90 days</strong>. Browser chat history
+          remains until you clear it or delete individual chats in the app. Synced account chat history
+          remains until you delete chats in the app or request account deletion.
         </p>
 
         <h2>Who can access data</h2>
@@ -74,7 +76,7 @@ export default function PrivacyPage() {
 
         <h2>Your choices</h2>
         <ul>
-          <li><strong>Clear chat history</strong> — Delete chats in the sidebar or clear site data in your browser.</li>
+          <li><strong>Clear chat history</strong> — Delete chats in the sidebar or clear site data in your browser. If you are signed in, deleting a chat also removes it from synced account storage.</li>
           <li><strong>Deletion requests</strong> — Email <a href="mailto:hello@retriive.com">hello@retriive.com</a> with the email used to sign in or join the waitlist. We will delete matching server-side records within 30 days.</li>
           <li><strong>Waitlist</strong> — Reply to any waitlist email to unsubscribe.</li>
         </ul>

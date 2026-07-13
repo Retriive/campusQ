@@ -21,8 +21,10 @@ CampusQ is an independent AI academic assistant. It is **not** affiliated with, 
 | “Report a problem” submissions | Support and quality fixes | Session ID + truncated Q/A |
 | Waitlist email + school | Notify when a school launches | Email (with explicit consent) |
 | Calendar feed fetches | Usage proof for deadline feature | Anonymous |
+| Synced chat history (signed-in users only) | Cross-device chat restore for accounts | Clerk user id (account store, not public logs) |
 
-**We do not** store full chat transcripts on our servers by default. Chat history lives in the student’s browser (`localStorage`) on their device.
+**Guests:** chat history stays on-device only (`localStorage`).  
+**Signed-in students:** recent chat sessions are also stored in our account sync database so history follows them across devices.
 
 ---
 
@@ -30,6 +32,7 @@ CampusQ is an independent AI academic assistant. It is **not** affiliated with, 
 
 - **Server logs:** automatically deleted after **90 days** (`LOG_RETENTION_DAYS`, default 90).
 - **Browser chat history:** until the student deletes chats or clears site data.
+- **Synced account chat history:** until the student deletes chats in-app or requests account deletion.
 - **Waitlist emails:** until the student unsubscribes or requests deletion.
 
 ---

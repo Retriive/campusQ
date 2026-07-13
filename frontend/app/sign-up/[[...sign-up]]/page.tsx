@@ -27,7 +27,7 @@ export default function SignUpPage() {
             Create your account
           </h1>
           <p style={{ fontSize: 14, color: "#71717a", marginTop: 6 }}>
-            Sign up free to start using your AI academic assistant
+            Free — sync your chats across phone and laptop
           </p>
         </div>
 

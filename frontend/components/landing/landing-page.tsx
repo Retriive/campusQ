@@ -86,7 +86,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
             <ThemeToggle theme={theme} onToggle={toggle} />
             {school.live ? (
               <Link
-                href="/sign-up"
+                href="/chat"
                 className="group inline-flex items-center gap-1.5 rounded-full bg-primary hover:bg-primary-strong px-5 py-2 text-sm text-primary-foreground pill-press"
               >
                 Open app <ArrowRight className="size-3.5 transition-transform duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5" />
@@ -124,14 +124,14 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
           {school.live ? (
             <div className="flex flex-wrap items-center gap-6">
               <Link
-                href="/sign-up"
+                href="/chat"
                 className="group inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-strong px-7 py-3 text-base text-primary-foreground pill-press"
               >
                 Ask your first question
                 <ArrowRight className="size-4 transition-transform duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5" />
               </Link>
-              <Link href="/about" className="text-sm text-ink-body hover:text-ink transition-colors">
-                Learn more →
+              <Link href="/sign-up" className="text-sm text-ink-body hover:text-ink transition-colors">
+                Create account →
               </Link>
             </div>
           ) : (
@@ -146,7 +146,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
 
         <p className="mt-7 text-xs text-ink-faint stagger-item" style={{ animationDelay: "340ms" }}>
           {school.live
-            ? `Free to sign up · Built on official ${school.shortName} documents`
+            ? `Try free — no account needed · Sign up to sync chats`
             : `Not affiliated with ${school.name}`}
         </p>
       </section>
@@ -207,10 +207,10 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
           <div className="border-t border-line px-5 py-4 flex items-center gap-3">
             {school.live ? (
               <>
-                <Link href="/sign-up" className="flex-1 rounded-full border border-line px-5 py-3 text-xs text-ink-faint hover:border-ink-faint hover:text-ink-body transition-colors">
+                <Link href="/chat" className="flex-1 rounded-full border border-line px-5 py-3 text-xs text-ink-faint hover:border-ink-faint hover:text-ink-body transition-colors">
                   Ask anything about {school.shortName}…
                 </Link>
-                <Link href="/sign-up" className="size-10 rounded-full bg-primary hover:bg-primary-strong flex items-center justify-center shrink-0 pill-press">
+                <Link href="/chat" className="size-10 rounded-full bg-primary hover:bg-primary-strong flex items-center justify-center shrink-0 pill-press">
                   <ArrowRight className="size-4 text-primary-foreground" />
                 </Link>
               </>
@@ -318,7 +318,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
         <div className="mt-10">
           {school.live ? (
             <Link
-              href="/sign-up"
+              href="/chat"
               className="group inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-strong px-7 py-3 text-base text-primary-foreground pill-press"
             >
               Open CampusQ free

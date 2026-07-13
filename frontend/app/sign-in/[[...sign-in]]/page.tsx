@@ -27,7 +27,7 @@ export default function SignInPage() {
             Welcome to CampusQ
           </h1>
           <p style={{ fontSize: 14, color: "#71717a", marginTop: 6 }}>
-            Sign in to access your AI academic assistant
+            Sign in to sync your chats across devices
           </p>
         </div>
 

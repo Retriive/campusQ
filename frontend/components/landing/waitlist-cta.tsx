@@ -42,9 +42,11 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
           if (data.ok) {
             setJoined(true)
           } else {
-            setError(data.error === "consent required"
-              ? "Please agree to the privacy notice before joining."
-              : "That email didn't look right — try again.")
+            setError(
+              data.error === "consent required"
+                ? "Please agree to the privacy notice before joining."
+                : "That email didn't look right — try again."
+            )
           }
         } catch {
           setError("Something went wrong — try again.")
@@ -52,24 +54,24 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
           setSubmitting(false)
         }
       }}
-      className="flex flex-col gap-1.5"
+      className="flex flex-col gap-2 max-w-xl"
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
         <input
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@school.ca"
-          className="text-sm px-5 py-3 rounded-full border border-line bg-canvas-raised text-ink placeholder:text-ink-faint outline-none focus:border-primary transition-colors w-full max-w-sm sm:w-64"
+          className="text-sm px-4 py-3 rounded-xl border border-line bg-canvas text-ink placeholder:text-ink-faint outline-none focus:border-primary transition-[border-color] duration-200 w-full sm:w-64"
         />
         <button
           type="submit"
           disabled={submitting || !consented}
-          className="group inline-flex items-center gap-2 rounded-full bg-primary hover:bg-primary-strong px-6 py-3 text-sm text-primary-foreground pill-press shrink-0 disabled:opacity-60"
+          className="land-press group inline-flex items-center justify-center gap-2 rounded-xl bg-ink px-6 py-3 text-sm font-semibold text-canvas shrink-0 disabled:opacity-55"
         >
           {submitting ? "Joining…" : "Join waitlist"}
-          <ArrowRight className="size-4 transition-transform duration-200 ease-[var(--ease-out)] group-hover:translate-x-0.5" />
+          <ArrowRight className="size-4 transition-transform duration-200 ease-[var(--ease-land-out)] group-hover:translate-x-0.5" />
         </button>
       </div>
       <label className="flex items-start gap-2 max-w-md text-xs text-ink-faint cursor-pointer">
@@ -88,7 +90,7 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
           .
         </span>
       </label>
-      {error && <p className="animate-message-in text-xs text-red-400">{error}</p>}
+      {error && <p className="animate-message-in text-xs text-red-500">{error}</p>}
     </form>
   )
 }

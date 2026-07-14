@@ -27,9 +27,10 @@ export function useLandingTheme() {
 export function ThemeToggle({ theme, onToggle }: { theme: "light" | "dark"; onToggle: () => void }) {
   return (
     <button
+      type="button"
       onClick={onToggle}
       aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-      className="size-9 rounded-full border border-line text-ink-body hover:text-ink flex items-center justify-center transition-colors"
+      className="land-press size-9 rounded-xl border border-line text-ink-body hover:text-ink flex items-center justify-center transition-colors duration-200"
     >
       {theme === "light" ? <Moon className="size-4" /> : <Sun className="size-4" />}
     </button>

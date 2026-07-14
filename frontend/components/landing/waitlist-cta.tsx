@@ -18,7 +18,7 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
 
   if (joined) {
     return (
-      <div className="animate-message-in inline-flex items-center gap-2 text-sm text-ink">
+      <div className="inline-flex items-center gap-2 text-sm text-ink">
         <Check className="size-4 text-primary-ink" />
         You&apos;re on the list — we&apos;ll email you when {school} is ready.
       </div>
@@ -54,27 +54,27 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
           setSubmitting(false)
         }
       }}
-      className="flex flex-col gap-2 max-w-xl"
+      className="flex flex-col gap-2.5 max-w-lg"
     >
-      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
+      <div className="flex flex-col sm:flex-row gap-2.5">
         <input
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@school.ca"
-          className="text-sm px-4 py-3 rounded-xl border border-line bg-canvas text-ink placeholder:text-ink-faint outline-none focus:border-primary transition-[border-color] duration-200 w-full sm:w-64"
+          className="text-sm px-4 py-3 rounded-md border border-line bg-canvas-raised text-ink placeholder:text-ink-faint outline-none focus:border-ink/40 transition-[border-color] duration-200 w-full sm:flex-1"
         />
         <button
           type="submit"
           disabled={submitting || !consented}
-          className="land-press group inline-flex items-center justify-center gap-2 rounded-xl bg-ink px-6 py-3 text-sm font-semibold text-canvas shrink-0 disabled:opacity-55"
+          className="land-press inline-flex items-center justify-center gap-2 rounded-md bg-ink px-5 py-3 text-sm font-semibold text-canvas shrink-0 disabled:opacity-50"
         >
           {submitting ? "Joining…" : "Join waitlist"}
-          <ArrowRight className="size-4 transition-transform duration-200 ease-[var(--ease-land-out)] group-hover:translate-x-0.5" />
+          <ArrowRight className="size-4" />
         </button>
       </div>
-      <label className="flex items-start gap-2 max-w-md text-xs text-ink-faint cursor-pointer">
+      <label className="flex items-start gap-2 text-xs text-ink-faint cursor-pointer">
         <input
           type="checkbox"
           checked={consented}
@@ -84,13 +84,13 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
         />
         <span>
           I agree to receive emails about CampusQ for {school} and have read the{" "}
-          <Link href="/privacy" className="text-link-muted underline underline-offset-2 hover:text-ink">
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-ink">
             Privacy Policy
           </Link>
           .
         </span>
       </label>
-      {error && <p className="animate-message-in text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </form>
   )
 }

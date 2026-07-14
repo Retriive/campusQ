@@ -13,7 +13,7 @@ export function UniversityToggle({
     <div
       role="tablist"
       aria-label="University"
-      className="inline-flex flex-wrap items-center gap-0.5 rounded-xl border border-line bg-canvas/70 p-1 backdrop-blur-sm"
+      className="inline-flex flex-wrap items-center gap-1"
     >
       {SCHOOL_LIST.map((s) => {
         const active = activeId === s.id
@@ -25,15 +25,15 @@ export function UniversityToggle({
             aria-selected={active}
             data-school={s.id}
             onClick={() => onSelect(s.id)}
-            className={`land-press text-xs px-3 py-1.5 rounded-lg transition-[background-color,color,transform] duration-200 ${
+            className={`land-press text-[13px] px-3 py-1.5 rounded-md transition-[background-color,color,transform] duration-200 ${
               active
                 ? "bg-ink text-canvas font-semibold"
-                : "text-ink-faint hover:text-ink"
+                : "text-ink-faint hover:text-ink hover:bg-canvas-raised"
             }`}
           >
             {s.shortName}
             {!s.live && (
-              <span className={`ml-1 text-[9px] uppercase tracking-[0.12em] ${active ? "opacity-60" : "opacity-50"}`}>
+              <span className={`ml-1 text-[10px] tracking-wide ${active ? "opacity-60" : "opacity-45"}`}>
                 soon
               </span>
             )}

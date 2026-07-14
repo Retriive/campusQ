@@ -355,32 +355,29 @@
   }
 }
 
-/* ── Landing theming — Ink & Signal ─────────────────────────────────────
-   Cool paper canvas + deep ink type + school-driven signal accents.
-   Marketing only; app chrome keeps its own tokens. */
+/* ── Landing theming ────────────────────────────────────────────────────
+   Soft stone paper + deep ink. School accents via [data-school]. */
 .landing-track {
-  --canvas: #e7edf3;
-  --canvas-raised: #f3f6f9;
-  --line: #c4cfdb;
-  --ink: #0a1220;
-  --ink-body: #3d4a5c;
-  --ink-faint: #6b7a8c;
-  --link-muted: #5a6a7c;
+  --canvas: #f4f5f2;
+  --canvas-raised: #fbfbf9;
+  --line: #d9ddd6;
+  --ink: #11140f;
+  --ink-body: #4a5248;
+  --ink-faint: #748074;
+  --link-muted: #65706a;
   --card-shadow: none;
-  --land-display: var(--font-land-display), ui-sans-serif, system-ui, sans-serif;
+  --land-display: var(--font-land-display), "Times New Roman", serif;
   --land-body: var(--font-land-body), ui-sans-serif, system-ui, sans-serif;
-  --ease-land-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-land-inout: cubic-bezier(0.77, 0, 0.175, 1);
-  --ease-land-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-land-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 .landing-track.dark {
-  --canvas: #070b12;
-  --canvas-raised: #0f1623;
-  --line: #243044;
-  --ink: #eef3f8;
-  --ink-body: #9aabbd;
-  --ink-faint: #6e8093;
-  --link-muted: #8fa0b2;
+  --canvas: #0d0f0c;
+  --canvas-raised: #151814;
+  --line: #2a3028;
+  --ink: #f2f4ef;
+  --ink-body: #a7b0a4;
+  --ink-faint: #7a8476;
+  --link-muted: #8f998b;
   --card-shadow: none;
 }
 
@@ -429,218 +426,57 @@
   }
 }
 
-/* ── Landing motion (marketing / first-visit — can be bold) ─────────────
-   Purpose: explain the product + make first paint feel intentional.
-   Rules: never scale(0); ease-out / expo for enters; GPU props; reduced-motion. */
-
-/* Brand — masked reveal + rise (clip-path uncover) */
-@keyframes land-brand {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 36px, 0) scale(0.94);
-    clip-path: inset(0 0 88% 0);
-    filter: blur(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-    clip-path: inset(0 0 0 0);
-    filter: blur(0);
-  }
-}
-
-.land-brand {
-  opacity: 0;
-  animation: land-brand 1100ms var(--ease-land-expo) forwards;
-}
-
-/* Hero copy cascade — stronger travel than UI popovers */
+/* ── Landing motion — quiet, purposeful ───────────────────────────────── */
 @keyframes land-rise {
   from {
     opacity: 0;
-    transform: translate3d(0, 28px, 0) scale(0.96);
-    filter: blur(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-    filter: blur(0);
-  }
-}
-
-.stagger-item {
-  opacity: 0;
-  animation: land-rise 780ms var(--ease-land-expo) forwards;
-}
-
-/* Demo chat — directional slide + scale-in, blur bridging */
-@keyframes land-msg-user {
-  from {
-    opacity: 0;
-    transform: translate3d(28px, 18px, 0) scale(0.94);
-    filter: blur(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-    filter: blur(0);
-  }
-}
-@keyframes land-msg-assistant {
-  from {
-    opacity: 0;
-    transform: translate3d(-28px, 18px, 0) scale(0.94);
-    filter: blur(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-    filter: blur(0);
-  }
-}
-.land-msg-user {
-  animation: land-msg-user 720ms var(--ease-land-expo) both;
-}
-.land-msg-assistant {
-  animation: land-msg-assistant 720ms var(--ease-land-expo) both;
-}
-
-/* Product plane — clip reveal from bottom, then settle */
-@keyframes land-clip-reveal {
-  0% {
-    clip-path: inset(100% 0 0 0);
-    transform: translate3d(0, 40px, 0);
-  }
-  70% {
-    clip-path: inset(0 0 0 0);
-    transform: translate3d(0, 0, 0);
-  }
-  100% {
-    clip-path: inset(0 0 0 0);
-    transform: translate3d(0, 0, 0);
-  }
-}
-.land-clip-reveal {
-  clip-path: inset(100% 0 0 0);
-  animation: land-clip-reveal 1100ms var(--ease-land-expo) 420ms forwards;
-}
-
-/* Status pulse — rare marketing affinity, subtle */
-@keyframes land-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.35);
-    opacity: 0.55;
-  }
-}
-.land-pulse {
-  animation: land-pulse 2.4s var(--ease-land-inout) infinite;
-}
-
-/* Ambient mesh — faster, more present drift */
-@keyframes land-float {
-  0% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(4%, -5%, 0) scale(1.08);
-  }
-  100% {
-    transform: translate3d(-2%, 3%, 0) scale(1.02);
-  }
-}
-.land-mesh {
-  animation: land-float 12s var(--ease-land-inout) infinite alternate;
-  will-change: transform;
-}
-
-/* Press + hover feedback */
-.land-press {
-  transition: background-color 350ms ease, color 350ms ease, border-color 350ms ease,
-    transform 150ms var(--ease-land-out), box-shadow 220ms ease;
-}
-.land-press:active {
-  transform: scale(0.97);
-}
-@media (hover: hover) and (pointer: fine) {
-  .land-press:hover {
-    transform: translateY(-2px);
-  }
-  .land-press:active {
-    transform: scale(0.97);
-  }
-  .land-arrow {
-    transition: transform 220ms var(--ease-land-out);
-  }
-  .group:hover .land-arrow {
-    transform: translateX(4px);
-  }
-}
-
-.pill-press {
-  transition: background-color 350ms ease, color 350ms ease, border-color 350ms ease,
-    transform 150ms var(--ease-out);
-}
-.pill-press:active {
-  transform: scale(0.97);
-}
-
-/* Scroll reveal — deeper travel, expo settle */
-.reveal {
-  opacity: 0;
-  transform: translate3d(0, 40px, 0) scale(0.97);
-  filter: blur(3px);
-}
-.reveal.is-visible {
-  opacity: 1;
-  transform: translate3d(0, 0, 0) scale(1);
-  filter: blur(0);
-  transition:
-    opacity 860ms var(--ease-land-expo),
-    transform 860ms var(--ease-land-expo),
-    filter 860ms var(--ease-land-expo);
-}
-
-/* Stat ticker digit roll helper */
-@keyframes land-tick {
-  from {
-    opacity: 0;
-    transform: translateY(40%);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-.land-tick {
-  display: inline-block;
-  animation: land-tick 560ms var(--ease-land-expo) both;
+
+.stagger-item {
+  opacity: 0;
+  animation: land-rise 520ms var(--ease-land-out, var(--ease-out)) forwards;
+}
+
+.land-press {
+  transition: background-color 250ms ease, color 250ms ease, border-color 250ms ease,
+    transform 140ms var(--ease-land-out, var(--ease-out));
+}
+.land-press:active {
+  transform: scale(0.97);
+}
+
+.pill-press {
+  transition: background-color 250ms ease, color 250ms ease, border-color 250ms ease,
+    transform 140ms var(--ease-out);
+}
+.pill-press:active {
+  transform: scale(0.97);
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 560ms var(--ease-land-out, var(--ease-out)),
+    transform 560ms var(--ease-land-out, var(--ease-out));
 }
 
 @media (prefers-reduced-motion: reduce) {
   .reveal {
     opacity: 1;
     transform: none;
-    filter: none;
   }
-  .land-clip-reveal,
-  .land-brand,
-  .stagger-item,
-  .land-msg-user,
-  .land-msg-assistant,
-  .land-tick {
-    clip-path: none;
-    animation: none;
+  .stagger-item {
     opacity: 1;
-    transform: none;
-    filter: none;
-  }
-  .land-mesh,
-  .land-pulse {
     animation: none;
   }
 }
@@ -657,12 +493,6 @@
     scroll-behavior: auto !important;
   }
   .stagger-item {
-    opacity: 1;
-  }
-  .land-brand,
-  .land-msg-user,
-  .land-msg-assistant,
-  .land-tick {
     opacity: 1;
   }
 }

@@ -229,6 +229,14 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
             with open(result.preview_path, "w", encoding="utf-8") as f:
                 for r in records:
                     f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            # Quarantined records land in a sibling preview so a dry run shows
+            # what would be blocked and why, not just what would publish.
+            if quarantined:
+                qpath = result.preview_path.replace(".jsonl", ".quarantine.jsonl")
+                with open(qpath, "w", encoding="utf-8") as f:
+                    for rec, reasons in quarantined:
+                        f.write(json.dumps({"reasons": reasons, "record": rec},
+                                           ensure_ascii=False) + "\n")
             result.message = (
                 f"{len(records)} records written to preview (no Pinecone writes)"
                 + (f", {result.quarantined} quarantined" if result.quarantined else "")

@@ -221,3 +221,26 @@ def test_junk_quarantine_does_not_protect_old_vectors():
     assert validate.keep_previous(["date 2016-11-15 is more than 365 days in the past"])
     assert not validate.keep_previous(["boilerplate: identical body on 4 pages (kept https://x/a)"])
     assert not validate.keep_previous(["body under 12 words (menu/teaser junk)"])
+
+
+def test_dry_run_writes_quarantine_preview(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(pipeline, "RAW_DIR", str(tmp_path / "raw"))
+    monkeypatch.setattr(pipeline, "PREVIEW_DIR", str(tmp_path))
+    state = IngestState(str(tmp_path / "state.db"))
+
+    from ingest.fetch import FetchedPage
+    page = FetchedPage(url="https://x/dates", kind="html",
+                       text="Fall 2026 dates. " * 10, content_hash="h1")
+    pipeline._persist_raw(state, page, "test", "dates", "llm_dates", log=lambda *_: None)
+
+    result = pipeline.run_category(
+        "test", "dates", sources=[], state=state, replay=True, dry_run=True,
+        llm=_two_deadline_llm, log=lambda *_: None)
+
+    assert result.status == "dry_run"
+    qpath = Path(result.preview_path.replace(".jsonl", ".quarantine.jsonl"))
+    entries = [json.loads(l) for l in qpath.read_text(encoding="utf-8").splitlines()]
+    assert len(entries) == 1
+    assert any("past" in r for r in entries[0]["reasons"])
+    # Dry run must not persist quarantine rows to state
+    assert state.quarantined_for("test") == []

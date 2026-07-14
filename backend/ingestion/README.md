@@ -21,6 +21,7 @@ Run from `backend/` with `OPENAI_API_KEY` + `PINECONE_API_KEY` in `.env`:
 ```bash
 py scripts/audit_index.py                                        # 1. baseline counts
 py -m ingestion.run --school carleton --category library --dry-run   # 2. preview, no writes
+py scripts/preview_report.py carleton library                   # 2b. quality report on the preview
 py -m ingestion.run --school carleton --category library        # 3. small category first
 py -m ingestion.run --school carleton --category courses --dry-run   # 4. preview (~200 pages, slow)
 py -m ingestion.run --school carleton --category courses        # 5. real run

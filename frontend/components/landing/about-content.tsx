@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { ArrowRight, ShieldCheck, Mail } from "lucide-react"
 import { ThemeToggle, useLandingTheme } from "@/components/landing/theme"
+import { landBody, landDisplay } from "@/components/landing/fonts"
 
 // Dots use each school's own accent token theme (see [data-school] in globals.css)
 const SCHOOLS_STATUS = [
@@ -14,25 +15,25 @@ const SCHOOLS_STATUS = [
   { name: "McGill University", short: "McGill", status: "soon" as const, school: "mcgill", href: "/mcgill" },
 ]
 
-// Same dual-track visual system as the landing page (frontend/DESIGN.md).
+// Same Ink & Signal system as the landing page.
 export function AboutContent() {
   const { theme, toggle } = useLandingTheme()
 
   return (
-    <div className={`landing-track ${theme === "dark" ? "dark" : ""}`}>
-    <div data-school="carleton" className="min-h-screen bg-canvas text-ink flex flex-col [font-feature-settings:'ss03'] transition-colors duration-300">
+    <div className={`landing-track ${landDisplay.variable} ${landBody.variable} ${theme === "dark" ? "dark" : ""}`}>
+    <div data-school="carleton" className="min-h-screen bg-canvas text-ink flex flex-col [font-family:var(--land-body)] antialiased">
 
       {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-canvas border-b border-line transition-colors duration-300">
+      <nav className="sticky top-0 z-50 bg-canvas border-b border-line">
         <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="text-base tracking-tight">
-            <span className="font-[550]">Campus</span><span className="font-[330] text-primary-ink">Q</span>
+          <Link href="/" className="[font-family:var(--land-display)] text-[1.15rem] font-bold tracking-[-0.03em]">
+            Campus<span className="text-primary-ink">Q</span>
           </Link>
           <div className="flex items-center gap-4">
             <ThemeToggle theme={theme} onToggle={toggle} />
             <Link
               href="/chat"
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary hover:bg-primary-strong px-5 py-2 text-sm text-primary-foreground transition-colors"
+              className="land-press inline-flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground"
             >
               Open app <ArrowRight className="size-3.5" />
             </Link>
@@ -41,10 +42,10 @@ export function AboutContent() {
       </nav>
 
       {/* Hero */}
-      <section className="border-b border-line transition-colors duration-300">
+      <section className="border-b border-line">
         <div className="max-w-[1400px] mx-auto px-6 pt-20 pb-16 md:pt-28 md:pb-24">
-          <p className="text-xs uppercase tracking-[0.72px] text-ink-faint mb-6">About CampusQ</p>
-          <h1 className="font-[330] leading-[1.05] text-[clamp(2.5rem,6vw,4.375rem)] text-balance max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-faint mb-6">About CampusQ</p>
+          <h1 className="[font-family:var(--land-display)] font-extrabold leading-[1.05] tracking-[-0.045em] text-[clamp(2.5rem,6vw,4.375rem)] text-balance max-w-3xl">
             Academic questions,<br />
             <span className="text-primary-ink">answered instantly.</span>
           </h1>

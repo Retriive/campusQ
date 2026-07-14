@@ -355,33 +355,32 @@
   }
 }
 
-/* ── Landing two-track theming (frontend/DESIGN.md) ─────────────────────
-   Marketing pages run two canvas tracks: a warm-cream transactional track
-   (default / light) and a pure-black cinematic track (.dark on the same
-   wrapper). Components inside use bg-canvas / text-ink / border-line and
-   flip tracks with a single class. */
+/* ── Landing theming — Ink & Signal ─────────────────────────────────────
+   Cool paper canvas + deep ink type + school-driven signal accents.
+   Marketing only; app chrome keeps its own tokens. */
 .landing-track {
-  --canvas: #fbfbf5;
-  --canvas-raised: #ffffff;
-  --line: #e4e4e7;
-  --ink: #09090b;
-  --ink-body: #52525b;
-  --ink-faint: #71717a;
-  --link-muted: #6b7280;
-  /* Level-3 stacked tiny shadows — soft paper halo on light cards */
-  --card-shadow: 0 8px 8px rgba(0, 0, 0, 0.03), 0 4px 4px rgba(0, 0, 0, 0.03),
-    0 2px 2px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --canvas: #e7edf3;
+  --canvas-raised: #f3f6f9;
+  --line: #c4cfdb;
+  --ink: #0a1220;
+  --ink-body: #3d4a5c;
+  --ink-faint: #6b7a8c;
+  --link-muted: #5a6a7c;
+  --card-shadow: none;
+  --land-display: var(--font-land-display), ui-sans-serif, system-ui, sans-serif;
+  --land-body: var(--font-land-body), ui-sans-serif, system-ui, sans-serif;
+  --ease-land-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-land-inout: cubic-bezier(0.77, 0, 0.175, 1);
 }
 .landing-track.dark {
-  --canvas: #000000;
-  --canvas-raised: #0a0a0a;
-  --line: #1e2c31;
-  --ink: #ffffff;
-  --ink-body: #a1a1aa;
-  --ink-faint: #71717a;
-  --link-muted: #9dabad;
-  /* Cinematic cards stay flat — just a top-edge inset sheen */
-  --card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --canvas: #070b12;
+  --canvas-raised: #0f1623;
+  --line: #243044;
+  --ink: #eef3f8;
+  --ink-body: #9aabbd;
+  --ink-faint: #6e8093;
+  --link-muted: #8fa0b2;
+  --card-shadow: none;
 }
 
 /* iOS safe area padding for the bottom nav */
@@ -429,49 +428,92 @@
   }
 }
 
-/* Stagger helper — items fade up in sequence; set animation-delay inline. */
-@keyframes fade-in-up {
+/* Landing orchestration — scale-in from 0.96 + fade (never scale(0)). */
+@keyframes land-rise {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(10px) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .stagger-item {
   opacity: 0;
-  animation: fade-in-up 320ms var(--ease-out) forwards;
+  animation: land-rise 520ms var(--ease-land-out, var(--ease-out)) forwards;
 }
 
-/* Pill CTAs: slow color crossfade (school-accent changes) but fast press
-   feedback — two durations one class can't express in utilities alone. */
+/* Press feedback — any CTA / pressable. */
+.land-press {
+  transition: background-color 400ms ease, color 400ms ease, border-color 400ms ease,
+    transform 150ms var(--ease-land-out, var(--ease-out));
+}
+.land-press:active {
+  transform: scale(0.97);
+}
+
+/* Keep old class alias so non-landing pressables don't break. */
 .pill-press {
-  transition: background-color 500ms, color 500ms, border-color 500ms,
+  transition: background-color 400ms ease, color 400ms ease, border-color 400ms ease,
     transform 150ms var(--ease-out);
 }
 .pill-press:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
-/* Scroll reveal — sections rise + fade in the first time they enter the
-   viewport (landing page). Hidden state only applies once JS marks the
-   element, so content is never invisible without JavaScript. */
+/* Full-bleed hero stage — clip-path reveal once on load. */
+@keyframes land-clip-reveal {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+.land-clip-reveal {
+  clip-path: inset(100% 0 0 0);
+  animation: land-clip-reveal 820ms var(--ease-land-inout, var(--ease-in-out)) 380ms forwards;
+}
+
+/* Ambient mesh drift — decorative idle on marketing hero only. */
+@keyframes land-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, -3%, 0) scale(1.04);
+  }
+}
+.land-mesh {
+  animation: land-float 18s var(--ease-land-inout, ease-in-out) infinite alternate;
+  will-change: transform;
+}
+
+/* Scroll reveal — once per element, GPU props only. */
 .reveal {
   opacity: 0;
-  transform: translateY(14px);
+  transform: translateY(12px);
 }
 .reveal.is-visible {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 600ms var(--ease-out), transform 600ms var(--ease-out);
+  transition: opacity 520ms var(--ease-land-out, var(--ease-out)),
+    transform 520ms var(--ease-land-out, var(--ease-out));
 }
 @media (prefers-reduced-motion: reduce) {
   .reveal {
     opacity: 1;
     transform: none;
+  }
+  .land-clip-reveal {
+    clip-path: none;
+    animation: none;
+  }
+  .land-mesh {
+    animation: none;
   }
 }
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { LandingPage } from "@/components/landing/landing-page"
 import { SCHOOLS } from "@/lib/landing-schools"
 
-const school = SCHOOLS.uottawa
+const school = SCHOOLS.waterloo
 
 export const metadata: Metadata = {
   title: `CampusQ for ${school.shortName} — join the waitlist`,
@@ -14,5 +14,5 @@ export const metadata: Metadata = {
 }
 
 export default function Page() {
-  return <LandingPage defaultSchool="uottawa" />
+  return <LandingPage defaultSchool="waterloo" />
 }

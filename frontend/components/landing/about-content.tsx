@@ -6,11 +6,12 @@ import { ThemeToggle, useLandingTheme } from "@/components/landing/theme"
 
 // Dots use each school's own accent token theme (see [data-school] in globals.css)
 const SCHOOLS_STATUS = [
-  { name: "Carleton University", short: "Carleton", status: "live" as const, school: "carleton" },
-  { name: "University of Ottawa", short: "uOttawa", status: "soon" as const, school: "uottawa" },
-  { name: "University of Toronto", short: "UofT", status: "soon" as const, school: "uoft" },
-  { name: "University of Waterloo", short: "Waterloo", status: "soon" as const, school: "waterloo" },
-  { name: "Western University", short: "Western", status: "soon" as const, school: "western" },
+  { name: "Carleton University", short: "Carleton", status: "live" as const, school: "carleton", href: "/" },
+  { name: "University of Ottawa", short: "uOttawa", status: "soon" as const, school: "uottawa", href: "/uottawa" },
+  { name: "University of Toronto", short: "UofT", status: "soon" as const, school: "uoft", href: "/uoft" },
+  { name: "University of Waterloo", short: "Waterloo", status: "soon" as const, school: "waterloo", href: "/waterloo" },
+  { name: "Western University", short: "Western", status: "soon" as const, school: "western", href: "/western" },
+  { name: "McGill University", short: "McGill", status: "soon" as const, school: "mcgill", href: "/mcgill" },
 ]
 
 // Same dual-track visual system as the landing page (frontend/DESIGN.md).
@@ -87,10 +88,11 @@ export function AboutContent() {
           <p className="text-xs uppercase tracking-[0.72px] text-ink-faint mb-8">Where we&apos;re at</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {SCHOOLS_STATUS.map((s) => (
-              <div
+              <Link
                 key={s.name}
+                href={s.href}
                 data-school={s.school}
-                className={`rounded-xl border border-line p-5 flex flex-col gap-3 transition-colors duration-300 ${
+                className={`rounded-xl border border-line p-5 flex flex-col gap-3 transition-colors duration-300 hover:border-primary-line ${
                   s.status === "live" ? "bg-canvas-raised [box-shadow:var(--card-shadow)]" : "bg-canvas"
                 }`}
               >
@@ -108,11 +110,11 @@ export function AboutContent() {
                     </span>
                   ) : (
                     <span className="text-[10px] uppercase tracking-[0.72px] text-ink-faint">
-                      Coming soon
+                      Join waitlist →
                     </span>
                   )}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </section>

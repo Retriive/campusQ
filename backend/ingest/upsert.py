@@ -14,7 +14,6 @@ instead of gutting production data.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
 
 EMBED_MODEL = "text-embedding-3-small"
 EMBED_BATCH = 100
@@ -89,11 +88,8 @@ def _existing_ids(index, namespace: str) -> set[str]:
 def promote(index, namespace: str, records: list[dict], vectors: list[list[float]],
             delete_stale: bool, log=print) -> dict:
     """Upsert over live by stable ID, then (optionally) remove stale IDs."""
-    # Freshness stamp: lets "how old is this namespace's data?" be answered
-    # from Pinecone metadata alone (legacy scrapers never recorded this).
-    scraped_at = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     payload = [
-        {"id": r["id"], "values": v, "metadata": {**r["metadata"], "scraped_at": scraped_at}}
+        {"id": r["id"], "values": v, "metadata": r["metadata"]}
         for r, v in zip(records, vectors)
     ]
 

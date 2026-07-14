@@ -42,16 +42,6 @@ CREATE TABLE IF NOT EXISTS extra_sources (
     extractor     TEXT DEFAULT 'auto',
     added_at      TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS raw_pages (
-    url           TEXT PRIMARY KEY,
-    school        TEXT NOT NULL,
-    category      TEXT NOT NULL,
-    extractor     TEXT NOT NULL,   -- resolved extractor, so replay is self-contained
-    kind          TEXT,            -- html | pdf
-    content_hash  TEXT,
-    path          TEXT NOT NULL,   -- on-disk cleaned text (the extraction input)
-    fetched_at    TEXT NOT NULL
-);
 """
 
 # SQLite writes from the API's background thread and CLI must not interleave.
@@ -142,36 +132,6 @@ class IngestState:
         with self._conn() as con:
             row = con.execute("SELECT COUNT(*) AS n FROM runs WHERE status = 'running'").fetchone()
             return row["n"] > 0
-
-    # ── Raw lake ───────────────────────────────────────────────────────────
-    def save_raw_page(self, url: str, school: str, category: str, extractor: str,
-                      kind: str, content_hash: str | None, path: str):
-        """Record a fetched page in the raw lake. One row per URL (latest content),
-        so replay re-extracts current pages without re-crawling."""
-        now = datetime.utcnow().isoformat()
-        with _write_lock, self._conn() as con:
-            con.execute(
-                """INSERT INTO raw_pages (url, school, category, extractor, kind, content_hash, path, fetched_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(url) DO UPDATE SET
-                     school = excluded.school,
-                     category = excluded.category,
-                     extractor = excluded.extractor,
-                     kind = excluded.kind,
-                     content_hash = excluded.content_hash,
-                     path = excluded.path,
-                     fetched_at = excluded.fetched_at""",
-                (url, school, category, extractor, kind, content_hash, path, now),
-            )
-
-    def raw_pages_for(self, school: str, category: str | None = None) -> list[dict]:
-        q = "SELECT * FROM raw_pages WHERE school = ?"
-        args: list = [school]
-        if category:
-            q += " AND category = ?"
-            args.append(category)
-        with self._conn() as con:
-            return [dict(r) for r in con.execute(q + " ORDER BY url", args)]
 
     # ── Admin-added sources ────────────────────────────────────────────────
     def add_extra_source(self, school: str, category: str, url: str, extractor: str = "auto"):

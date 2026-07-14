@@ -74,7 +74,7 @@ def classify_intent(query: str, history: list[dict] | None = None) -> str:
         return "prerequisites"
     if any(k in q for k in ["deadline", "last day", "when is", "when do", "when does", "what date"]):
         return "deadlines"
-    if any(k in q for k in ["cgpa", "gpa", "good standing", "fail", "repeat", "withdraw", "ace ", "academic standing"]):
+    if any(k in q for k in ["cgpa", "gpa", "good standing", "fail", "repeat", "withdraw", "academic standing"]) or re.search(r"\bace\b", q):
         return "regulations"
     if "engineering" in q and any(k in q for k in ["how many times", "attempt", "retake", "try again"]):
         return "regulations"
@@ -166,4 +166,58 @@ def context_is_weak(
     namespaces = {ns for _, ns in matches_with_ns[:8]}
     if intent == "services" and namespaces and namespaces <= {"courses", "schedule"}:
         return "[Authoritative" not in context_text
+    return False
+
+
+# Queries where the system prompt must run even if RAG is empty — otherwise the
+# weak-context short-circuit returns the generic "outside of what I currently
+# know" string and skips crisis / integrity / jailbreak / ratings rules.
+_CRISIS_MARKERS = (
+    "kill myself", "suicide", "suicidal", "self-harm", "self harm",
+    "want to die", "end my life", "hurt myself",
+)
+_JAILBREAK_MARKERS = (
+    "ignore previous", "ignore all previous", "system prompt", "jailbreak",
+    "unrestricted ai", "dan mode", "developer mode", "reveal your",
+    "dump your instructions", "ignore your rules",
+)
+_CHEAT_MARKERS = (
+    "write my assignment", "write my essay", "do my homework",
+    "do my assignment", "solve my midterm", "exam answers", "quiz answers",
+    "complete my assignment", "full graded solution", "finish my assignment",
+    "write my code for me", "write my homework",
+)
+_MEDICAL_LEGAL_MARKERS = (
+    "stop taking my", "should i stop taking", "medication", "prescribe",
+    "diagnose me", "is it legal", "legal advice", "immigration advice",
+)
+_PROF_RATING_MARKERS = (
+    "good prof", "good professor", "professor ratings", "rate my professor",
+    "ratemyprofessors", "teaching style", "is professor", "is prof ",
+)
+
+
+def is_safety_sensitive_query(query: str) -> bool:
+    """True for crisis / jailbreak / cheating / medical-legal / prof-rating asks."""
+    q = (query or "").lower()
+    return any(
+        any(m in q for m in markers)
+        for markers in (
+            _CRISIS_MARKERS,
+            _JAILBREAK_MARKERS,
+            _CHEAT_MARKERS,
+            _MEDICAL_LEGAL_MARKERS,
+            _PROF_RATING_MARKERS,
+        )
+    )
+
+
+def should_consult_model_when_weak(query: str, intent: str) -> bool:
+    """Skip the NO_CONTEXT short-circuit so prompt safety rules can fire."""
+    if is_safety_sensitive_query(query):
+        return True
+    # Off-topic / empty-evidence general asks (no course code): let rules 6 & 13
+    # reply instead of the canned refusal, so we can redirect students.
+    if intent == "general" and not COURSE_CODE_RE.search(query or ""):
+        return True
     return False

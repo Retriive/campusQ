@@ -28,6 +28,12 @@ DATE_CATEGORIES = {"registration", "withdrawal", "exams", "payment",
 MAX_COURSE_CREDITS = 2.0
 MIN_EMBED_CHARS = 30
 
+# A generic chunk body shorter than this is menu/teaser junk, not an answer.
+MIN_GENERIC_WORDS = 12
+# The same body on this many distinct pages is site chrome (contact blocks,
+# footers), not content.
+BOILERPLATE_PAGES = 3
+
 
 def _check_dates(md: dict, today: date) -> list[str]:
     iso = str(md.get("date", ""))
@@ -72,7 +78,54 @@ def validate_record(record: dict, category: str, today: date | None = None) -> l
         reasons += _check_dates(md, today)
     elif category == "courses":
         reasons += _check_courses(md)
+    else:
+        body = str(md.get("text", ""))
+        if len(body.split()) < MIN_GENERIC_WORDS:
+            reasons.append(f"body under {MIN_GENERIC_WORDS} words (menu/teaser junk)")
     return reasons
+
+
+# Quarantine has two flavors: DISTRUST (bad date, contradiction — keep the
+# previously-live vector serving) and JUNK (boilerplate copies, menu fragments
+# — let stale cleanup remove any live copy). Reasons with these prefixes are
+# junk.
+_JUNK_PREFIXES = ("boilerplate:", "body under")
+
+
+def keep_previous(reasons: list[str]) -> bool:
+    """True if this quarantined record's previously-live vector should survive
+    stale cleanup (distrust), False if it's junk that should be purged."""
+    return not all(r.startswith(_JUNK_PREFIXES) for r in reasons)
+
+
+def _normalized_body(record: dict) -> str:
+    return " ".join(str(record.get("metadata", {}).get("text", "")).lower().split())
+
+
+def dedupe_boilerplate(
+    records: list[dict],
+) -> tuple[list[dict], list[tuple[dict, list[str]]]]:
+    """The same chunk body extracted from many pages is site chrome (contact
+    blocks, footers, sidebars) that the per-page extractor can't see. Keep the
+    first occurrence — it might be real, singular info — and quarantine the
+    copies so retrieval isn't flooded with near-identical vectors."""
+    by_body: dict[str, list[dict]] = {}
+    for r in records:
+        by_body.setdefault(_normalized_body(r), []).append(r)
+
+    clean: list[dict] = []
+    quarantined: list[tuple[dict, list[str]]] = []
+    for body, group in by_body.items():
+        pages = {str(g["metadata"].get("source", "")) for g in group}
+        if len(pages) >= BOILERPLATE_PAGES:
+            keep, copies = group[0], group[1:]
+            clean.append(keep)
+            reason = (f"boilerplate: identical body on {len(pages)} pages "
+                      f"(kept {keep['metadata'].get('source', '')})")
+            quarantined += [(g, [reason]) for g in copies]
+        else:
+            clean += group
+    return clean, quarantined
 
 
 def find_date_contradictions(
@@ -117,4 +170,7 @@ def screen(
     if category == "dates":
         clean, contradicted = find_date_contradictions(clean)
         quarantined += contradicted
+    elif category != "courses":
+        clean, boilerplate = dedupe_boilerplate(clean)
+        quarantined += boilerplate
     return clean, quarantined

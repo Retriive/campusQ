@@ -256,7 +256,9 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
         vectors = upsert_mod.embed_records(records, openai_client)
         stats = upsert_mod.promote(index, category, records, vectors,
                                    delete_stale=full_coverage,
-                                   keep_ids=frozenset(rec["id"] for rec, _ in quarantined),
+                                   keep_ids=frozenset(
+                                       rec["id"] for rec, reasons in quarantined
+                                       if validate_mod.keep_previous(reasons)),
                                    log=log)
         result.upserted = stats["upserted"]
         result.stale_deleted = stats["stale_deleted"]

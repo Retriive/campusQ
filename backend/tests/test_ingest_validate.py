@@ -181,3 +181,43 @@ def test_pipeline_quarantines_and_keeps_old_vector(tmp_path: Path, monkeypatch):
     # Quarantine row persisted with the reason
     rows = state.quarantined_for("test", "dates")
     assert len(rows) == 1 and "past" in rows[0]["reasons"]
+
+
+# ── generic-content quality: junk + boilerplate ─────────────────────────────
+
+def _generic_record(body: str, source: str, title: str = "Info") -> dict:
+    return {
+        "id": f"services-{_stable_id(source, title.lower(), body[:200])}",
+        "embed_text": f"{title}. {body}",
+        "metadata": {"title": title, "category": "services", "text": body, "source": source},
+    }
+
+
+def test_short_generic_body_is_junk():
+    rec = _generic_record("Read more about our services here today", "https://x/a")
+    reasons = validate.validate_record(rec, "services", TODAY)
+    assert any("words" in r for r in reasons)
+
+
+def test_boilerplate_across_pages_kept_once():
+    body = ("Contact the Registrar's Office at 613-520-3500 or visit the "
+            "student services desk in Tory Building room 300 for assistance.")
+    copies = [_generic_record(body, f"https://x/page{i}") for i in range(4)]
+    unique = _generic_record(
+        "Study permits must be renewed before expiry; ISSO advisors can help "
+        "with the IRCC paperwork and processing timelines.", "https://x/page1")
+
+    clean, quarantined = validate.screen(copies + [unique], "services", TODAY)
+
+    assert unique in clean
+    kept_copies = [r for r in clean if r["metadata"]["text"] == body]
+    assert len(kept_copies) == 1
+    assert len(quarantined) == 3
+    assert all("boilerplate" in reasons[0] for _, reasons in quarantined)
+
+
+def test_junk_quarantine_does_not_protect_old_vectors():
+    # DISTRUST (bad date) keeps the previously-live vector; JUNK does not.
+    assert validate.keep_previous(["date 2016-11-15 is more than 365 days in the past"])
+    assert not validate.keep_previous(["boilerplate: identical body on 4 pages (kept https://x/a)"])
+    assert not validate.keep_previous(["body under 12 words (menu/teaser junk)"])

@@ -5,6 +5,7 @@ Usage (from backend/):
   py -m ingest.run --school carleton --category dates --dry-run
   py -m ingest.run --school carleton --category dates       # incremental (changed pages only)
   py -m ingest.run --school carleton --force                # full re-crawl, all categories
+  py -m ingest.run --school carleton --reextract --dry-run  # replay raw lake offline, preview
 
 --dry-run extracts everything and writes ingest_preview_<school>_<category>.jsonl
 so you can eyeball records before anything touches Pinecone.
@@ -49,6 +50,8 @@ def main() -> int:
     parser.add_argument("--category", default=None, help="one category (namespace); default all")
     parser.add_argument("--force", action="store_true", help="re-extract unchanged pages / override shrink guard")
     parser.add_argument("--dry-run", action="store_true", help="extract to a preview file; no Pinecone writes")
+    parser.add_argument("--reextract", action="store_true",
+                        help="replay extraction from the raw lake (no crawling); combine with --dry-run to preview")
     parser.add_argument("--list", action="store_true", help="show configured sources and recent runs")
     args = parser.parse_args()
 
@@ -62,7 +65,8 @@ def main() -> int:
         print("PINECONE_API_KEY is required (or use --dry-run).")
         return 2
 
-    run = run_ingest(args.school, args.category, force=args.force, dry_run=args.dry_run)
+    run = run_ingest(args.school, args.category, force=args.force,
+                     dry_run=args.dry_run, replay=args.reextract)
 
     print("\n" + "=" * 60)
     for r in run.results:

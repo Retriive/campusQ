@@ -356,30 +356,71 @@
 }
 
 /* ── Landing theming ────────────────────────────────────────────────────
-   Soft paper + deep ink. School accents via [data-school]. Emil: polish,
-   not spectacle. */
+   Bright paper + deep ink. School accents via [data-school]. */
 .landing-track {
-  --canvas: #f3f4f1;
-  --canvas-raised: #fcfcfa;
-  --line: #d7dbd4;
-  --ink: #10130f;
-  --ink-body: #4c554d;
-  --ink-faint: #748074;
-  --link-muted: #65706a;
+  --canvas: #f7f7f5;
+  --canvas-raised: #ffffff;
+  --line: #e4e4e0;
+  --ink: #0a0a0a;
+  --ink-body: #525252;
+  --ink-faint: #737373;
+  --link-muted: #666666;
   --card-shadow: none;
   --land-display: var(--font-land-display), "Times New Roman", serif;
   --land-body: var(--font-land-body), ui-sans-serif, system-ui, sans-serif;
   --ease-land-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 .landing-track.dark {
-  --canvas: #0c0e0b;
-  --canvas-raised: #141714;
-  --line: #2a3028;
-  --ink: #f1f3ee;
-  --ink-body: #a6afa3;
-  --ink-faint: #7a8476;
-  --link-muted: #8f998b;
+  --canvas: #0a0a0a;
+  --canvas-raised: #111111;
+  --line: #262626;
+  --ink: #fafafa;
+  --ink-body: #a3a3a3;
+  --ink-faint: #737373;
+  --link-muted: #8a8a8a;
   --card-shadow: none;
+}
+
+/* Smooth school accent crossfades (Emil: color changes can take longer). */
+@property --primary {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.5 0.195 27);
+}
+@property --primary-strong {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.44 0.185 27);
+}
+@property --primary-soft {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.95 0.025 27);
+}
+@property --primary-line {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.87 0.055 27);
+}
+@property --primary-ink {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.41 0.17 27);
+}
+@property --primary-foreground {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #fff;
+}
+
+.landing-track .land-school {
+  transition:
+    --primary 380ms ease,
+    --primary-strong 380ms ease,
+    --primary-soft 380ms ease,
+    --primary-line 380ms ease,
+    --primary-ink 380ms ease,
+    --primary-foreground 380ms ease;
 }
 
 /* iOS safe area padding for the bottom nav */
@@ -427,26 +468,8 @@
   }
 }
 
-/* ── Landing motion (Emil) — purposeful, not loud ────────────────────────
-   Marketing/first-visit: short cascade + press feedback + scroll settle.
-   Never scale(0). Ease-out. GPU props only. */
+/* ── Landing motion (Emil) — purposeful, snappy on school switch ───────── */
 @keyframes land-rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.stagger-item {
-  opacity: 0;
-  animation: land-rise 560ms var(--ease-land-out, var(--ease-out)) forwards;
-}
-
-@keyframes land-msg {
   from {
     opacity: 0;
     transform: translateY(8px) scale(0.98);
@@ -456,22 +479,63 @@
     transform: translateY(0) scale(1);
   }
 }
+
+.stagger-item {
+  opacity: 0;
+  animation: land-rise 480ms var(--ease-land-out, var(--ease-out)) forwards;
+}
+
+@keyframes land-msg {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 .land-msg {
   opacity: 0;
-  animation: land-msg 480ms var(--ease-land-out, var(--ease-out)) forwards;
+  animation: land-msg 320ms var(--ease-land-out, var(--ease-out)) forwards;
+}
+
+@keyframes land-swap {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.land-swap {
+  display: inline-block;
+  animation: land-swap 220ms var(--ease-land-out, var(--ease-out)) both;
+}
+
+/* Sliding school pill — interruptible transform/width (not keyframes). */
+.land-toggle-pill {
+  left: 0;
+  transition:
+    transform 220ms var(--ease-land-out, var(--ease-out)),
+    width 220ms var(--ease-land-out, var(--ease-out)),
+    opacity 160ms ease;
+  will-change: transform, width;
 }
 
 .land-press {
-  transition: background-color 280ms ease, color 280ms ease, border-color 280ms ease,
-    transform 150ms var(--ease-land-out, var(--ease-out));
+  transition: background-color 240ms ease, color 240ms ease, border-color 240ms ease,
+    transform 140ms var(--ease-land-out, var(--ease-out));
 }
 .land-press:active {
   transform: scale(0.97);
 }
 
 .pill-press {
-  transition: background-color 280ms ease, color 280ms ease, border-color 280ms ease,
-    transform 150ms var(--ease-out);
+  transition: background-color 240ms ease, color 240ms ease, border-color 240ms ease,
+    transform 140ms var(--ease-out);
 }
 .pill-press:active {
   transform: scale(0.97);
@@ -479,13 +543,13 @@
 
 .reveal {
   opacity: 0;
-  transform: translateY(14px);
+  transform: translateY(12px);
 }
 .reveal.is-visible {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 580ms var(--ease-land-out, var(--ease-out)),
-    transform 580ms var(--ease-land-out, var(--ease-out));
+  transition: opacity 500ms var(--ease-land-out, var(--ease-out)),
+    transform 500ms var(--ease-land-out, var(--ease-out));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -494,10 +558,17 @@
     transform: none;
   }
   .stagger-item,
-  .land-msg {
+  .land-msg,
+  .land-swap {
     opacity: 1;
     animation: none;
     transform: none;
+  }
+  .land-toggle-pill {
+    transition: none;
+  }
+  .landing-track .land-school {
+    transition: none;
   }
 }
 

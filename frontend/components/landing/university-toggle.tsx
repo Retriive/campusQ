@@ -1,5 +1,6 @@
 "use client"
 
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { SCHOOL_LIST, type SchoolId } from "@/lib/landing-schools"
 
 export function UniversityToggle({
@@ -9,12 +10,44 @@ export function UniversityToggle({
   activeId: SchoolId
   onSelect: (id: SchoolId) => void
 }) {
+  const listRef = useRef<HTMLDivElement>(null)
+  const btnRefs = useRef(new Map<SchoolId, HTMLButtonElement>())
+  const [pill, setPill] = useState({ x: 0, w: 0, ready: false })
+
+  const measure = useCallback(() => {
+    const list = listRef.current
+    const btn = btnRefs.current.get(activeId)
+    if (!list || !btn) return
+    const lr = list.getBoundingClientRect()
+    const br = btn.getBoundingClientRect()
+    setPill({ x: br.left - lr.left, w: br.width, ready: true })
+  }, [activeId])
+
+  useLayoutEffect(() => {
+    measure()
+  }, [measure])
+
+  useEffect(() => {
+    window.addEventListener("resize", measure)
+    return () => window.removeEventListener("resize", measure)
+  }, [measure])
+
   return (
     <div
+      ref={listRef}
       role="tablist"
       aria-label="University"
-      className="inline-flex flex-wrap items-center gap-0.5 rounded-lg border border-line bg-canvas-raised/80 p-0.5"
+      className="relative inline-flex flex-wrap items-center gap-0.5 rounded-full border border-line bg-canvas p-1"
     >
+      <span
+        aria-hidden
+        className="land-toggle-pill pointer-events-none absolute top-1 bottom-1 rounded-full bg-ink"
+        style={{
+          width: pill.w,
+          transform: `translateX(${pill.x}px)`,
+          opacity: pill.ready ? 1 : 0,
+        }}
+      />
       {SCHOOL_LIST.map((s) => {
         const active = activeId === s.id
         return (
@@ -23,17 +56,18 @@ export function UniversityToggle({
             type="button"
             role="tab"
             aria-selected={active}
-            data-school={s.id}
+            ref={(el) => {
+              if (el) btnRefs.current.set(s.id, el)
+              else btnRefs.current.delete(s.id)
+            }}
             onClick={() => onSelect(s.id)}
-            className={`land-press text-[12.5px] px-2.5 py-1.5 rounded-md transition-[background-color,color,transform] duration-200 ${
-              active
-                ? "bg-ink text-canvas font-semibold"
-                : "text-ink-faint hover:text-ink"
+            className={`relative z-[1] land-press text-[12px] px-3 py-1.5 rounded-full transition-colors duration-200 ${
+              active ? "text-canvas font-semibold" : "text-ink-faint hover:text-ink"
             }`}
           >
             {s.shortName}
             {!s.live && (
-              <span className={`ml-1 text-[9px] tracking-wide ${active ? "opacity-60" : "opacity-45"}`}>
+              <span className={`ml-1 text-[9px] tracking-wide ${active ? "opacity-55" : "opacity-40"}`}>
                 soon
               </span>
             )}

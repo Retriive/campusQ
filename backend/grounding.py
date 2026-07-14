@@ -31,7 +31,8 @@ _COURSE_FOLLOWUP = (
 # Intent → namespaces allowed into the model context + citations.
 # None means "no hard filter".
 INTENT_ALLOWED_NAMESPACES: dict[str, frozenset[str] | None] = {
-    "services": frozenset({"services", "registrar", "facts", "tuition"}),
+    # library is campus services content (study space, hours, rooms) — do not strip it
+    "services": frozenset({"services", "registrar", "facts", "tuition", "library"}),
     "deadlines": frozenset({"dates", "registrar", "facts"}),
     "regulations": frozenset({"regulations", "facts", "registrar"}),
     "registration": frozenset({"registrar", "dates", "facts"}),
@@ -40,6 +41,17 @@ INTENT_ALLOWED_NAMESPACES: dict[str, frozenset[str] | None] = {
     "course_lookup": frozenset({"courses", "schedule", "programs", "regulations", "facts"}),
     "general": None,
 }
+
+_LIBRARY_HISTORY_MARKERS = (
+    "library", "macodrum", "study space", "silent study", "study room",
+    "floor 1", "floor 2", "floor 3", "floor 4", "floor 5",
+)
+
+_LIBRARY_FOLLOWUP_MARKERS = (
+    "floor", "loud", "noise", "noisy", "quiet", "silent", "talk", "group",
+    "room", "cafe", "computer", "printer", "where", "what about", "what if",
+    "can i", "allowed", "conversational", "music",
+)
 
 NO_CONTEXT_ANSWER = (
     "That's outside of what I currently know. "
@@ -113,6 +125,26 @@ def maybe_inject_course_from_history(user_query: str, past_messages: list[dict])
             return f"{user_query} ({code})"
     return user_query
 
+
+def maybe_inject_library_topic_from_history(user_query: str, past_messages: list[dict]) -> str:
+    """Keep library follow-ups grounded when the student stops saying 'library'.
+
+    Example failure mode: 'where should I study?' → good library answer,
+    then 'what if I want loud noise?' retrieves nothing useful and refuses.
+    """
+    q = user_query.lower().strip()
+    if any(k in q for k in ("library", "macodrum", "study space", "silent study")):
+        return user_query
+    if len(q) > 90:
+        return user_query
+    if not any(k in q for k in _LIBRARY_FOLLOWUP_MARKERS):
+        return user_query
+
+    hist = " ".join((m.get("content") or "") for m in (past_messages or [])[-8:]).lower()
+    if not any(k in hist for k in _LIBRARY_HISTORY_MARKERS):
+        return user_query
+
+    return f"{user_query} (MacOdrum Library study space noise and floor policies)"
 
 def filter_matches_for_intent(
     matches_with_ns: list[tuple],

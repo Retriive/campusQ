@@ -3,6 +3,7 @@
 from grounding import (
     classify_intent,
     maybe_inject_course_from_history,
+    maybe_inject_library_topic_from_history,
     filter_matches_for_intent,
     context_is_weak,
 )
@@ -45,3 +46,29 @@ def test_filter_drops_courses_for_services_intent():
 def test_weak_context_when_services_only_has_courses():
     matches = [(FakeMatch(0.4), "courses")]
     assert context_is_weak(matches, "course junk", "services", threshold=0.25) is True
+
+
+def test_library_followup_injects_topic_from_history():
+    history = [
+        {"role": "user", "content": "where should i study on campus?"},
+        {"role": "assistant", "content": "MacOdrum Library has silent study on floors 3 and 5."},
+    ]
+    out = maybe_inject_library_topic_from_history("what if i want loud noise", history)
+    assert "MacOdrum Library" in out
+    assert "loud noise" in out.lower()
+
+
+def test_library_followup_skips_when_unrelated_history():
+    history = [{"role": "assistant", "content": "COMP 2402 prerequisites are COMP 2401."}]
+    out = maybe_inject_library_topic_from_history("what if i want loud noise", history)
+    assert out == "what if i want loud noise"
+
+
+def test_services_filter_keeps_library():
+    matches = [
+        (FakeMatch(0.9), "library"),
+        (FakeMatch(0.8), "services"),
+        (FakeMatch(0.7), "courses"),
+    ]
+    filtered = filter_matches_for_intent(matches, "services", "library study rooms")
+    assert {ns for _, ns in filtered} == {"library", "services"}

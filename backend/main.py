@@ -35,6 +35,7 @@ from guest_quota import GuestQuotaStore, GuestQuotaExceeded, normalize_guest_id
 from grounding import (
     classify_intent,
     maybe_inject_course_from_history,
+    maybe_inject_library_topic_from_history,
     filter_matches_for_intent,
     context_is_weak,
     NO_CONTEXT_ANSWER,
@@ -878,6 +879,7 @@ async def chat_endpoint(
 
     # Inject last course code only for genuine course follow-ups (not VPN/aid/etc).
     user_query = maybe_inject_course_from_history(user_query, past_messages)
+    user_query = maybe_inject_library_topic_from_history(user_query, past_messages)
     intent = classify_intent(user_query, past_messages)
 
     print(f"Searching database for: {user_query}")
@@ -1089,6 +1091,8 @@ async def chat_stream(
 
     # Inject last course code only for genuine course follow-ups (not VPN/aid/etc).
     user_query = maybe_inject_course_from_history(user_query, past_messages)
+    # Keep library follow-ups attached to MacOdrum study-space context.
+    user_query = maybe_inject_library_topic_from_history(user_query, past_messages)
     intent = classify_intent(user_query, past_messages)
 
     # Patterns that indicate the user wants course details directly (pill cards shown)

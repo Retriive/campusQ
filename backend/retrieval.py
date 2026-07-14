@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from collections import Counter
 
@@ -485,6 +486,15 @@ Return JSON only: {{"indices": [<int>, ...]}} with up to {top_n} indices in rele
     return chunks[:top_n]
 
 
+# LLM rerank is a second GPT round-trip (~1–2s). Default off — Cohere when
+# configured, otherwise keep vector-ranked pool order. Flip ALLOW_LLM_RERANK
+# if you need the slower fallback.
+_ALLOW_LLM_RERANK = os.getenv("ALLOW_LLM_RERANK", "").strip().lower() in ("1", "true", "yes", "on")
+
+# Soft cap so a burst of namespace/exact queries cannot spawn unbounded threads.
+_RETRIEVAL_MAX_WORKERS = max(2, min(12, int(os.getenv("RETRIEVAL_MAX_WORKERS", "8"))))
+
+
 def rerank_chunks(
     openai_client,
     query: str,
@@ -494,13 +504,51 @@ def rerank_chunks(
 ) -> list[RankedChunk]:
     if len(chunks) <= top_n:
         return chunks
+    # Already strongly ordered by score — skip network rerank when the head is clear.
+    if chunks[0].score >= 0.82 and (chunks[0].score - chunks[min(top_n, len(chunks) - 1)].score) >= 0.12:
+        print(f"Rerank: skipped (strong top scores) → {top_n} chunks")
+        return chunks[:top_n]
     cohere_result = rerank_with_cohere(query, chunks, top_n)
     if cohere_result:
         print(f"Rerank: Cohere → {len(cohere_result)} chunks")
         return cohere_result
-    llm_result = rerank_with_llm(openai_client, query, chunks, top_n, chat_model)
-    print(f"Rerank: LLM fallback → {len(llm_result)} chunks")
-    return llm_result
+    if _ALLOW_LLM_RERANK:
+        llm_result = rerank_with_llm(openai_client, query, chunks, top_n, chat_model)
+        print(f"Rerank: LLM fallback → {len(llm_result)} chunks")
+        return llm_result
+    print(f"Rerank: vector scores (LLM fallback off) → {top_n} chunks")
+    return chunks[:top_n]
+
+
+def _shape_match_chunk(
+    match,
+    ns: str,
+    score: float,
+    *,
+    user_query: str,
+    tokens: list[str],
+    course_codes: list[str],
+    flags: QueryFlags,
+) -> RankedChunk:
+    chunk = RankedChunk.from_match(match, ns, score)
+    if is_software_eng_vs_cs_comparison(user_query):
+        chunk = RankedChunk(
+            id=chunk.id,
+            metadata=chunk.metadata,
+            namespace=chunk.namespace,
+            score=adjust_se_cs_comparison_score(chunk),
+        )
+    return RankedChunk(
+        id=chunk.id,
+        metadata=chunk.metadata,
+        namespace=chunk.namespace,
+        score=apply_query_aware_adjustments(
+            chunk,
+            tokens=tokens,
+            course_codes=course_codes,
+            flags=flags,
+        ),
+    )
 
 
 def retrieve_and_rerank(
@@ -523,38 +571,41 @@ def retrieve_and_rerank(
     course_codes = query_course_codes(user_query)
 
     chunks: list[RankedChunk] = []
+    namespaces = namespaces_for_query(flags)
 
-    for ns in namespaces_for_query(flags):
-        top_k = namespace_top_k(ns, flags, token_count=len(tokens), has_course_codes=bool(course_codes))
-
-        ns_results = index.query(
+    def _query_namespace(ns: str):
+        top_k = namespace_top_k(
+            ns, flags, token_count=len(tokens), has_course_codes=bool(course_codes)
+        )
+        return ns, index.query(
             vector=query_embedding,
             top_k=top_k,
             include_metadata=True,
             namespace=ns,
         )
-        for m in ns_results.matches or []:
-            score = _boosted_namespace_score(m.score, ns, flags, intent)
-            chunk = RankedChunk.from_match(m, ns, score)
-            if is_software_eng_vs_cs_comparison(user_query):
-                chunk = RankedChunk(
-                    id=chunk.id,
-                    metadata=chunk.metadata,
-                    namespace=chunk.namespace,
-                    score=adjust_se_cs_comparison_score(chunk),
+
+    # Parallelize independent namespace RTTs — biggest TTFT win on shared hosting.
+    with ThreadPoolExecutor(max_workers=min(_RETRIEVAL_MAX_WORKERS, max(1, len(namespaces)))) as pool:
+        futures = [pool.submit(_query_namespace, ns) for ns in namespaces]
+        for fut in as_completed(futures):
+            try:
+                ns, ns_results = fut.result()
+            except Exception as exc:
+                print(f"Namespace query failed: {exc}")
+                continue
+            for m in ns_results.matches or []:
+                score = _boosted_namespace_score(m.score, ns, flags, intent)
+                chunks.append(
+                    _shape_match_chunk(
+                        m,
+                        ns,
+                        score,
+                        user_query=user_query,
+                        tokens=tokens,
+                        course_codes=course_codes,
+                        flags=flags,
+                    )
                 )
-            chunk = RankedChunk(
-                id=chunk.id,
-                metadata=chunk.metadata,
-                namespace=chunk.namespace,
-                score=apply_query_aware_adjustments(
-                    chunk,
-                    tokens=tokens,
-                    course_codes=course_codes,
-                    flags=flags,
-                ),
-            )
-            chunks.append(chunk)
 
     # Exact-code metadata fetch to recover recall when vector search misses
     # explicit course lookups or schedule questions.
@@ -563,71 +614,86 @@ def retrieve_and_rerank(
         exact_namespaces = ["courses"]
         if flags.is_schedule_query:
             exact_namespaces.append("schedule")
+
+        exact_jobs: list[tuple[str, str, str]] = []
         for code in course_codes:
             for filter_code in course_code_filter_values(code):
                 for ns in exact_namespaces:
-                    try:
-                        exact_results = index.query(
-                            vector=query_embedding,
-                            top_k=12 if ns == "schedule" else 8,
-                            include_metadata=True,
-                            namespace=ns,
-                            filter={"course_code": {"$eq": filter_code}},
-                        )
-                    except Exception as exc:
-                        print(f"Exact code filter error ({ns}, {filter_code}): {exc}")
-                        continue
-                    for m in exact_results.matches or []:
-                        if m.id in existing_ids:
-                            continue
-                        base_floor = 0.90 if ns == "schedule" else 0.88
-                        boosted = _boosted_namespace_score(max(m.score, base_floor), ns, flags, intent)
-                        chunk = RankedChunk.from_match(m, ns, boosted)
-                        chunk = RankedChunk(
-                            id=chunk.id,
-                            metadata=chunk.metadata,
-                            namespace=chunk.namespace,
-                            score=apply_query_aware_adjustments(
-                                chunk,
-                                tokens=tokens,
-                                course_codes=course_codes,
-                                flags=flags,
-                            ),
-                        )
-                        chunks.append(chunk)
-                        existing_ids.add(m.id)
+                    exact_jobs.append((code, filter_code, ns))
 
-    # Metadata-filtered schedule fetch by course code
+        def _exact_query(job: tuple[str, str, str]):
+            _code, filter_code, ns = job
+            return job, index.query(
+                vector=query_embedding,
+                top_k=12 if ns == "schedule" else 8,
+                include_metadata=True,
+                namespace=ns,
+                filter={"course_code": {"$eq": filter_code}},
+            )
+
+        with ThreadPoolExecutor(max_workers=min(_RETRIEVAL_MAX_WORKERS, max(1, len(exact_jobs)))) as pool:
+            futures = [pool.submit(_exact_query, job) for job in exact_jobs]
+            for fut in as_completed(futures):
+                try:
+                    (_code, filter_code, ns), exact_results = fut.result()
+                except Exception as exc:
+                    print(f"Exact code filter error: {exc}")
+                    continue
+                for m in exact_results.matches or []:
+                    if m.id in existing_ids:
+                        continue
+                    base_floor = 0.90 if ns == "schedule" else 0.88
+                    boosted = _boosted_namespace_score(max(m.score, base_floor), ns, flags, intent)
+                    chunks.append(
+                        _shape_match_chunk(
+                            m,
+                            ns,
+                            boosted,
+                            user_query=user_query,
+                            tokens=tokens,
+                            course_codes=course_codes,
+                            flags=flags,
+                        )
+                    )
+                    existing_ids.add(m.id)
+
+    # Metadata-filtered schedule fetch by course code (parallel when multi-course)
     if flags.is_schedule_query and course_matches:
         existing_ids = {c.id for c in chunks}
-        for dept, num in course_matches:
-            code = f"{dept.upper()} {num}"
-            try:
-                sched = index.query(
-                    vector=query_embedding,
-                    top_k=10,
-                    include_metadata=True,
-                    namespace="schedule",
-                    filter={"course_code": {"$eq": code}},
-                )
+        sched_codes = [f"{dept.upper()} {num}" for dept, num in course_matches]
+
+        def _sched_query(code: str):
+            return code, index.query(
+                vector=query_embedding,
+                top_k=10,
+                include_metadata=True,
+                namespace="schedule",
+                filter={"course_code": {"$eq": code}},
+            )
+
+        with ThreadPoolExecutor(max_workers=min(_RETRIEVAL_MAX_WORKERS, max(1, len(sched_codes)))) as pool:
+            futures = [pool.submit(_sched_query, code) for code in sched_codes]
+            for fut in as_completed(futures):
+                try:
+                    _code, sched = fut.result()
+                except Exception as exc:
+                    print(f"Schedule filter error: {exc}")
+                    continue
                 for m in sched.matches or []:
-                    if m.id not in existing_ids:
-                        chunk = RankedChunk.from_match(m, "schedule", max(m.score, 0.85))
-                        chunk = RankedChunk(
-                            id=chunk.id,
-                            metadata=chunk.metadata,
-                            namespace=chunk.namespace,
-                            score=apply_query_aware_adjustments(
-                                chunk,
-                                tokens=tokens,
-                                course_codes=course_codes,
-                                flags=flags,
-                            ),
+                    if m.id in existing_ids:
+                        continue
+                    chunks.append(
+                        _shape_match_chunk(
+                            m,
+                            "schedule",
+                            max(m.score, 0.85),
+                            user_query=user_query,
+                            tokens=tokens,
+                            course_codes=course_codes,
+                            flags=flags,
                         )
-                        chunks.append(chunk)
-                        existing_ids.add(m.id)
-            except Exception as exc:
-                print(f"Schedule filter error: {exc}")
+                    )
+                    existing_ids.add(m.id)
 
     chunks = dedupe_chunks(chunks)
 

@@ -170,10 +170,11 @@ export function ChatContainer() {
   const guestQuestionsLeft =
     !isSignedIn && guestQuota ? guestQuota.remaining : null
 
-  // Auto-scroll
+  // Auto-scroll on new turns and coarse content growth — not every token.
+  const scrollBucket = Math.floor((messages[messages.length - 1]?.content?.length ?? 0) / 280)
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+  }, [messages.length, isLoading, scrollBucket])
 
   // Dark mode
   React.useEffect(() => {
@@ -347,6 +348,27 @@ export function ChatContainer() {
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ""
+      // Batch streaming tokens so we don't remount markdown on every SSE chunk.
+      let pendingTokens = ""
+      let flushTimer: ReturnType<typeof setTimeout> | null = null
+      const flushTokens = () => {
+        if (!pendingTokens) return
+        const chunk = pendingTokens
+        pendingTokens = ""
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, content: m.content + chunk } : m
+          )
+        )
+      }
+      const queueToken = (text: string) => {
+        pendingTokens += text
+        if (flushTimer) return
+        flushTimer = setTimeout(() => {
+          flushTimer = null
+          flushTokens()
+        }, 40)
+      }
 
       while (true) {
         const { done, value } = await reader.read()
@@ -370,12 +392,9 @@ export function ChatContainer() {
               setGuestQuota(next)
               setGuestLimitReached(next.remaining <= 0)
             } else if (parsed.type === "token") {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: m.content + parsed.content } : m
-                )
-              )
+              queueToken(parsed.content || "")
             } else if (parsed.type === "courses") {
+              flushTokens()
               const codes = (parsed.data as CourseCardData[]).map((c) => c.courseCode)
               if (codes.length > 0) {
                 try { track("course_lookup", { intent: "course_lookup", course_count: codes.length }) } catch {}
@@ -390,6 +409,7 @@ export function ChatContainer() {
                 setExpandedPrereq(codes[0])
               }
             } else if (parsed.type === "sources") {
+              flushTokens()
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId ? { ...m, sources: parsed.data } : m
@@ -399,6 +419,11 @@ export function ChatContainer() {
           } catch {}
         }
       }
+      if (flushTimer) {
+        clearTimeout(flushTimer)
+        flushTimer = null
+      }
+      flushTokens()
 
       // Save messages after response
       setMessages((prev) => {

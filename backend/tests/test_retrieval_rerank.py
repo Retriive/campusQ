@@ -39,7 +39,18 @@ def test_software_eng_vs_cs_comparison_detected():
 
 
 def test_rerank_short_circuit():
-  chunks = [
-      RankedChunk(id="a", metadata={"text": "a"}, score=0.9, namespace="courses"),
-  ]
-  assert rerank_chunks(FakeClient(), "test", chunks, top_n=10, chat_model="gpt-4o-mini") == chunks
+    chunks = [
+        RankedChunk(id="a", metadata={"text": "a"}, score=0.9, namespace="courses"),
+    ]
+    assert rerank_chunks(FakeClient(), "test", chunks, top_n=10, chat_model="gpt-4o-mini") == chunks
+
+
+def test_rerank_skips_when_top_scores_are_strong():
+    chunks = [
+        RankedChunk(id="a", metadata={"text": "a"}, score=0.95, namespace="courses"),
+        RankedChunk(id="b", metadata={"text": "b"}, score=0.70, namespace="courses"),
+        RankedChunk(id="c", metadata={"text": "c"}, score=0.40, namespace="courses"),
+    ]
+    # Pool larger than top_n, but dominant top score → no Cohere/LLM call.
+    out = rerank_chunks(FakeClient(), "test", chunks, top_n=2, chat_model="gpt-4o-mini")
+    assert [c.id for c in out] == ["a", "b"]

@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { ArrowRight } from "lucide-react"
 import { UniversityToggle } from "@/components/landing/university-toggle"
 import { WaitlistCta } from "@/components/landing/waitlist-cta"
 import { ThemeToggle, useLandingTheme } from "@/components/landing/theme"
-import { SCHOOLS, type SchoolId } from "@/lib/landing-schools"
+import { SCHOOLS, schoolPath, type SchoolId } from "@/lib/landing-schools"
 
 // Dual-track landing (frontend/DESIGN.md): warm-cream transactional canvas by
 // default, pure-black cinematic canvas in dark mode. Thin display type, pill
@@ -58,9 +59,22 @@ function Reveal({
 }
 
 export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: SchoolId }) {
+  const router = useRouter()
   const [schoolId, setSchoolId] = useState<SchoolId>(defaultSchool)
   const school = SCHOOLS[schoolId]
   const { theme, toggle } = useLandingTheme()
+
+  useEffect(() => {
+    setSchoolId(defaultSchool)
+  }, [defaultSchool])
+
+  function selectSchool(id: SchoolId) {
+    setSchoolId(id)
+    const next = schoolPath(id)
+    if (typeof window !== "undefined" && window.location.pathname !== next) {
+      router.replace(next)
+    }
+  }
 
   return (
     <div className={`landing-track ${theme === "dark" ? "dark" : ""}`}>
@@ -70,9 +84,9 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
       <nav className="sticky top-0 z-50 bg-canvas border-b border-line transition-colors duration-300">
         <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-base tracking-tight">
+            <Link href="/" className="text-base tracking-tight">
               <span className="font-[550]">Campus</span><span className="font-[330] text-primary-ink transition-colors duration-500">Q</span>
-            </span>
+            </Link>
             {school.live && (
               <span className="text-[10px] tracking-[0.72px] uppercase px-2.5 py-0.5 rounded-full bg-primary text-primary-foreground transition-colors duration-500">
                 Live
@@ -104,7 +118,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
           each block fades up in sequence (ease-out, plays once on mount). */}
       <section className="max-w-[1400px] w-full mx-auto px-6 pt-20 pb-16 md:pt-28 md:pb-24">
         <div className="mb-10 stagger-item">
-          <UniversityToggle activeId={schoolId} onSelect={setSchoolId} />
+          <UniversityToggle activeId={schoolId} onSelect={selectSchool} />
         </div>
 
         <p className="text-xs uppercase tracking-[0.72px] text-ink-faint mb-6 stagger-item" style={{ animationDelay: "60ms" }}>
@@ -278,7 +292,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
       {/* Stats band — giant thin numerals over hairlines */}
       <div className="border-y border-line transition-colors duration-300">
         <div className="max-w-[1400px] mx-auto px-6 py-12 md:py-16">
-          {school.live ? (
+          {school.stats.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
               {school.stats.map((s, i) => (
                 <Reveal key={s.label} delay={i * 80} className="flex flex-col gap-2">

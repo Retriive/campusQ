@@ -96,7 +96,7 @@ if you sell top-down only. Our model routes around it:
 
 1. **Bottom-up student adoption first.** Students use CampusQ because it's
    better than the university's own search. Live at Carleton (beta); waitlist
-   landing pages already up for uOttawa, UofT, Waterloo, Western. Waitlist
+   landing pages already up for uOttawa, UofT, Waterloo, Western, and McGill. Waitlist
    counts are demand evidence the procurement committee didn't ask for and
    can't ignore.
 2. **The advisor report converts usage into an institutional buyer.** Staff

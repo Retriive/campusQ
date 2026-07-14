@@ -3,7 +3,7 @@
 **CampusQ** is Retriive's AI academic assistant for university students. Students ask questions about courses, programs, deadlines, and registration — and get answers backed by official university data. Every question also feeds an anonymized weekly intelligence report for advising staff: what students are asking, where official content has gaps, and how much demand happens after hours.
 
 **Live today:** Carleton University (beta)  
-**Coming soon:** uOttawa, UofT, Waterloo, Western (waitlist landing pages)
+**Coming soon:** uOttawa, UofT, Waterloo, Western, McGill (waitlist landing pages)
 
 ---
 

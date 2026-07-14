@@ -61,7 +61,7 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@school.ca"
-          className="text-sm px-5 py-3 rounded-full border border-line bg-canvas-raised text-ink placeholder:text-ink-faint outline-none focus:border-primary transition-colors w-64"
+          className="text-sm px-5 py-3 rounded-full border border-line bg-canvas-raised text-ink placeholder:text-ink-faint outline-none focus:border-primary transition-colors w-full max-w-sm sm:w-64"
         />
         <button
           type="submit"

@@ -52,14 +52,19 @@ Advisor reports are designed for “what are students asking about?” — not i
 
 ## Deletion requests
 
-Students or waitlist signups can email **hello@retriive.com** and request deletion of server-side records tied to their email or account.
+Students can self-serve:
+
+1. **Clear synced chats** — Account menu in the app (`DELETE /api/me`).
+2. **Waitlist unsubscribe** — Privacy page form (`POST /api/waitlist/unsubscribe`).
+
+For account-level requests (or anything else), email **hello@retriive.com**.
 
 **We will:**
 1. Confirm the requester’s identity (email match or Clerk account).
-2. Remove matching waitlist entries and pseudonymized log lines where feasible within **30 days**.
+2. Remove matching waitlist entries and synced chat payloads; scrub or age out pseudonymized log lines where feasible within **30 days**.
 3. Confirm completion by email.
 
-**Note:** Browser-local chat history must be cleared by the student on their device; we cannot remote-delete `localStorage`.
+**Note:** Browser-local chat history must be cleared by the student on their device (or via Clear synced chats, which also wipes localStorage for this site); we cannot remote-delete other browsers’ `localStorage`.
 
 ---
 
@@ -83,11 +88,14 @@ A formal Data Processing Agreement (DPA) can be provided on request for institut
 ## Security controls (summary)
 
 - Pseudonymized user IDs in all server logs  
-- Rate limiting on chat, waitlist, and feedback endpoints  
+- Production fails closed without `USER_ID_HASH_SALT` and `ALLOWED_ORIGINS`  
+- Rate limiting on chat, waitlist, feedback, account, and admin endpoints  
 - Admin routes default-closed without `ADMIN_API_KEY`  
 - Optional Clerk JWT enforcement (`REQUIRE_AUTH`) for production  
+- Self-serve synced-chat delete + waitlist unsubscribe  
+- Security response headers (nosniff, frame deny, referrer policy)  
 - 90-day automated log pruning  
-
+- CI unit tests + weekly Dependabot / dependency audit
 ---
 
 ## Contact

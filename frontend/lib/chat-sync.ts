@@ -143,3 +143,39 @@ export async function pushCloudChats(
   if (!res.ok) throw new Error(`cloud push failed: ${res.status}`)
   return res.json()
 }
+
+/** Wipe synced cloud chats for the signed-in user. */
+export async function deleteCloudChats(
+  getToken: () => Promise<string | null>,
+): Promise<boolean> {
+  const headers = await authHeaders(getToken)
+  if (!("Authorization" in headers)) return false
+
+  const res = await fetch(`${API_BASE_URL}/api/me`, {
+    method: "DELETE",
+    headers,
+  })
+  if (res.status === 401 || res.status === 503) return false
+  if (!res.ok) throw new Error(`cloud delete failed: ${res.status}`)
+  return true
+}
+
+/** Clear on-device chat sessions and message bags. */
+export function clearLocalChatPayload() {
+  try {
+    const sessionsRaw = localStorage.getItem(LOCAL_SESSIONS_KEY) || "[]"
+    const sessions = JSON.parse(sessionsRaw)
+    if (Array.isArray(sessions)) {
+      for (const session of sessions) {
+        if (session?.id) localStorage.removeItem(messagesKey(String(session.id)))
+      }
+    }
+  } catch {}
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i)
+      if (key?.startsWith("campusq-msgs-")) localStorage.removeItem(key)
+    }
+  } catch {}
+  localStorage.removeItem(LOCAL_SESSIONS_KEY)
+}

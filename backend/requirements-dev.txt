@@ -1,0 +1,3 @@
+# Dev / CI only — not needed at runtime on Render.
+pytest~=8.4.0
+pip-audit~=2.9.0

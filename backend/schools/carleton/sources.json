@@ -1,13 +1,16 @@
 {
   "school_name": "Carleton University",
   "notes": [
-    "First real config for the ingestion pipeline (cutover from legacy one-off scrapers).",
-    "Scope is deliberately courses + library only: 'dates' stays curated in calendar_feed.py",
-    "(shared with the ICS feed and frontend deadline tracker) and 'facts' stays curated in",
-    "scrape_facts.py — both are hand-verified and better than what scraping would produce.",
-    "Library URLs are the proven list from scrapers/active/scrape_library.py; the hours and",
-    "study-room pages render their data via LibCal JavaScript widgets, so expect them to be",
-    "thin until the LibCal source lands."
+    "Config-driven coverage of the student-relevant slice of carleton.ca.",
+    "Fan-out is ONE hop from each hub URL (same-prefix links found on the hub page),",
+    "so deep sections get their own sub-hub entry rather than relying on depth crawling.",
+    "NOT here on purpose: 'dates' stays curated in calendar_feed.py (shared with the ICS",
+    "feed and deadline tracker), 'facts' stays curated in scrape_facts.py, and 'schedule'",
+    "stays on scrapers/active/ingest_schedule.py (Banner is form/session-driven, not",
+    "crawlable). Library hours/study-room pages render via LibCal JavaScript widgets and",
+    "will be thin until the LibCal source lands.",
+    "Hub URL lists are ported from the proven legacy scrapers: scrape_registrar.py,",
+    "scrape_regulations.py, scrape_programs.py, scrape_tuition.py, scrape_campus.py."
   ],
   "sources": [
     {
@@ -18,6 +21,7 @@
       "max_pages": 200,
       "min_records": 500
     },
+
     { "category": "library", "url": "https://library.carleton.ca/visit-building", "extractor": "llm_generic", "min_records": 10 },
     { "category": "library", "url": "https://library.carleton.ca/hours", "extractor": "llm_generic" },
     { "category": "library", "url": "https://library.carleton.ca/building/study-space", "extractor": "llm_generic" },
@@ -36,6 +40,38 @@
     { "category": "library", "url": "https://library.carleton.ca/services/borrowing", "extractor": "llm_generic" },
     { "category": "library", "url": "https://library.carleton.ca/find/reserves", "extractor": "llm_generic" },
     { "category": "library", "url": "https://library.carleton.ca/services/interlibrary-loans", "extractor": "llm_generic" },
-    { "category": "library", "url": "https://library.carleton.ca/services/carleton-university-research-data-centre", "extractor": "llm_generic" }
+    { "category": "library", "url": "https://library.carleton.ca/services/carleton-university-research-data-centre", "extractor": "llm_generic" },
+
+    { "category": "registrar", "url": "https://carleton.ca/registration/", "extractor": "llm_generic", "follow_links": true, "max_pages": 80, "min_records": 40 },
+    { "category": "registrar", "url": "https://carleton.ca/registration/course-selection-guide/", "extractor": "llm_generic", "follow_links": true, "max_pages": 40 },
+    { "category": "registrar", "url": "https://carleton.ca/registration/registration-steps/", "extractor": "llm_generic", "follow_links": true, "max_pages": 15 },
+    { "category": "registrar", "url": "https://carleton.ca/registration/non-degree-students/", "extractor": "llm_generic", "follow_links": true, "max_pages": 20 },
+    { "category": "registrar", "url": "https://carleton.ca/registrar/", "extractor": "llm_generic", "follow_links": true, "max_pages": 60 },
+    { "category": "registrar", "url": "https://carleton.ca/academicadvising/", "extractor": "llm_generic", "follow_links": true, "max_pages": 40 },
+    { "category": "registrar", "url": "https://carleton.ca/ses/", "extractor": "llm_generic", "follow_links": true, "max_pages": 40 },
+
+    { "category": "regulations", "url": "https://calendar.carleton.ca/undergrad/regulations/academicregulationsoftheuniversity/", "extractor": "llm_generic", "follow_links": true, "include_prefix": "https://calendar.carleton.ca/undergrad/regulations/", "max_pages": 80, "min_records": 30 },
+
+    { "category": "programs", "url": "https://calendar.carleton.ca/undergrad/undergradprograms/", "extractor": "llm_generic", "follow_links": true, "max_pages": 250, "min_records": 60 },
+
+    { "category": "tuition", "url": "https://carleton.ca/studentaccounts/", "extractor": "llm_generic", "follow_links": true, "max_pages": 40, "min_records": 20 },
+    { "category": "tuition", "url": "https://carleton.ca/studentaccounts/tuition-fees/", "extractor": "llm_generic", "follow_links": true, "max_pages": 30 },
+    { "category": "tuition", "url": "https://carleton.ca/studentaccounts/fee-payment/", "extractor": "llm_generic", "follow_links": true, "max_pages": 30 },
+
+    { "category": "services", "url": "https://carleton.ca/awards/", "extractor": "llm_generic", "follow_links": true, "max_pages": 60, "min_records": 40 },
+    { "category": "services", "url": "https://carleton.ca/pmc/", "extractor": "llm_generic", "follow_links": true, "max_pages": 50 },
+    { "category": "services", "url": "https://carleton.ca/csas/", "extractor": "llm_generic", "follow_links": true, "max_pages": 30 },
+    { "category": "services", "url": "https://carleton.ca/ai/", "extractor": "llm_generic", "follow_links": true, "max_pages": 20 },
+    { "category": "services", "url": "https://carleton.ca/isso/", "extractor": "llm_generic", "follow_links": true, "max_pages": 60 },
+    { "category": "services", "url": "https://carleton.ca/career/", "extractor": "llm_generic", "follow_links": true, "max_pages": 50 },
+    { "category": "services", "url": "https://carleton.ca/co-op/", "extractor": "llm_generic", "follow_links": true, "max_pages": 40 },
+    { "category": "services", "url": "https://carleton.ca/its/", "extractor": "llm_generic", "follow_links": true, "max_pages": 60 },
+    { "category": "services", "url": "https://carleton.ca/brightspace/", "extractor": "llm_generic", "follow_links": true, "max_pages": 25 },
+    { "category": "services", "url": "https://carleton.ca/health/", "extractor": "llm_generic", "follow_links": true, "max_pages": 50 },
+    { "category": "services", "url": "https://carleton.ca/wellness/", "extractor": "llm_generic", "follow_links": true, "max_pages": 40 },
+    { "category": "services", "url": "https://carleton.ca/safety/", "extractor": "llm_generic", "follow_links": true, "max_pages": 30 },
+    { "category": "services", "url": "https://housing.carleton.ca/", "extractor": "llm_generic", "follow_links": true, "max_pages": 60 },
+    { "category": "services", "url": "https://dining.carleton.ca/", "extractor": "llm_generic", "follow_links": true, "max_pages": 40 },
+    { "category": "services", "url": "https://athletics.carleton.ca/", "extractor": "llm_generic", "follow_links": true, "max_pages": 40 }
   ]
 }

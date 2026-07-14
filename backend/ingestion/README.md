@@ -4,9 +4,17 @@ Use this namespace for all ingestion workflows:
 
 ## Carleton cutover runbook (first real run)
 
-`schools/carleton/sources.json` covers **courses + library** only — `dates`
-stays curated in `calendar_feed.py` and `facts` in `scrape_facts.py` (both
-hand-verified; scraping would downgrade them).
+`schools/carleton/sources.json` covers courses, library, registrar,
+regulations, programs, tuition, and services (financial aid, ISSO, advising,
+ITS, health, housing, dining, and more) via one-hop hub fan-out. Not scraped
+on purpose: `dates` stays curated in `calendar_feed.py`, `facts` in
+`scrape_facts.py` (both hand-verified; scraping would downgrade them), and
+`schedule` stays on the Banner-driven `ingest_schedule.py`.
+
+A full all-category run fetches on the order of 1,000 pages politely
+(~0.5s/page ≈ 10–20 min) and runs every changed page through gpt-4o-mini
+extraction — expect a few dollars of OpenAI cost on the first run, then far
+less incrementally (unchanged pages are skipped).
 
 Run from `backend/` with `OPENAI_API_KEY` + `PINECONE_API_KEY` in `.env`:
 

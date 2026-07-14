@@ -8,6 +8,7 @@ import { UniversityToggle } from "@/components/landing/university-toggle"
 import { WaitlistCta } from "@/components/landing/waitlist-cta"
 import { ThemeToggle, useLandingTheme } from "@/components/landing/theme"
 import { landBody, landDisplay } from "@/components/landing/fonts"
+import { LandingParticles } from "@/components/landing/landing-particles"
 import { SCHOOLS, schoolPath, type SchoolId } from "@/lib/landing-schools"
 
 // Ink & Signal — marketing motion is first-visit delight: masked brand reveal,
@@ -148,8 +149,9 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
               className="land-mesh absolute left-[35%] -bottom-[10%] size-[42vmin] rounded-full bg-[radial-gradient(circle,color-mix(in_oklab,var(--primary)_18%,transparent),transparent_70%)] blur-xl opacity-50"
               style={{ animationDelay: "-8s" }}
             />
+            <LandingParticles className="opacity-80 dark:opacity-90" />
             <div
-              className="absolute inset-0 opacity-[0.35] mix-blend-multiply dark:mix-blend-soft-light dark:opacity-[0.25]"
+              className="absolute inset-0 opacity-[0.28] mix-blend-multiply dark:mix-blend-soft-light dark:opacity-[0.2]"
               style={{
                 backgroundImage:
                   "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E\")",

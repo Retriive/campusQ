@@ -437,7 +437,10 @@ CHAT_MODEL = "gpt-4o-mini"
 
 
 def rewrite_query_for_embedding(user_query: str) -> str:
-    if len(user_query) <= 60:
+    # Skip the extra LLM hop for short / already-structured academic queries.
+    if len(user_query) <= 100:
+        return user_query
+    if re.search(r"[A-Za-z]{3,4}\s*\d{4}", user_query):
         return user_query
     try:
         rewrite_response = openai_client.chat.completions.create(
@@ -548,7 +551,7 @@ def rag_lookup_prerequisites(course_code: str) -> str:
     return ""
 
 
-def parse_course_from_metadata(metadata: dict, clean_code: str) -> dict:
+def parse_course_from_metadata(metadata: dict, clean_code: str, *, allow_rag_prereq: bool = True) -> dict:
     doc_text = metadata.get("text", "")
     lines = [l.strip() for l in doc_text.split("\n") if l.strip()]
     course_name = lines[2] if len(lines) > 2 else "Course Details"
@@ -557,6 +560,8 @@ def parse_course_from_metadata(metadata: dict, clean_code: str) -> dict:
     credits_val = float(cred_match.group()) if cred_match else 0.5
     # --- Prerequisite extraction ---
     # Priority: 1) prerequisite_text field (full OR/AND), 2) doc_text regex, 3) codes only, 4) RAG
+    # Chat stream passes allow_rag_prereq=False so a missing field doesn't add
+    # another embed+Pinecone round-trip before the answer starts streaming.
     prereq_text = ""
     stored = metadata.get("prerequisite_text", "")
     if stored and stored.lower() not in ("none", ""):
@@ -572,7 +577,7 @@ def parse_course_from_metadata(metadata: dict, clean_code: str) -> dict:
             meta_prereq = metadata.get("prerequisites", "")
             if meta_prereq and meta_prereq.lower() not in ("none", ""):
                 prereq_text = meta_prereq.strip()
-            else:
+            elif allow_rag_prereq:
                 prereq_text = rag_lookup_prerequisites(clean_code)
     # Also build a clean code array (for the prereq visualizer) from whatever we found
     if prereq_text:
@@ -1108,55 +1113,75 @@ async def chat_stream(
 
         structured_courses = []
         if course_matches:
-            missed_codes = []
-            seen_codes = set()
-
+            seen_codes: dict[str, str] = {}
             for match in course_matches:
                 clean_code = f"{match[0].upper()} {match[1]}"
-                if clean_code in seen_codes:
-                    continue
-                seen_codes.add(clean_code)
                 course_id = clean_code.replace(" ", "")
+                if course_id not in seen_codes:
+                    seen_codes[course_id] = clean_code
 
-                try:
-                    result = index.fetch(ids=[course_id], namespace="courses")
-                    if result and "vectors" in result and course_id in result["vectors"]:
-                        metadata = result["vectors"][course_id]["metadata"]
-                        structured = parse_course_from_metadata(metadata, clean_code)
-                        structured_courses.append(structured)
+            try:
+                # One batched fetch instead of N sequential Pinecone round-trips.
+                result = await asyncio.to_thread(
+                    lambda: index.fetch(ids=list(seen_codes.keys()), namespace="courses")
+                )
+                vectors = getattr(result, "vectors", None)
+                if vectors is None and isinstance(result, dict):
+                    vectors = result.get("vectors")
+                vectors = vectors or {}
+                for course_id, clean_code in seen_codes.items():
+                    vec = vectors.get(course_id) if isinstance(vectors, dict) else None
+                    if not vec and not isinstance(vectors, dict):
+                        try:
+                            vec = vectors[course_id]
+                        except Exception:
+                            vec = None
+                    if vec:
+                        metadata = vec["metadata"] if isinstance(vec, dict) else getattr(vec, "metadata", {})
+                        structured_courses.append(
+                            parse_course_from_metadata(
+                                metadata, clean_code, allow_rag_prereq=False
+                            )
+                        )
                     else:
-                        missed_codes.append(clean_code)
                         log_course_miss(clean_code, user_query)
-                except Exception as e:
-                    print(f"Stream interceptor error: {e}")
-                    missed_codes.append(clean_code)
+            except Exception as e:
+                print(f"Stream interceptor error: {e}")
+                for clean_code in seen_codes.values():
+                    log_course_miss(clean_code, user_query)
 
         # Always fall through to RAG/AI
 
         try:
-            search_query = rewrite_query_for_embedding(user_query)
-            query_embedding = openai_client.embeddings.create(
-                input=search_query,
-                model="text-embedding-3-small",
-            ).data[0].embedding
+            def _prepare_stream_rag():
+                search_query = rewrite_query_for_embedding(user_query)
+                query_embedding = openai_client.embeddings.create(
+                    input=search_query,
+                    model="text-embedding-3-small",
+                ).data[0].embedding
 
-            all_matches, query_flags = retrieve_and_rerank(
-                index=index,
-                user_query=user_query,
-                query_embedding=query_embedding,
-                intent=intent,
-                course_matches=course_matches,
-                openai_client=openai_client,
-                chat_model=CHAT_MODEL,
+                all_matches, query_flags = retrieve_and_rerank(
+                    index=index,
+                    user_query=user_query,
+                    query_embedding=query_embedding,
+                    intent=intent,
+                    course_matches=course_matches,
+                    openai_client=openai_client,
+                    chat_model=CHAT_MODEL,
+                )
+                all_matches = filter_matches_for_intent(all_matches, intent, user_query)
+                context_text, sources_list, chunks_used = build_context_and_citations(
+                    all_matches, query_flags.is_program_query, SIMILARITY_THRESHOLD, intent=intent
+                )
+                context_text = prepend_engineering_attempts_context(context_text, user_query)
+                return all_matches, query_flags, context_text, sources_list, chunks_used
+
+            # Keep the event loop free while sync OpenAI/Pinecone prep runs.
+            all_matches, query_flags, context_text, sources_list, chunks_used = await asyncio.to_thread(
+                _prepare_stream_rag
             )
             is_program_query = query_flags.is_program_query
             is_schedule_query = query_flags.is_schedule_query
-            all_matches = filter_matches_for_intent(all_matches, intent, user_query)
-
-            context_text, sources_list, chunks_used = build_context_and_citations(
-                all_matches, is_program_query, SIMILARITY_THRESHOLD, intent=intent
-            )
-            context_text = prepend_engineering_attempts_context(context_text, user_query)
             top_score = all_matches[0][0].score if all_matches else None
 
             # If course cards were fetched for an explicit course query, keep them.

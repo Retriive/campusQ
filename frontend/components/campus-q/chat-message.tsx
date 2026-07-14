@@ -132,7 +132,7 @@ function Sources({ sources }: { sources: Source[] }) {
   )
 }
 
-export function ChatMessage({ role, content, sources, onFeedback, children }: ChatMessageProps) {
+function ChatMessageInner({ role, content, sources, onFeedback, children }: ChatMessageProps) {
   const { theme } = useCampus()
 
   if (role === "user") {
@@ -222,3 +222,6 @@ export function ChatMessage({ role, content, sources, onFeedback, children }: Ch
     </div>
   )
 }
+
+/** Memoized so completed messages don't re-render on every streaming token. */
+export const ChatMessage = React.memo(ChatMessageInner)

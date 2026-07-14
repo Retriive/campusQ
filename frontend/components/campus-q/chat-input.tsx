@@ -141,11 +141,8 @@ export function ChatInput({ value, onChange, onSubmit, disabled, isHome }: ChatI
           </button>
         </div>
 
-        {/* Disclaimer — quieter on mobile */}
-        <p className="hidden sm:block text-[11px] text-center text-muted-foreground/60 mt-2.5 tracking-wide">
-          {isHome
-            ? "Independent tool — not affiliated with Carleton University"
-            : "CampusQ is AI and can make mistakes — verify important decisions with your advisor"}
+        <p className="text-[11px] text-center text-muted-foreground/60 mt-2.5 leading-relaxed">
+          CampusQ is AI and can make mistakes — check important decisions with your advisor.
         </p>
       </div>
     </div>

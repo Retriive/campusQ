@@ -1,12 +1,12 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
 import { track } from "@vercel/analytics"
 import { classifyIntent } from "@/lib/classify-intent"
 import { useUser, useAuth, SignUpButton } from "@clerk/nextjs"
 import { cn } from "@/lib/utils"
 import { MessageSquare as MessageSquareIcon, BookOpen as BookOpenIcon, BarChart2 as BarChart2Icon, CalendarDays as CalendarDaysIcon, PenLine } from "lucide-react"
+import { X } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { API_BASE_URL } from "@/lib/api"
 import {
@@ -40,17 +40,21 @@ import type { CourseCardData, Message } from "./chat/types"
 const MAX_SESSIONS = MAX_SYNCED_SESSIONS
 const SIGNUP_NUDGE_DISMISS_KEY = "campusq-signup-nudge-dismissed"
 
-function ChatPrivacyNotice({ synced }: { synced: boolean }) {
+function GuestQuestionBadge({ remaining, onDismiss }: { remaining: number; onDismiss: () => void }) {
   return (
-    <p className="text-[10px] text-center text-muted-foreground/80 px-4 pt-2 leading-relaxed max-w-2xl mx-auto">
-      {synced
-        ? "Signed in — chat history syncs to your CampusQ account across devices. "
-        : "Guest mode — past chats stay locked until you sign up. "}
-      Delete chats in the sidebar or clear site data.{" "}
-      <Link href="/privacy" className="underline hover:text-foreground">
-        Privacy Policy
-      </Link>
-    </p>
+    <div className="mx-1 mb-2 flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-[11px] text-primary">
+      <span className="flex-1 min-w-0 truncate">
+        {remaining} free {remaining === 1 ? "question" : "questions"} left today
+      </span>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss free question count"
+        className="shrink-0 size-5 rounded-full inline-flex items-center justify-center text-primary/70 hover:text-primary hover:bg-primary/15 transition-colors"
+      >
+        <X className="size-3" />
+      </button>
+    </div>
   )
 }
 
@@ -85,6 +89,7 @@ export function ChatContainer() {
   const [gotFirstAnswer, setGotFirstAnswer] = React.useState(false)
   const [guestQuota, setGuestQuota] = React.useState<GuestQuota | null>(null)
   const [guestLimitReached, setGuestLimitReached] = React.useState(false)
+  const [guestBadgeDismissed, setGuestBadgeDismissed] = React.useState(false)
   const messagesEndRef = React.useRef<HTMLDivElement>(null)
   const syncReadyRef = React.useRef(false)
   const syncTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -169,6 +174,12 @@ export function ChatContainer() {
 
   const guestQuestionsLeft =
     !isSignedIn && guestQuota ? guestQuota.remaining : null
+
+  React.useEffect(() => {
+    if (guestQuestionsLeft === null || guestQuestionsLeft <= 0) {
+      setGuestBadgeDismissed(false)
+    }
+  }, [guestQuestionsLeft])
 
   // Auto-scroll on new turns and coarse content growth — not every token.
   const scrollBucket = Math.floor((messages[messages.length - 1]?.content?.length ?? 0) / 280)
@@ -528,6 +539,12 @@ export function ChatContainer() {
                   </div>
                   {/* Input lives here on home screen, centered with content */}
                   <div className="max-w-2xl mx-auto w-full px-4 pb-3 md:pb-6">
+                    {guestQuestionsLeft !== null && !guestLimitReached && !guestBadgeDismissed && (
+                      <GuestQuestionBadge
+                        remaining={guestQuestionsLeft}
+                        onDismiss={() => setGuestBadgeDismissed(true)}
+                      />
+                    )}
                     {guestLimitReached && !isSignedIn ? (
                       <GuestLimitWall limit={guestQuota?.limit ?? 10} />
                     ) : (
@@ -539,14 +556,6 @@ export function ChatContainer() {
                         isHome
                       />
                     )}
-                    {guestQuestionsLeft !== null && !guestLimitReached && (
-                      <p className="text-[10px] text-center text-muted-foreground/70 pt-2">
-                        {guestQuestionsLeft} free {guestQuestionsLeft === 1 ? "question" : "questions"} left today
-                      </p>
-                    )}
-                    <div className="hidden sm:block">
-                      <ChatPrivacyNotice synced={!!isSignedIn} />
-                    </div>
                   </div>
                 </div>
               ) : (
@@ -605,6 +614,12 @@ export function ChatContainer() {
             {messages.length > 0 && (
               <div className="max-w-2xl mx-auto w-full">
                 {showSignupNudge && <SignupNudge onDismiss={dismissSignupNudge} />}
+                {guestQuestionsLeft !== null && !guestLimitReached && !guestBadgeDismissed && (
+                  <GuestQuestionBadge
+                    remaining={guestQuestionsLeft}
+                    onDismiss={() => setGuestBadgeDismissed(true)}
+                  />
+                )}
                 {guestLimitReached && !isSignedIn ? (
                   <GuestLimitWall limit={guestQuota?.limit ?? 10} />
                 ) : (
@@ -615,14 +630,6 @@ export function ChatContainer() {
                     disabled={isLoading || (!!isLoaded && !isSignedIn && guestLimitReached)}
                   />
                 )}
-                {guestQuestionsLeft !== null && !guestLimitReached && (
-                  <p className="text-[10px] text-center text-muted-foreground/70 px-4 pt-1.5">
-                    {guestQuestionsLeft} free {guestQuestionsLeft === 1 ? "question" : "questions"} left today
-                  </p>
-                )}
-                <div className="hidden sm:block">
-                  <ChatPrivacyNotice synced={!!isSignedIn} />
-                </div>
               </div>
             )}
           </>

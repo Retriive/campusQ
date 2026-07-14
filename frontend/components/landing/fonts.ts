@@ -1,9 +1,10 @@
-import { Syne, Plus_Jakarta_Sans } from "next/font/google"
+import { Instrument_Serif, Plus_Jakarta_Sans } from "next/font/google"
 
-export const landDisplay = Syne({
+export const landDisplay = Instrument_Serif({
   subsets: ["latin"],
   variable: "--font-land-display",
-  weight: ["500", "600", "700", "800"],
+  weight: "400",
+  style: ["normal", "italic"],
 })
 
 export const landBody = Plus_Jakarta_Sans({

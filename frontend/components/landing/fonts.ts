@@ -1,4 +1,4 @@
-import { Instrument_Serif, Source_Sans_3 } from "next/font/google"
+import { Instrument_Serif, Plus_Jakarta_Sans } from "next/font/google"
 
 export const landDisplay = Instrument_Serif({
   subsets: ["latin"],
@@ -7,7 +7,7 @@ export const landDisplay = Instrument_Serif({
   style: ["normal", "italic"],
 })
 
-export const landBody = Source_Sans_3({
+export const landBody = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-land-body",
   weight: ["400", "500", "600", "700"],

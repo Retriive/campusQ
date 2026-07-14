@@ -63,12 +63,12 @@ export function WaitlistCta({ school }: WaitlistCtaProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@school.ca"
-          className="text-sm px-4 py-3 rounded-md border border-line bg-canvas-raised text-ink placeholder:text-ink-faint outline-none focus:border-ink/40 transition-[border-color] duration-200 w-full sm:flex-1"
+          className="text-sm px-4 py-3 rounded-lg border border-line bg-canvas-raised text-ink placeholder:text-ink-faint outline-none focus:border-ink/35 transition-[border-color] duration-200 w-full sm:flex-1"
         />
         <button
           type="submit"
           disabled={submitting || !consented}
-          className="land-press inline-flex items-center justify-center gap-2 rounded-md bg-ink px-5 py-3 text-sm font-semibold text-canvas shrink-0 disabled:opacity-50"
+          className="land-press inline-flex items-center justify-center gap-2 rounded-lg bg-ink px-5 py-3 text-sm font-semibold text-canvas shrink-0 disabled:opacity-50"
         >
           {submitting ? "Joining…" : "Join waitlist"}
           <ArrowRight className="size-4" />

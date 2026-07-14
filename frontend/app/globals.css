@@ -356,13 +356,14 @@
 }
 
 /* ── Landing theming ────────────────────────────────────────────────────
-   Soft stone paper + deep ink. School accents via [data-school]. */
+   Soft paper + deep ink. School accents via [data-school]. Emil: polish,
+   not spectacle. */
 .landing-track {
-  --canvas: #f4f5f2;
-  --canvas-raised: #fbfbf9;
-  --line: #d9ddd6;
-  --ink: #11140f;
-  --ink-body: #4a5248;
+  --canvas: #f3f4f1;
+  --canvas-raised: #fcfcfa;
+  --line: #d7dbd4;
+  --ink: #10130f;
+  --ink-body: #4c554d;
   --ink-faint: #748074;
   --link-muted: #65706a;
   --card-shadow: none;
@@ -371,11 +372,11 @@
   --ease-land-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 .landing-track.dark {
-  --canvas: #0d0f0c;
-  --canvas-raised: #151814;
+  --canvas: #0c0e0b;
+  --canvas-raised: #141714;
   --line: #2a3028;
-  --ink: #f2f4ef;
-  --ink-body: #a7b0a4;
+  --ink: #f1f3ee;
+  --ink-body: #a6afa3;
   --ink-faint: #7a8476;
   --link-muted: #8f998b;
   --card-shadow: none;
@@ -426,34 +427,51 @@
   }
 }
 
-/* ── Landing motion — quiet, purposeful ───────────────────────────────── */
+/* ── Landing motion (Emil) — purposeful, not loud ────────────────────────
+   Marketing/first-visit: short cascade + press feedback + scroll settle.
+   Never scale(0). Ease-out. GPU props only. */
 @keyframes land-rise {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(10px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .stagger-item {
   opacity: 0;
-  animation: land-rise 520ms var(--ease-land-out, var(--ease-out)) forwards;
+  animation: land-rise 560ms var(--ease-land-out, var(--ease-out)) forwards;
+}
+
+@keyframes land-msg {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.land-msg {
+  opacity: 0;
+  animation: land-msg 480ms var(--ease-land-out, var(--ease-out)) forwards;
 }
 
 .land-press {
-  transition: background-color 250ms ease, color 250ms ease, border-color 250ms ease,
-    transform 140ms var(--ease-land-out, var(--ease-out));
+  transition: background-color 280ms ease, color 280ms ease, border-color 280ms ease,
+    transform 150ms var(--ease-land-out, var(--ease-out));
 }
 .land-press:active {
   transform: scale(0.97);
 }
 
 .pill-press {
-  transition: background-color 250ms ease, color 250ms ease, border-color 250ms ease,
-    transform 140ms var(--ease-out);
+  transition: background-color 280ms ease, color 280ms ease, border-color 280ms ease,
+    transform 150ms var(--ease-out);
 }
 .pill-press:active {
   transform: scale(0.97);
@@ -461,13 +479,13 @@
 
 .reveal {
   opacity: 0;
-  transform: translateY(16px);
+  transform: translateY(14px);
 }
 .reveal.is-visible {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 560ms var(--ease-land-out, var(--ease-out)),
-    transform 560ms var(--ease-land-out, var(--ease-out));
+  transition: opacity 580ms var(--ease-land-out, var(--ease-out)),
+    transform 580ms var(--ease-land-out, var(--ease-out));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -475,9 +493,11 @@
     opacity: 1;
     transform: none;
   }
-  .stagger-item {
+  .stagger-item,
+  .land-msg {
     opacity: 1;
     animation: none;
+    transform: none;
   }
 }
 

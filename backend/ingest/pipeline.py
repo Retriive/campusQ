@@ -109,7 +109,15 @@ def _gather_pages(source: Source, log) -> list[fetch_mod.FetchedPage]:
     """Fetch a source's page, fanning out to same-prefix links if configured.
     Non-web sources (sitemap, ics, filedrop) delegate to their connector."""
     if source.connector != "web":
-        from connectors import get_connector
+        try:
+            from connectors import get_connector
+        except ImportError as exc:
+            # The connectors module doesn't exist yet — fail this source with a
+            # clear message instead of an ImportError traceback mid-run.
+            raise fetch_mod.FetchError(
+                f"connector '{source.connector}' is not implemented yet "
+                f"(no connectors module) — use connector 'web' for {source.url}"
+            ) from exc
         return get_connector(source.connector)(source, log)
 
     pages: list[fetch_mod.FetchedPage] = []

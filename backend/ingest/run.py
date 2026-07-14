@@ -41,6 +41,11 @@ def cmd_list(school: str):
     for r in state.recent_runs(school, limit=10):
         print(f"  #{r['id']} {r['category']:12s} {r['status']:8s} {r['started'][:19]} "
               f"pages={r['pages_fetched']} changed={r['pages_changed']} records={r['records']}  {r['message'] or ''}")
+    quarantined = state.quarantined_for(school, limit=10)
+    if quarantined:
+        print("\nRecent quarantine (records blocked from publishing):")
+        for q in quarantined:
+            print(f"  #{q['id']} [{q['category']:12s}] {q['record_id']}  {q['reasons']}  ({q['created_at'][:19]})")
     return 0
 
 

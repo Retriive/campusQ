@@ -14,6 +14,15 @@ iterate on extractor prompts/validators without re-hitting the university.
 Promoted vectors carry a `scraped_at` metadata stamp; audit what's live and
 how fresh with `py scripts/audit_index.py`.
 
+## Validation + quarantine
+
+Extracted records pass deterministic validators (`ingest/validate.py`) before
+verify/promote. Records that fail — deadlines outside a plausible year window,
+the same deadline extracted with two different dates, implausible course
+credits — are quarantined to SQLite instead of published, and their
+previously-live vector keeps serving. Review with
+`py -m ingestion.run --school carleton --list` (Recent quarantine section).
+
 ## Legacy paths
 
 - `backend/ingest/` remains as a compatibility shim for older imports.

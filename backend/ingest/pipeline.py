@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from . import extract as extract_mod
 from . import fetch as fetch_mod
 from . import upsert as upsert_mod
+from . import validate as validate_mod
 from .registry import Source, load_sources
 from .state import IngestState
 
@@ -42,6 +43,7 @@ class CategoryResult:
     pages_fetched: int = 0
     pages_changed: int = 0
     records: int = 0
+    quarantined: int = 0
     upserted: int = 0
     stale_deleted: int = 0
     message: str = ""
@@ -191,6 +193,17 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
         for r in records:
             by_id[r["id"]] = r
         records = list(by_id.values())
+
+        # Per-record validation: quarantine bad or contradictory records
+        # instead of publishing them. A failed validation distrusts the NEW
+        # value, not the old one — so quarantined IDs also keep their
+        # previously-live vector (excluded from stale deletion below).
+        records, quarantined = validate_mod.screen(records, category)
+        result.quarantined = len(quarantined)
+        for rec, reasons in quarantined:
+            if not dry_run:
+                state.add_quarantine(school, category, rec, reasons, run_id)
+            log(f"  ⚠ quarantined {rec['id']}: {'; '.join(reasons)}")
         result.records = len(records)
 
         if result.pages_fetched > 0 and not records and skipped_pages == result.pages_fetched:
@@ -208,7 +221,10 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
             with open(result.preview_path, "w", encoding="utf-8") as f:
                 for r in records:
                     f.write(json.dumps(r, ensure_ascii=False) + "\n")
-            result.message = f"{len(records)} records written to preview (no Pinecone writes)"
+            result.message = (
+                f"{len(records)} records written to preview (no Pinecone writes)"
+                + (f", {result.quarantined} quarantined" if result.quarantined else "")
+            )
             state.finish_run(run_id, "dry_run", result.pages_fetched, result.pages_changed,
                              len(records), result.message)
             return result
@@ -231,7 +247,9 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
 
         vectors = upsert_mod.embed_records(records, openai_client)
         stats = upsert_mod.promote(index, category, records, vectors,
-                                   delete_stale=full_coverage, log=log)
+                                   delete_stale=full_coverage,
+                                   keep_ids=frozenset(rec["id"] for rec, _ in quarantined),
+                                   log=log)
         result.upserted = stats["upserted"]
         result.stale_deleted = stats["stale_deleted"]
 
@@ -245,6 +263,7 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
 
         result.message = (
             f"{stats['upserted']} live, {stats['stale_deleted']} stale removed"
+            + (f", {result.quarantined} quarantined" if result.quarantined else "")
             + ("" if full_coverage else " (incremental — stale cleanup skipped)")
         )
         state.finish_run(run_id, "ok", result.pages_fetched, result.pages_changed,

@@ -10,9 +10,9 @@ import { ThemeToggle, useLandingTheme } from "@/components/landing/theme"
 import { landBody, landDisplay } from "@/components/landing/fonts"
 import { SCHOOLS, schoolPath, type SchoolId } from "@/lib/landing-schools"
 
-// Ink & Signal landing — cool paper canvas, Syne brand type, intentional
-// marketing motion only: orchestrated stagger, clip-path reveal, press
-// feedback, scroll reveal. See .agents/skills/emil-design-eng.
+// Ink & Signal — marketing motion is first-visit delight: masked brand reveal,
+// orchestrated stagger, directional demo cascade, clip-path stage, scroll
+// reveals, number tickers. Craft bar: .agents/skills/emil-design-eng
 
 const STEPS = [
   { n: "01", title: "Ask", copy: "A real question in plain English — courses, prereqs, deadlines." },
@@ -42,7 +42,7 @@ function Reveal({
           io.disconnect()
         }
       },
-      { threshold: 0.18, rootMargin: "0px 0px -6% 0px" }
+      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
     )
     io.observe(el)
     return () => io.disconnect()
@@ -58,9 +58,62 @@ function Reveal({
   )
 }
 
+/** Number ticker — rolls digits when the parent reveal becomes visible. */
+function StatValue({ value }: { value: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [display, setDisplay] = useState(value)
+  const numeric = /^[\d,]+$/.test(value)
+
+  useEffect(() => {
+    if (!numeric) {
+      setDisplay(value)
+      return
+    }
+    const el = ref.current
+    if (!el) return
+    const target = Number(value.replace(/,/g, ""))
+    let raf = 0
+    let started = false
+
+    const tick = (t0: number) => {
+      const step = (now: number) => {
+        const p = Math.min(1, (now - t0) / 900)
+        const e = 1 - Math.pow(1 - p, 4)
+        setDisplay(Math.round(target * e).toLocaleString("en-US"))
+        if (p < 1) raf = requestAnimationFrame(step)
+      }
+      raf = requestAnimationFrame(step)
+    }
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !started) {
+          started = true
+          setDisplay("0")
+          tick(performance.now())
+          io.disconnect()
+        }
+      },
+      { threshold: 0.4 }
+    )
+    io.observe(el)
+    return () => {
+      io.disconnect()
+      cancelAnimationFrame(raf)
+    }
+  }, [value, numeric])
+
+  return (
+    <span ref={ref} className="land-tick tabular-nums">
+      {display}
+    </span>
+  )
+}
+
 export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: SchoolId }) {
   const router = useRouter()
   const [schoolId, setSchoolId] = useState<SchoolId>(defaultSchool)
+  const [demoKey, setDemoKey] = useState(0)
   const school = SCHOOLS[schoolId]
   const { theme, toggle } = useLandingTheme()
 
@@ -70,6 +123,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
 
   function selectSchool(id: SchoolId) {
     setSchoolId(id)
+    setDemoKey((k) => k + 1)
     const next = schoolPath(id)
     if (typeof window !== "undefined" && window.location.pathname !== next) {
       router.replace(next)
@@ -82,15 +136,17 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
         data-school={schoolId}
         className="min-h-screen bg-canvas text-ink flex flex-col [font-family:var(--land-body)] antialiased"
       >
-        {/* ── Full-bleed hero ─────────────────────────────────────────── */}
         <header className="relative min-h-[100svh] flex flex-col overflow-hidden">
-          {/* Atmosphere — real visual plane, not flat fill */}
           <div aria-hidden className="pointer-events-none absolute inset-0">
             <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_10%_-10%,color-mix(in_oklab,var(--primary)_28%,transparent),transparent_55%),radial-gradient(90%_70%_at_100%_10%,color-mix(in_oklab,var(--primary)_16%,transparent),transparent_50%),linear-gradient(180deg,var(--canvas)_0%,color-mix(in_oklab,var(--canvas)_70%,var(--primary-soft))_100%)]" />
-            <div className="land-mesh absolute -left-[20%] top-[18%] size-[58vmin] rounded-full bg-[radial-gradient(circle,color-mix(in_oklab,var(--primary)_35%,transparent),transparent_68%)] blur-xl opacity-70" />
+            <div className="land-mesh absolute -left-[20%] top-[18%] size-[58vmin] rounded-full bg-[radial-gradient(circle,color-mix(in_oklab,var(--primary)_35%,transparent),transparent_68%)] blur-xl opacity-80" />
             <div
-              className="land-mesh absolute -right-[15%] top-[40%] size-[48vmin] rounded-full bg-[radial-gradient(circle,color-mix(in_oklab,var(--primary-ink)_22%,transparent),transparent_70%)] blur-xl opacity-60"
-              style={{ animationDelay: "-6s" }}
+              className="land-mesh absolute -right-[15%] top-[40%] size-[48vmin] rounded-full bg-[radial-gradient(circle,color-mix(in_oklab,var(--primary-ink)_22%,transparent),transparent_70%)] blur-xl opacity-70"
+              style={{ animationDelay: "-4s" }}
+            />
+            <div
+              className="land-mesh absolute left-[35%] -bottom-[10%] size-[42vmin] rounded-full bg-[radial-gradient(circle,color-mix(in_oklab,var(--primary)_18%,transparent),transparent_70%)] blur-xl opacity-50"
+              style={{ animationDelay: "-8s" }}
             />
             <div
               className="absolute inset-0 opacity-[0.35] mix-blend-multiply dark:mix-blend-soft-light dark:opacity-[0.25]"
@@ -101,7 +157,6 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
             />
           </div>
 
-          {/* Nav */}
           <nav className="relative z-20 flex items-center justify-between gap-4 px-5 sm:px-8 lg:px-12 h-16 sm:h-[4.25rem]">
             <Link
               href="/"
@@ -131,32 +186,28 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
             </div>
           </nav>
 
-          {/* Hero copy — brand owns the viewport; one line + one sentence + CTA */}
           <div className="relative z-10 flex-1 flex flex-col justify-end px-5 sm:px-8 lg:px-12 pb-8 sm:pb-10 pt-10 max-w-[1400px] w-full mx-auto">
-            <p
-              className="stagger-item [font-family:var(--land-display)] text-[clamp(3.4rem,12vw,8.5rem)] font-extrabold leading-[0.88] tracking-[-0.055em] text-balance"
-              style={{ animationDelay: "40ms" }}
-            >
+            <p className="land-brand [font-family:var(--land-display)] text-[clamp(3.4rem,12vw,8.5rem)] font-extrabold leading-[0.88] tracking-[-0.055em] text-balance">
               Campus<span className="text-primary-ink">Q</span>
             </p>
 
             <h1
               className="stagger-item mt-5 sm:mt-6 max-w-3xl text-[clamp(1.35rem,3.2vw,2.35rem)] font-semibold leading-[1.15] tracking-[-0.03em] text-balance"
-              style={{ animationDelay: "120ms" }}
+              style={{ animationDelay: "220ms" }}
             >
               Official answers for {school.shortName} students — advisors get their time back.
             </h1>
 
             <p
               className="stagger-item mt-4 max-w-xl text-base sm:text-lg text-ink-body leading-relaxed"
-              style={{ animationDelay: "200ms" }}
+              style={{ animationDelay: "360ms" }}
             >
               {school.live
                 ? "Ask about courses, prerequisites, programs, and deadlines. Sourced from the official calendar."
                 : `CampusQ is indexing ${school.name}. Join the waitlist and we’ll email you the day it opens.`}
             </p>
 
-            <div className="stagger-item mt-7" style={{ animationDelay: "280ms" }}>
+            <div className="stagger-item mt-7" style={{ animationDelay: "500ms" }}>
               {school.live ? (
                 <div className="flex flex-wrap items-center gap-4">
                   <Link
@@ -164,7 +215,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
                     className="land-press group inline-flex items-center gap-2 rounded-xl bg-ink px-6 py-3.5 text-base font-semibold text-canvas"
                   >
                     Ask your first question
-                    <ArrowRight className="size-4 transition-transform duration-200 ease-[var(--ease-land-out)] group-hover:translate-x-0.5" />
+                    <ArrowRight className="land-arrow size-4" />
                   </Link>
                   <Link
                     href="/sign-up"
@@ -183,21 +234,25 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
             </div>
           </div>
 
-          {/* Dominant product plane — full-bleed, no card chrome */}
           <div className="relative z-10 land-clip-reveal border-t border-line bg-canvas-raised/80 backdrop-blur-[2px]">
             <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 py-7 sm:py-9">
               <div className="flex items-center gap-3 mb-6">
-                <span className="size-2 rounded-sm bg-primary" />
+                <span className="relative flex size-2.5">
+                  <span
+                    className={`absolute inset-0 rounded-sm bg-primary ${school.live ? "land-pulse" : ""}`}
+                  />
+                  <span className="relative size-2.5 rounded-sm bg-primary" />
+                </span>
                 <span className="text-xs font-medium uppercase tracking-[0.14em] text-ink-faint">
                   {school.live ? `Live · ${school.shortName}` : `Coming · ${school.shortName}`}
                 </span>
               </div>
-              <div className="flex flex-col gap-4 min-h-[200px] sm:min-h-[220px]">
+              <div key={`${schoolId}-${demoKey}`} className="flex flex-col gap-4 min-h-[200px] sm:min-h-[220px]">
                 {school.demoMessages.map((msg, i) => (
                   <div
-                    key={`${schoolId}-${i}`}
-                    className={`animate-message-in flex ${msg.role === "user" ? "justify-end" : "justify-start gap-3"}`}
-                    style={{ animationDelay: `${i * 70}ms` }}
+                    key={`${schoolId}-${demoKey}-${i}`}
+                    className={`flex ${msg.role === "user" ? "justify-end land-msg-user" : "justify-start gap-3 land-msg-assistant"}`}
+                    style={{ animationDelay: `${650 + i * 140}ms` }}
                   >
                     {msg.role === "assistant" && (
                       <div className="shrink-0 size-7 rounded-lg bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground mt-0.5">
@@ -235,7 +290,6 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
           </div>
         </header>
 
-        {/* ── Problem — one job ───────────────────────────────────────── */}
         <section className="border-t border-line">
           <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 py-20 md:py-28 grid grid-cols-1 md:grid-cols-12 gap-10">
             <Reveal className="md:col-span-5">
@@ -247,7 +301,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
                 <span className="text-primary-ink"> It’s just buried.</span>
               </h2>
             </Reveal>
-            <Reveal delay={90} className="md:col-span-6 md:col-start-7 flex flex-col gap-5 text-base sm:text-lg leading-relaxed text-ink-body md:pt-10">
+            <Reveal delay={120} className="md:col-span-6 md:col-start-7 flex flex-col gap-5 text-base sm:text-lg leading-relaxed text-ink-body md:pt-10">
               <p>
                 Students burn hours jumping calendars, program pages, and advising inboxes for questions that should take thirty seconds.
               </p>
@@ -258,7 +312,6 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
           </div>
         </section>
 
-        {/* ── How it works ────────────────────────────────────────────── */}
         <section className="border-t border-line bg-canvas-raised">
           <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 py-20 md:py-28">
             <Reveal>
@@ -268,7 +321,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
             </Reveal>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-10 gap-y-12">
               {STEPS.map((step, i) => (
-                <Reveal key={step.n} delay={i * 60} className="border-t border-line pt-6">
+                <Reveal key={step.n} delay={i * 90} className="border-t border-line pt-6">
                   <p className="[font-family:var(--land-display)] text-3xl font-bold tabular-nums text-primary-ink tracking-tight">
                     {step.n}
                   </p>
@@ -280,15 +333,14 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
           </div>
         </section>
 
-        {/* ── Signal band ─────────────────────────────────────────────── */}
         <section className="border-t border-line">
           <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 py-16 md:py-20">
             {school.stats.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
                 {school.stats.map((s, i) => (
-                  <Reveal key={s.label} delay={i * 50} className="flex flex-col gap-2">
-                    <span className="[font-family:var(--land-display)] text-4xl md:text-5xl font-bold tabular-nums tracking-[-0.04em] leading-none">
-                      {s.value}
+                  <Reveal key={`${schoolId}-${s.label}`} delay={i * 80} className="flex flex-col gap-2">
+                    <span className="[font-family:var(--land-display)] text-4xl md:text-5xl font-bold tracking-[-0.04em] leading-none">
+                      <StatValue value={s.value} />
                     </span>
                     <span className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-faint">
                       {s.label}
@@ -307,7 +359,6 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
           </div>
         </section>
 
-        {/* ── Closing CTA ─────────────────────────────────────────────── */}
         <section className="border-t border-line relative overflow-hidden">
           <div
             aria-hidden
@@ -332,7 +383,7 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
                     className="land-press group inline-flex items-center gap-2 rounded-xl bg-primary px-7 py-3.5 text-base font-semibold text-primary-foreground"
                   >
                     Open CampusQ free
-                    <ArrowRight className="size-4 transition-transform duration-200 ease-[var(--ease-land-out)] group-hover:translate-x-0.5" />
+                    <ArrowRight className="land-arrow size-4" />
                   </Link>
                 ) : (
                   <WaitlistCta school={school.shortName} />
@@ -343,7 +394,6 @@ export function LandingPage({ defaultSchool = "carleton" }: { defaultSchool?: Sc
           </div>
         </section>
 
-        {/* ── Footer ──────────────────────────────────────────────────── */}
         <footer className="border-t border-line px-5 sm:px-8 lg:px-12 py-12 mt-auto">
           <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div className="flex items-center gap-3">

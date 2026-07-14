@@ -659,4 +659,10 @@
   .stagger-item {
     opacity: 1;
   }
+  .land-brand,
+  .land-msg-user,
+  .land-msg-assistant,
+  .land-tick {
+    opacity: 1;
+  }
 }

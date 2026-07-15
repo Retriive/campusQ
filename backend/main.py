@@ -1566,6 +1566,14 @@ async def ingest_add_source(
     url = url.strip()
     if not re.match(r"^https://[^\s]+$", url):
         return {"ok": False, "error": "URL must start with https:// and contain no spaces"}
+    # SSRF guard: reject private/metadata hosts (and enforce the domain
+    # allowlist, if configured) at add time so a bad URL never reaches the
+    # fetcher or the vector DB. The fetcher re-validates every hop too.
+    from ingest.fetch import _assert_url_safe, FetchError as _FetchError
+    try:
+        _assert_url_safe(url)
+    except _FetchError as exc:
+        return {"ok": False, "error": f"URL rejected: {exc}"}
     if not re.match(r"^[a-z_]{2,30}$", category.strip()):
         return {"ok": False, "error": "category must be a short lowercase name (it becomes the Pinecone namespace)"}
     _ingest_state.add_extra_source(school.strip()[:40], category.strip(), url[:500])

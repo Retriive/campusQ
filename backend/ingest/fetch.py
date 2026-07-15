@@ -13,7 +13,10 @@ never hammers a host (fixed delay between requests to the same domain).
 from __future__ import annotations
 
 import hashlib
+import ipaddress
+import os
 import re
+import socket
 import time
 import urllib.robotparser
 from dataclasses import dataclass
@@ -26,9 +29,74 @@ USER_AGENT = "CampusQBot/1.0 (+https://retriive.com; academic data indexing)"
 REQUEST_TIMEOUT = 20
 POLITE_DELAY_S = 0.5
 MAX_PDF_PAGES = 100
+MAX_REDIRECTS = 5
+
+# SSRF guard: an admin can add arbitrary ingest URLs, so the fetcher must never
+# be usable as a proxy into private networks or cloud metadata. Two layers:
+#   1. Every host is DNS-resolved and *every* resolved IP must be public
+#      (blocks 169.254.169.254, 127.0.0.1, 10.x, 192.168.x, ::1, etc.).
+#   2. Optional INGEST_ALLOWED_DOMAINS suffix allowlist. When set, a host must
+#      equal or be a subdomain of a listed domain (e.g. "carleton.ca"). Unset =
+#      any public host is allowed (private-IP blocking still applies).
+# Redirects are followed manually so each hop is re-validated (a legit host can
+# still 30x to an internal address).
+_ALLOWED_DOMAINS = [
+    d.strip().lower().lstrip(".")
+    for d in os.getenv("INGEST_ALLOWED_DOMAINS", "").split(",")
+    if d.strip()
+]
 
 _robots_cache: dict[str, urllib.robotparser.RobotFileParser] = {}
 _last_hit: dict[str, float] = {}
+
+
+def _host_allowed(host: str) -> bool:
+    if not _ALLOWED_DOMAINS:
+        return True
+    host = host.lower().rstrip(".")
+    return any(host == d or host.endswith("." + d) for d in _ALLOWED_DOMAINS)
+
+
+def _ip_is_public(ip: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
+        addr = addr.ipv4_mapped
+    return not (
+        addr.is_private
+        or addr.is_loopback
+        or addr.is_link_local      # 169.254.0.0/16 — cloud metadata lives here
+        or addr.is_reserved
+        or addr.is_multicast
+        or addr.is_unspecified
+    )
+
+
+def _assert_url_safe(url: str) -> None:
+    """Reject non-https, disallowed hosts, and hosts that resolve to private IPs.
+
+    Raises FetchError so callers surface a clean ingestion failure.
+    """
+    parts = urlparse(url)
+    if parts.scheme != "https":
+        raise FetchError(f"refusing non-https URL: {url}")
+    host = parts.hostname
+    if not host:
+        raise FetchError(f"URL has no host: {url}")
+    if not _host_allowed(host):
+        raise FetchError(f"host not in INGEST_ALLOWED_DOMAINS allowlist: {host}")
+    try:
+        infos = socket.getaddrinfo(host, parts.port or 443, proto=socket.IPPROTO_TCP)
+    except OSError as exc:
+        raise FetchError(f"DNS resolution failed for {host}: {exc}")
+    resolved = {info[4][0] for info in infos}
+    if not resolved:
+        raise FetchError(f"no addresses resolved for {host}")
+    for ip in resolved:
+        if not _ip_is_public(ip):
+            raise FetchError(f"host {host} resolves to non-public address {ip}")
 
 
 @dataclass
@@ -67,15 +135,45 @@ def _polite_wait(url: str):
     _last_hit[domain] = time.time()
 
 
+def _get_once(url: str) -> requests.Response:
+    """Single validated request with redirects followed manually.
+
+    allow_redirects is disabled so every hop passes back through
+    _assert_url_safe — a whitelisted host that 30x-redirects to an internal
+    address (169.254.169.254, etc.) is caught instead of blindly followed.
+    """
+    for _ in range(MAX_REDIRECTS + 1):
+        _assert_url_safe(url)
+        _polite_wait(url)
+        r = requests.get(
+            url,
+            timeout=REQUEST_TIMEOUT,
+            headers={"User-Agent": USER_AGENT},
+            allow_redirects=False,
+        )
+        if r.is_redirect or r.is_permanent_redirect:
+            location = r.headers.get("location")
+            if not location:
+                return r
+            url = urljoin(url, location)
+            continue
+        return r
+    raise FetchError(f"too many redirects for {url}")
+
+
 def _get(url: str, retries: int = 2) -> requests.Response:
     last_exc: Exception | None = None
     for attempt in range(retries + 1):
         try:
-            _polite_wait(url)
-            r = requests.get(url, timeout=REQUEST_TIMEOUT, headers={"User-Agent": USER_AGENT})
+            r = _get_once(url)
             if r.status_code == 200:
                 return r
             last_exc = FetchError(f"HTTP {r.status_code} for {url}")
+        except FetchError as exc:
+            # SSRF/validation rejections are terminal — don't retry them.
+            if "resolves to non-public" in str(exc) or "allowlist" in str(exc) or "non-https" in str(exc):
+                raise
+            last_exc = exc
         except requests.RequestException as exc:
             last_exc = exc
         if attempt < retries:

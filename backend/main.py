@@ -40,6 +40,7 @@ from grounding import (
     NO_CONTEXT_ANSWER,
 )
 from input_sanitize import sanitize_history
+from embedding_cache import EmbeddingCache
 from waitlist_store import append_waitlist, remove_waitlist_email
 
 load_dotenv()
@@ -239,7 +240,7 @@ LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "90"))
 _RETAINED_LOG_FILES = [
     "queries.log", "feedback.log", "reports.log",
     "no_context.log", "course_misses.log", "waitlist.log",
-    "calendar.log",
+    "calendar.log", "timing.log",
 ]
 
 def _prune_log_file(path: str, cutoff: datetime):
@@ -559,6 +560,22 @@ def extract_clean_description(doc_text: str) -> str:
     return full_desc or " ".join(desc_parts)
 
 
+# Short-TTL cache for query embeddings so repeated/retried questions don't
+# re-hit OpenAI for an identical vector (#53). Bounded + LRU; see embedding_cache.
+_embed_cache = EmbeddingCache(
+    ttl_s=float(os.getenv("EMBED_CACHE_TTL_S", "300")),
+    max_entries=int(os.getenv("EMBED_CACHE_MAX", "512")),
+)
+
+
+def embed_query(text: str, model: str = "text-embedding-3-small") -> list[float]:
+    """Embed query text, served from the TTL cache on repeat calls (#53)."""
+    return _embed_cache.get_or_compute(
+        f"{model}\n{text}",
+        lambda: openai_client.embeddings.create(input=text, model=model).data[0].embedding,
+    )
+
+
 def rag_lookup_prerequisites(course_code: str) -> str:
     """
     When the O(1) metadata fetch has no prerequisite info, do a targeted
@@ -567,10 +584,7 @@ def rag_lookup_prerequisites(course_code: str) -> str:
     """
     try:
         query = f"{course_code} prerequisite required courses"
-        embedding = openai_client.embeddings.create(
-            input=query,
-            model="text-embedding-3-small",
-        ).data[0].embedding
+        embedding = embed_query(query)
         results = index.query(
             vector=embedding,
             top_k=5,
@@ -1019,10 +1033,9 @@ async def chat_endpoint(
         search_query = rewrite_query_for_embedding(user_query)
         print(f"Embedding query: {search_query}")
 
-        query_embedding = openai_client.embeddings.create(
-            input=search_query,
-            model="text-embedding-3-small",
-        ).data[0].embedding
+        _t_embed = time.perf_counter()
+        query_embedding = embed_query(search_query)
+        _t_retr = time.perf_counter()
 
         all_matches, query_flags = retrieve_and_rerank(
             index=index,
@@ -1033,6 +1046,15 @@ async def chat_endpoint(
             openai_client=openai_client,
             chat_model=CHAT_MODEL,
         )
+        # Stage-latency instrumentation (#53): embedding vs. retrieval+rerank.
+        # LLM first-token/completion timing is tracked separately as response_ms.
+        _log("timing.log", {
+            "ts": datetime.utcnow().isoformat() + "Z",
+            "endpoint": "chat",
+            "intent": intent,
+            "embedding_ms": round((_t_retr - _t_embed) * 1000, 1),
+            "retrieve_rerank_ms": round((time.perf_counter() - _t_retr) * 1000, 1),
+        })
         is_program_query = query_flags.is_program_query
         all_matches = filter_matches_for_intent(all_matches, intent, user_query)
 
@@ -1203,10 +1225,7 @@ async def chat_stream(
         try:
             def _prepare_stream_rag():
                 search_query = rewrite_query_for_embedding(user_query)
-                query_embedding = openai_client.embeddings.create(
-                    input=search_query,
-                    model="text-embedding-3-small",
-                ).data[0].embedding
+                query_embedding = embed_query(search_query)
 
                 all_matches, query_flags = retrieve_and_rerank(
                     index=index,

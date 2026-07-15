@@ -101,6 +101,7 @@ RATE_LIMITS = {
     "calendar": (120, 3600),  # feed polls from calendar apps + add-to-calendar clicks
     "account": (60, 60),      # cloud chat sync for signed-in users
     "admin": (30, 60),        # dashboard / ingest — tighten against key stuffing
+    "admin_auth": (20, 300),  # EVERY admin attempt by IP — throttles key brute force
 }
 
 
@@ -112,16 +113,57 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def check_rate_limit(request: Request, scope: str):
+# Buckets for IPs/users seen once and never again would otherwise live forever
+# (spoofed X-Forwarded-For makes this a memory-exhaustion vector). Sweep stale
+# keys periodically: any bucket whose newest hit predates the largest window can
+# never again hold a counted entry, so it's safe to drop.
+_MAX_RATE_WINDOW_S = max(w for _, w in RATE_LIMITS.values())
+_last_bucket_sweep = 0.0
+
+
+def _evict_stale_buckets(now: float) -> None:
+    global _last_bucket_sweep
+    if now - _last_bucket_sweep < 300:  # at most once every 5 minutes
+        return
+    _last_bucket_sweep = now
+    horizon = now - _MAX_RATE_WINDOW_S
+    stale = [k for k, b in _RATE_BUCKETS.items() if not b or b[-1] <= horizon]
+    for k in stale:
+        _RATE_BUCKETS.pop(k, None)
+
+
+def check_rate_limit(request: Request, scope: str, identity: str | None = None):
+    """Sliding-window limit keyed by client IP, plus an optional per-user key.
+
+    Passing `identity` (a verified Clerk sub) adds a second bucket so a single
+    account is limited even when rotating IPs — important for chat, which burns
+    OpenAI/Pinecone budget. Anonymous/guest identities are ignored here (guests
+    are covered by IP + the daily guest quota).
+    """
     max_calls, window_s = RATE_LIMITS[scope]
-    key = (scope, _client_ip(request))
     now = time.time()
-    bucket = _RATE_BUCKETS[key]
-    while bucket and bucket[0] <= now - window_s:
-        bucket.popleft()
-    if len(bucket) >= max_calls:
-        raise HTTPException(status_code=429, detail="Too many requests — slow down and try again shortly.")
-    bucket.append(now)
+    keys = [(scope, f"ip:{_client_ip(request)}")]
+    if identity and identity not in ("anonymous", "quality-gate"):
+        keys.append((scope, f"user:{identity}"))
+
+    # Check all buckets before recording, so a rejection doesn't half-count.
+    for key in keys:
+        bucket = _RATE_BUCKETS[key]
+        while bucket and bucket[0] <= now - window_s:
+            bucket.popleft()
+        if len(bucket) >= max_calls:
+            raise HTTPException(status_code=429, detail="Too many requests — slow down and try again shortly.")
+    for key in keys:
+        _RATE_BUCKETS[key].append(now)
+    _evict_stale_buckets(now)
+
+
+async def admin_required(request: Request) -> None:
+    """Admin gate that throttles brute force. require_admin raises 401 before
+    any in-body limiter runs, so failed X-Admin-Key guesses were unthrottled.
+    Count every admin attempt by IP first, then validate the key."""
+    check_rate_limit(request, "admin_auth")
+    await require_admin(request)
 
 
 # ── Guest daily quota (signed-out only) ───────────────────────────────────────
@@ -403,6 +445,12 @@ if not _ALLOWED_ORIGINS:
             "ALLOWED_ORIGINS must be set (comma-separated) when APP_ENV=production"
         )
     _ALLOWED_ORIGINS = ["*"]
+elif IS_PRODUCTION and "*" in _ALLOWED_ORIGINS:
+    # An explicit "*" is as unsafe as leaving it unset — fail closed rather
+    # than let a wildcard reach the CORS middleware in production.
+    raise RuntimeError(
+        "ALLOWED_ORIGINS must be explicit frontend origins, not '*', when APP_ENV=production"
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -861,7 +909,7 @@ async def chat_endpoint(
     file: UploadFile = File(None),
     auth_user: str = Depends(optional_user),
 ):
-    check_rate_limit(request, "chat")
+    check_rate_limit(request, "chat", identity=auth_user)
     if not question.strip():
         return {"answer": "Ask me something about courses, programs, or deadlines!", "sources": []}
     question = question[:MAX_QUESTION_CHARS]
@@ -1073,7 +1121,7 @@ async def chat_stream(
     user_id: str = Form("anonymous"),
     auth_user: str = Depends(optional_user),
 ):
-    check_rate_limit(request, "chat")
+    check_rate_limit(request, "chat", identity=auth_user)
     question = question[:MAX_QUESTION_CHARS]
     _current_session.set(session_id[:100])
     # Trust the verified Clerk identity over the client-supplied form field.
@@ -1481,29 +1529,29 @@ def _clamp_days(days: int | None) -> int | None:
     return max(1, min(days, 365))
 
 @app.get("/api/dashboard")
-async def dashboard_data(request: Request, days: int | None = 7, _: None = Depends(require_admin)):
+async def dashboard_data(request: Request, days: int | None = 7, _: None = Depends(admin_required)):
     """days=7,14,30,90 or omit for all-time (days=None via ?days=0)"""
     check_rate_limit(request, "admin")
     return {"ok": True, "data": build_dashboard_data(LOG_DIR, days=_clamp_days(days))}
 
 @app.get("/api/dashboard/digest")
-async def dashboard_digest(request: Request, _: None = Depends(require_admin)):
+async def dashboard_digest(request: Request, _: None = Depends(admin_required)):
     check_rate_limit(request, "admin")
     return {"ok": True, "digest": build_digest_text(LOG_DIR)}
 
 @app.get("/api/dashboard/waitlist")
-async def dashboard_waitlist(request: Request, days: int | None = 30, _: None = Depends(require_admin)):
+async def dashboard_waitlist(request: Request, days: int | None = 30, _: None = Depends(admin_required)):
     check_rate_limit(request, "admin")
     return {"ok": True, "data": build_waitlist_data(LOG_DIR, days=_clamp_days(days))}
 
 @app.get("/api/dashboard/gaps")
-async def dashboard_gaps(request: Request, days: int | None = 7, _: None = Depends(require_admin)):
+async def dashboard_gaps(request: Request, days: int | None = 7, _: None = Depends(admin_required)):
     """Clustered content-gap data behind the advisor report (JSON)."""
     check_rate_limit(request, "admin")
     return {"ok": True, "data": build_gap_report_data(LOG_DIR, days=_clamp_days(days))}
 
 @app.get("/api/dashboard/advisor-report")
-async def dashboard_advisor_report(request: Request, _: None = Depends(require_admin)):
+async def dashboard_advisor_report(request: Request, _: None = Depends(admin_required)):
     """The external, advisor-facing Student Questions Report (text + HTML)."""
     check_rate_limit(request, "admin")
     from advisor_report import build_advisor_report_html, build_advisor_report_text
@@ -1529,7 +1577,7 @@ _ingest_run_lock = threading.Lock()
 
 
 @app.get("/api/admin/ingest/sources")
-async def ingest_sources(request: Request, school: str = "carleton", _: None = Depends(require_admin)):
+async def ingest_sources(request: Request, school: str = "carleton", _: None = Depends(admin_required)):
     check_rate_limit(request, "admin")
     sources = load_sources(school, _INGEST_BACKEND_DIR, _ingest_state.extra_sources(school))
     pages = {p["url"]: p for p in _ingest_state.pages_for(school)}
@@ -1560,7 +1608,7 @@ async def ingest_add_source(
     school: str = Form(...),
     category: str = Form(...),
     url: str = Form(...),
-    _: None = Depends(require_admin),
+    _: None = Depends(admin_required),
 ):
     check_rate_limit(request, "admin")
     url = url.strip()
@@ -1586,7 +1634,7 @@ async def ingest_trigger_run(
     school: str = Form("carleton"),
     category: str = Form(""),
     force: str = Form("false"),
-    _: None = Depends(require_admin),
+    _: None = Depends(admin_required),
 ):
     check_rate_limit(request, "admin")
     if not _ingest_run_lock.acquire(blocking=False):

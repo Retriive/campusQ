@@ -28,6 +28,7 @@ _REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "").strip().lower() in ("1", "true", "
 _CLERK_JWKS_URL = os.getenv("CLERK_JWKS_URL", "").strip()
 _CLERK_ISSUER = os.getenv("CLERK_ISSUER", "").strip()
 _AUTHORIZED_PARTIES = [p.strip() for p in os.getenv("CLERK_AUTHORIZED_PARTIES", "").split(",") if p.strip()]
+_CLERK_AUDIENCE = os.getenv("CLERK_AUDIENCE", "").strip()
 
 # Lazily built so importing this module never requires network or the jwt extra
 # unless verification is actually used (keeps evals/tests importing main.py cheap).
@@ -52,12 +53,22 @@ def _verify_token(token: str) -> dict:
         signing_key,
         algorithms=["RS256"],
         issuer=_CLERK_ISSUER or None,
-        options={"verify_iss": bool(_CLERK_ISSUER), "verify_aud": False},
+        audience=_CLERK_AUDIENCE or None,
+        options={
+            "verify_iss": bool(_CLERK_ISSUER),
+            # Only enforce audience when CLERK_AUDIENCE is configured (Clerk
+            # session tokens don't always carry `aud`); off by default so this
+            # can't break existing deployments.
+            "verify_aud": bool(_CLERK_AUDIENCE),
+        },
     )
     if _AUTHORIZED_PARTIES:
         azp = claims.get("azp")
-        if azp and azp not in _AUTHORIZED_PARTIES:
-            raise jwt.InvalidTokenError("untrusted authorized party (azp)")
+        # Reject a missing azp too: once an allowlist is configured, a token
+        # with no authorized party is not trustworthy (real Clerk tokens carry
+        # azp — this closes tokens minted for other apps that omit it).
+        if azp not in _AUTHORIZED_PARTIES:
+            raise jwt.InvalidTokenError("untrusted or missing authorized party (azp)")
     return claims
 
 

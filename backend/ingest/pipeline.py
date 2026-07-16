@@ -24,8 +24,10 @@ import os
 import traceback
 from dataclasses import dataclass, field
 
+from . import adaptive as adaptive_mod
 from . import extract as extract_mod
 from . import fetch as fetch_mod
+from . import fit as fit_mod
 from . import upsert as upsert_mod
 from . import validate as validate_mod
 from .registry import Source, load_sources
@@ -128,11 +130,23 @@ def _gather_pages(source: Source, log) -> list[fetch_mod.FetchedPage]:
 
     urls = fetch_mod.discover_links(root, source.include_prefix)[: source.max_pages]
     log(f"  {source.url} → {len(urls)} linked pages")
-    for url in urls:
+
+    # Adaptive sources stop early once linked pages stop adding new information;
+    # exhaustive fan-outs (adaptive=False) fetch every candidate up to max_pages.
+    tracker = adaptive_mod.SaturationTracker() if source.adaptive else None
+    for i, url in enumerate(urls):
         try:
-            pages.append(fetch_mod.fetch_page(url))
+            page = fetch_mod.fetch_page(url)
         except fetch_mod.FetchError as exc:
             log(f"    ✗ {url}: {exc}")
+            continue
+        pages.append(page)
+        if tracker is not None:
+            tracker.observe(page.text)
+            if tracker.should_stop():
+                log(f"    ⤶ adaptive stop: content saturated after {len(pages)} pages "
+                    f"({len(urls) - i - 1} candidates skipped)")
+                break
     # Root pages of link-following sources are usually just link hubs;
     # include the root only if it has real content of its own.
     if len(root.text) > 500:
@@ -187,8 +201,21 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
 
                 if changed:
                     result.pages_changed += 1
+
+                # BM25 fit-filter: prune boilerplate to category-relevant blocks
+                # before extraction. Skipped for course_regex, whose parser is
+                # sensitive to exact line layout. The raw lake still stores the
+                # full page text (persisted above), so --reextract stays lossless.
+                text = page.text
+                if source.fit and extractor != "course_regex":
+                    fr = fit_mod.fit_text(text, fit_mod.query_for(category, source.fit_query))
+                    if fr.reduced:
+                        log(f"    ⧉ fit: kept {fr.blocks_kept}/{fr.blocks_total} blocks, "
+                            f"−{fr.pct_removed}% chars")
+                    text = fr.text
+
                 try:
-                    page_records = extract_mod.extract(extractor, page.text, page.url, category, llm)
+                    page_records = extract_mod.extract(extractor, text, page.url, category, llm)
                     records.extend(page_records)
                     state.record_page(page.url, school, category, page.content_hash, "ok", changed=changed)
                     log(f"  ✓ {page.url} → {len(page_records)} records ({extractor})")

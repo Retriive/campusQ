@@ -28,6 +28,9 @@ class Source:
     include_prefix: str = ""        # required URL prefix for followed links (defaults to url)
     max_pages: int = 1              # hard cap on pages fetched for this source
     min_records: int = 1            # verification floor after extraction
+    fit: bool = False               # BM25-prune each page to category-relevant blocks before extract
+    fit_query: str = ""             # override the category's default fit topic query
+    adaptive: bool = False          # stop following links once content saturates (see ingest/adaptive.py)
     added_by_admin: bool = False
 
     def __post_init__(self):

@@ -13,7 +13,7 @@ import json
 import os
 from dataclasses import dataclass, field
 
-VALID_EXTRACTORS = ("auto", "course_regex", "llm_courses", "llm_dates", "llm_generic")
+VALID_EXTRACTORS = ("auto", "course_regex", "llm_courses", "llm_dates", "llm_generic", "css_schema")
 VALID_CONNECTORS = ("web", "sitemap", "ics", "filedrop")
 
 

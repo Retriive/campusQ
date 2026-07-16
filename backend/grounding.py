@@ -50,6 +50,68 @@ NO_CONTEXT_ANSWER = (
     "If you think this should be covered, use the Report a Problem button and we'll add it."
 )
 
+# --- Small talk -------------------------------------------------------------
+# Greetings and "what are you" questions retrieve nothing from Pinecone, so
+# without this they fall through to the no-context refusal — the worst possible
+# first impression. Answer them deterministically: no retrieval, no LLM, no
+# guest-quota charge.
+
+_GREETING_RE = re.compile(
+    r"^(hi+|hey+( there)?|hello+|yo|sup|whats? ?up|howdy|hiya|greetings"
+    r"|good (morning|afternoon|evening)"
+    r"|salaa?m( alaikum)?|as+alamu? ?alaikum)[\s!,.?]*$",
+    re.IGNORECASE,
+)
+
+_CAPABILITY_RE = re.compile(
+    r"^(help|what (do|can) (you|u) (do|help( me)? with|answer)"
+    r"|what (are|is) (you|u|this|campusq)"
+    r"|who (are|r) (you|u)"
+    r"|how do (you|u) work"
+    r"|what can (you|u) help( me)? with)[\s!,.?]*$",
+    re.IGNORECASE,
+)
+
+_THANKS_RE = re.compile(
+    r"^(thanks?( you| u)?( so much| a lot)?|thx|ty|tysm|appreciate (it|you)"
+    r"|jazak allah( khair)?)[\s!,.?]*$",
+    re.IGNORECASE,
+)
+
+_CAPABILITIES_BLURB = (
+    "I answer questions about **Carleton courses, programs, registration, "
+    "deadlines, academic regulations, and student services** — grounded in "
+    "official university sources.\n\n"
+    "Try asking:\n"
+    "- *What are the prerequisites for COMP 2402?*\n"
+    "- *When is the last day to withdraw from a fall course?*\n"
+    "- *How many credits do I need to graduate?*"
+)
+
+GREETING_ANSWER = "Hey! 👋 I'm CampusQ, Carleton's academic assistant. " + _CAPABILITIES_BLURB
+CAPABILITY_ANSWER = "I'm CampusQ, an AI assistant for Carleton students. " + _CAPABILITIES_BLURB
+THANKS_ANSWER = (
+    "Anytime! Ask me whenever another question about courses, programs, or deadlines comes up."
+)
+
+
+def smalltalk_answer(query: str) -> str | None:
+    """Deterministic reply for greetings/thanks/capability questions, else None.
+
+    Full-message matches only — "hi, when is the drop deadline?" must still go
+    through retrieval.
+    """
+    q = (query or "").strip()
+    if not q or len(q) > 60:
+        return None
+    if _GREETING_RE.match(q):
+        return GREETING_ANSWER
+    if _CAPABILITY_RE.match(q):
+        return CAPABILITY_ANSWER
+    if _THANKS_RE.match(q):
+        return THANKS_ANSWER
+    return None
+
 
 def classify_intent(query: str, history: list[dict] | None = None) -> str:
     """Question-intent classifier used for routing, citations, and refusal."""

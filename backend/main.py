@@ -37,6 +37,7 @@ from grounding import (
     is_followup_query,
     filter_matches_for_intent,
     context_is_weak,
+    smalltalk_answer,
     NO_CONTEXT_ANSWER,
 )
 from input_sanitize import sanitize_history
@@ -1019,6 +1020,18 @@ async def chat_endpoint(
     if auth_user != "anonymous":
         user_id = auth_user
     user_id = user_id[:100]
+    # Deterministic small talk: a bare "hi" retrieves nothing and would fall
+    # into the no-context refusal. Answer it directly — no retrieval, no LLM,
+    # and no guest-quota charge.
+    smalltalk = smalltalk_answer(question)
+    if smalltalk is not None:
+        log_query(
+            query=question, query_type="smalltalk", chunks_retrieved=0,
+            top_score=None, course_codes_found=[], response_ms=0,
+            had_context=True, user_id=user_id,
+        )
+        return {"answer": smalltalk, "sources": []}
+
     guest_quota = consume_guest_quota_if_needed(request, auth_user)
     user_query = question
     t_start = time.time()
@@ -1239,6 +1252,26 @@ async def chat_stream(
     if auth_user != "anonymous":
         user_id = auth_user
     user_id = user_id[:100]
+    # Deterministic small talk — same rule as /api/chat: no retrieval, no LLM,
+    # no guest-quota charge.
+    smalltalk = smalltalk_answer(question)
+    if smalltalk is not None:
+        log_query(
+            query=question, query_type="stream_smalltalk", chunks_retrieved=0,
+            top_score=None, course_codes_found=[], response_ms=0,
+            had_context=True, user_id=user_id,
+        )
+
+        async def smalltalk_gen():
+            yield f"data: {json.dumps({'type': 'token', 'content': smalltalk})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        return StreamingResponse(
+            smalltalk_gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
     guest_quota = consume_guest_quota_if_needed(request, auth_user)
     user_query = question
 

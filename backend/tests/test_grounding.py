@@ -74,3 +74,38 @@ def test_services_filter_keeps_library():
     ]
     filtered = filter_matches_for_intent(matches, "services", "library study rooms")
     assert {ns for _, ns in filtered} == {"library", "services"}
+
+
+# ── Small talk ───────────────────────────────────────────────────────────────
+# Greetings retrieve nothing, so before smalltalk_answer() they hit the
+# no-context refusal — "hi" answered with "that's outside of what I know".
+
+def test_greetings_get_friendly_answer_not_refusal():
+    from grounding import smalltalk_answer, NO_CONTEXT_ANSWER
+    for q in ["hi", "Hello!", "hey there", "good morning", "salam", "whats up", "yo"]:
+        answer = smalltalk_answer(q)
+        assert answer is not None, f"{q!r} should be small talk"
+        assert answer != NO_CONTEXT_ANSWER
+        assert "CampusQ" in answer
+
+
+def test_capability_questions_get_answer():
+    from grounding import smalltalk_answer
+    for q in ["what do u do", "What can you do?", "who are you", "help"]:
+        assert smalltalk_answer(q) is not None, f"{q!r} should be small talk"
+
+
+def test_thanks_get_answer():
+    from grounding import smalltalk_answer
+    assert smalltalk_answer("thanks!") is not None
+    assert smalltalk_answer("thank you so much") is not None
+
+
+def test_real_questions_are_not_smalltalk():
+    from grounding import smalltalk_answer
+    # Greeting glued to a real question must still go through retrieval.
+    assert smalltalk_answer("hi, when is the last day to withdraw?") is None
+    assert smalltalk_answer("what are the prereqs for COMP 2402?") is None
+    assert smalltalk_answer("when do fall exams start") is None
+    assert smalltalk_answer("What do you do if you fail a course?") is None
+    assert smalltalk_answer("") is None

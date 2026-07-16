@@ -7,6 +7,9 @@ from urllib.parse import urlparse
 
 NO_ANSWER_PHRASES = (
     "that's outside of what i currently know",
+    # Safety-prompt redirect (see build_system_prompt) — without this, a
+    # decline still ships whatever chunks retrieval happened to pull.
+    "outside what campusq is built to answer",
     "sorry, campusq ran into an error",
 )
 
@@ -199,7 +202,8 @@ def finalize_citations(
 def should_emit_citations(answer: str, chunks_used: int) -> bool:
     if chunks_used <= 0:
         return False
-    lower = answer.lower()
+    # Models emit curly apostrophes; the system prompt itself uses "That’s".
+    lower = answer.lower().replace("’", "'")
     return not any(phrase in lower for phrase in NO_ANSWER_PHRASES)
 
 

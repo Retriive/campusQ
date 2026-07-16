@@ -37,6 +37,7 @@ from grounding import (
     is_followup_query,
     filter_matches_for_intent,
     context_is_weak,
+    conversational_category,
     smalltalk_answer,
     NO_CONTEXT_ANSWER,
 )
@@ -484,6 +485,88 @@ index = pc.Index("knowledge-base")
 
 SIMILARITY_THRESHOLD = 0.25
 CHAT_MODEL = "gpt-4o-mini"
+
+
+# ── Conversational (non-knowledge) replies ────────────────────────────────────
+# Greetings, chit-chat, and "what is this bot for" questions skip retrieval
+# entirely. Rather than replaying one canned blurb every time, we let the model
+# phrase a short, on-brand reply so the bot doesn't feel robotic. It never
+# touches the vector store and never spends a guest-quota credit; the static
+# grounding fallback is used if the model call fails.
+CONVERSATIONAL_SYSTEM_PROMPT = (
+    "You are CampusQ, a warm, upbeat academic assistant for Carleton University "
+    "students. The student sent small talk — a greeting, a thank-you, a "
+    "'how are you', or a question about what you are — NOT an academic question.\n"
+    "Reply in 1-3 short, natural sentences. Vary your wording so you never sound "
+    "scripted or copy-pasted. Sound like a friendly human, not a brochure.\n"
+    "Make it clear you help with Carleton courses, programs, registration, "
+    "deadlines, academic regulations, and student services, and invite them to "
+    "ask something — but only list example questions if they explicitly ask what "
+    "you can do. Never invent Carleton facts or answer an academic question here; "
+    "if they slipped one in, gently steer them to just ask it. No markdown "
+    "headings, no walls of text."
+)
+
+
+def _conversational_messages(question: str, history: list[dict] | None) -> list[dict]:
+    recent = [m for m in (history or []) if (m.get("content") or "").strip()][-4:]
+    messages = [{"role": "system", "content": CONVERSATIONAL_SYSTEM_PROMPT}]
+    for m in recent:
+        role = "assistant" if m.get("role") == "assistant" else "user"
+        messages.append({"role": role, "content": (m.get("content") or "")[:500]})
+    messages.append({"role": "user", "content": question})
+    return messages
+
+
+def _conversational_fallback(question: str, category: str, history: list[dict] | None) -> str:
+    return (
+        smalltalk_answer(question, history)
+        or "Hey! I'm CampusQ — ask me anything about Carleton courses, programs, "
+        "registration, deadlines, or academic rules."
+    )
+
+
+def generate_conversational_reply(
+    question: str, category: str, history: list[dict] | None
+) -> str:
+    """Model-phrased small-talk reply (no retrieval), static fallback on failure."""
+    try:
+        resp = openai_client.chat.completions.create(
+            model=CHAT_MODEL,
+            messages=_conversational_messages(question, history),
+            temperature=0.7,
+            max_tokens=160,
+        )
+        text = (resp.choices[0].message.content or "").strip()
+        return text or _conversational_fallback(question, category, history)
+    except Exception:
+        return _conversational_fallback(question, category, history)
+
+
+async def stream_conversational_reply(
+    question: str, category: str, history: list[dict] | None
+):
+    """Async token stream for a model-phrased small-talk reply."""
+    got_content = False
+    try:
+        stream = await async_openai_client.chat.completions.create(
+            model=CHAT_MODEL,
+            messages=_conversational_messages(question, history),
+            temperature=0.7,
+            max_tokens=160,
+            stream=True,
+        )
+        async for chunk in stream:
+            content = chunk.choices[0].delta.content
+            if content:
+                got_content = True
+                yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
+    except Exception:
+        got_content = False
+    if not got_content:
+        fallback = _conversational_fallback(question, category, history)
+        yield f"data: {json.dumps({'type': 'token', 'content': fallback})}\n\n"
+    yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
 
 def contextualize_followup(user_query: str, past_messages: list[dict]) -> str:
@@ -1020,23 +1103,27 @@ async def chat_endpoint(
     if auth_user != "anonymous":
         user_id = auth_user
     user_id = user_id[:100]
-    # Deterministic small talk: a bare "hi" retrieves nothing and would fall
-    # into the no-context refusal. Answer it directly — no retrieval, no LLM,
-    # and no guest-quota charge.
-    smalltalk = smalltalk_answer(question)
-    if smalltalk is not None:
+
+    past_messages = sanitize_history(history)
+
+    # Small talk (greeting / chit-chat / "what is this for") retrieves nothing
+    # useful, so route it to a model-phrased conversational reply instead of
+    # retrieval — no vector search, no guest-quota charge. This keeps "how are
+    # you" from being answered out of an unrelated document and keeps greetings
+    # from sounding like a copy-pasted blurb.
+    category = conversational_category(question, past_messages)
+    if category is not None:
+        answer = generate_conversational_reply(question, category, past_messages)
         log_query(
             query=question, query_type="smalltalk", chunks_retrieved=0,
             top_score=None, course_codes_found=[], response_ms=0,
             had_context=True, user_id=user_id,
         )
-        return {"answer": smalltalk, "sources": []}
+        return {"answer": answer, "sources": []}
 
     guest_quota = consume_guest_quota_if_needed(request, auth_user)
     user_query = question
     t_start = time.time()
-
-    past_messages = sanitize_history(history)
 
     # Resolve any follow-up into a standalone retrieval query (topic-agnostic;
     # replaces the old per-subject history injectors). Only calls the model on
@@ -1252,22 +1339,21 @@ async def chat_stream(
     if auth_user != "anonymous":
         user_id = auth_user
     user_id = user_id[:100]
-    # Deterministic small talk — same rule as /api/chat: no retrieval, no LLM,
-    # no guest-quota charge.
-    smalltalk = smalltalk_answer(question)
-    if smalltalk is not None:
+
+    past_messages = sanitize_history(history)
+
+    # Small talk — same rule as /api/chat: no retrieval, no guest-quota charge.
+    # Stream a model-phrased conversational reply so greetings and "how are you"
+    # feel natural instead of replaying one canned blurb.
+    category = conversational_category(question, past_messages)
+    if category is not None:
         log_query(
             query=question, query_type="stream_smalltalk", chunks_retrieved=0,
             top_score=None, course_codes_found=[], response_ms=0,
             had_context=True, user_id=user_id,
         )
-
-        async def smalltalk_gen():
-            yield f"data: {json.dumps({'type': 'token', 'content': smalltalk})}\n\n"
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
-
         return StreamingResponse(
-            smalltalk_gen(),
+            stream_conversational_reply(question, category, past_messages),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -1276,8 +1362,6 @@ async def chat_stream(
     user_query = question
 
     t_start = time.time()
-
-    past_messages = sanitize_history(history)
 
     # Resolve any follow-up into a standalone retrieval query (topic-agnostic;
     # replaces the old per-subject history injectors). Only calls the model on

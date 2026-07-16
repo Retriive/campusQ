@@ -50,16 +50,44 @@ NO_CONTEXT_ANSWER = (
     "If you think this should be covered, use the Report a Problem button and we'll add it."
 )
 
-# --- Small talk -------------------------------------------------------------
-# Greetings and "what are you" questions retrieve nothing from Pinecone, so
-# without this they fall through to the no-context refusal — the worst possible
-# first impression. Answer them deterministically: no retrieval, no LLM, no
-# guest-quota charge.
+# --- Small talk / conversational routing ------------------------------------
+# Greetings, chit-chat ("how are you"), and meta questions ("what's the point
+# of this bot?") retrieve nothing useful from Pinecone. Left alone they either
+# fall into the no-context refusal or — worse — get answered from an unrelated
+# document (e.g. "how are you" pulling CSAS office hours). We detect them here
+# and route them to a conversational reply that SKIPS retrieval. The category
+# functions are deterministic and free; the caller decides whether to have the
+# model phrase the reply (natural, varied) or use the static fallback below.
+
+# Filler openers students sprinkle in front of a real message ("um whats the
+# point", "so like why"). Stripped before matching so the conversational regexes
+# still fire. Greetings/thanks are matched on the raw text too, so stripping a
+# leading "hi" never hides them.
+_FILLER_PREFIX_RE = re.compile(
+    r"^((um+|uh+|erm+|hmm+|so|ok|okay|kk|well|like|yeah|ya|nah|but|and|wait|lol|"
+    r"hey|hi|hello|yo)[\s,]+)+",
+    re.IGNORECASE,
+)
 
 _GREETING_RE = re.compile(
-    r"^(hi+|hey+( there)?|hello+|yo|sup|whats? ?up|howdy|hiya|greetings"
-    r"|good (morning|afternoon|evening)"
-    r"|salaa?m( alaikum)?|as+alamu? ?alaikum)[\s!,.?]*$",
+    r"^(hi+|hey+( there| yall| y'all| guys| team)?|hello+( there)?|hiya|heya+|yo+"
+    r"|sup|wha?t'?s? ?up|wass?up|howdy|greetings|good (morning|afternoon|evening|day)"
+    r"|g'?day|mornin['g]?|salaa?m( alaikum)?|as+alamu? ?alaikum|namaste|bonjour"
+    r"|hey|hi) ?(campusq|there|q)?[\s!,.?]*$",
+    re.IGNORECASE,
+)
+
+# "How are you?" style chit-chat. Tightly anchored so task questions that open
+# with the same words ("how do I withdraw", "how are prereqs enforced") do NOT
+# match — only fully social phrasings do.
+_CHITCHAT_RE = re.compile(
+    r"^(how (are|r) (you|u|ya|things)( doing| today| going| been)?"
+    r"|how('?s| is) (it going|things|it goin['g]?|life|everything|your day)"
+    r"|how (you|u|ya) (doing|doin['g]?|been)"
+    r"|how do you do"
+    r"|what'?s (new|good|happening|going on|up with you)"
+    r"|(you|u) good|are (you|u) (ok|okay|alright|there)"
+    r"|wyd|hbu|wbu|nice to meet (you|u))[\s!,.?]*$",
     re.IGNORECASE,
 )
 
@@ -69,6 +97,35 @@ _CAPABILITY_RE = re.compile(
     r"|who (are|r) (you|u)"
     r"|how do (you|u) work"
     r"|what can (you|u) help( me)? with)[\s!,.?]*$",
+    re.IGNORECASE,
+)
+
+# Meta / purpose questions about the bot itself: "what's the point of this
+# chatbot", "why should I use you", "who made you", "are you a bot". Referents
+# are restricted to the bot ("this/you/it/this chatbot/campusq") so genuine
+# academic questions like "what's the point of a prerequisite?" fall through to
+# retrieval.
+_META_RE = re.compile(
+    r"^((what'?s|what is) the (point|use|purpose)"
+    r"( of (this|you|it|this ?bot|this chatbot|the bot|campusq|using (you|this|campusq)))?"
+    r"|why (should (i|we) (use|bother( with)?) (you|u|this|it|campusq)"
+    r"|do you exist|does (this|it) exist|use (you|this|campusq)|bother( with (this|you))?)"
+    r"|what (do|can) (you|u) do"
+    r"|what (are|is) (you|u|this|it|campusq)( for| even for| used for)?"
+    r"|what'?s this( for| even| all about)?"
+    r"|is (this|it)( even)? (useful|helpful|any good|worth it|worth using)"
+    r"|who (made|built|created|develops?|designed|owns) (you|u|this|it|campusq)"
+    r"|are (you|u) (a )?(bot|robot|ai|an ai|human|real|a person|chatgpt|gpt|sentient)"
+    r"|do (you|u) use ai)[\s!,.?]*$",
+    re.IGNORECASE,
+)
+
+# Bare "why" and friends. Only conversational when there's nothing substantive
+# to follow up on — otherwise "why?" after a real answer is a genuine knowledge
+# follow-up and must reach retrieval/contextualization.
+_BARE_WHY_RE = re.compile(
+    r"^(like[\s,]+)?(why|but why|why though|why is that|and why|how come|whats the point)"
+    r"[\s!,.?]*$",
     re.IGNORECASE,
 )
 
@@ -90,27 +147,74 @@ _CAPABILITIES_BLURB = (
 
 GREETING_ANSWER = "Hey! 👋 I'm CampusQ, Carleton's academic assistant. " + _CAPABILITIES_BLURB
 CAPABILITY_ANSWER = "I'm CampusQ, an AI assistant for Carleton students. " + _CAPABILITIES_BLURB
+CHITCHAT_ANSWER = "I'm doing great, thanks for asking! 😊 " + _CAPABILITIES_BLURB
 THANKS_ANSWER = (
     "Anytime! Ask me whenever another question about courses, programs, or deadlines comes up."
 )
 
+# Category → static fallback used when the model phrasing is unavailable.
+_CONVERSATIONAL_ANSWERS = {
+    "greeting": GREETING_ANSWER,
+    "chitchat": CHITCHAT_ANSWER,
+    "capability": CAPABILITY_ANSWER,
+    "thanks": THANKS_ANSWER,
+}
 
-def smalltalk_answer(query: str) -> str | None:
-    """Deterministic reply for greetings/thanks/capability questions, else None.
 
-    Full-message matches only — "hi, when is the drop deadline?" must still go
-    through retrieval.
+def _prev_assistant_conversational(history: list[dict] | None) -> bool:
+    """True when the last assistant turn was itself small talk / a refusal.
+
+    Used to disambiguate a bare "why": after one of our greeting/capability/
+    refusal replies it's a meta question; after a real answer it's a knowledge
+    follow-up (return False → let retrieval handle it).
+    """
+    if not history:
+        return True
+    for m in reversed(history):
+        if (m.get("role") == "assistant") and (m.get("content") or "").strip():
+            content = m["content"]
+            markers = ("CampusQ", "Anytime!", NO_CONTEXT_ANSWER[:30])
+            return any(mk in content for mk in markers)
+    return True
+
+
+def conversational_category(query: str, history: list[dict] | None = None) -> str | None:
+    """Classify a non-knowledge message, else None (flows to retrieval).
+
+    Returns one of 'greeting' | 'chitchat' | 'capability' | 'thanks'. Full-message
+    matches only, so "hi, when is the drop deadline?" still goes to retrieval.
     """
     q = (query or "").strip()
-    if not q or len(q) > 60:
+    if not q or len(q) > 80:
         return None
+    # Greetings/thanks match the raw text (they may themselves be filler-like).
     if _GREETING_RE.match(q):
-        return GREETING_ANSWER
-    if _CAPABILITY_RE.match(q):
-        return CAPABILITY_ANSWER
+        return "greeting"
     if _THANKS_RE.match(q):
-        return THANKS_ANSWER
+        return "thanks"
+    # Strip leading fillers ("um", "so like") before the meta/chit-chat checks.
+    stripped = _FILLER_PREFIX_RE.sub("", q).strip()
+    for candidate in (q, stripped) if stripped != q else (q,):
+        if _CHITCHAT_RE.match(candidate):
+            return "chitchat"
+        if _CAPABILITY_RE.match(candidate) or _META_RE.match(candidate):
+            return "capability"
+    # Bare "why" only when there's no real prior answer to follow up on.
+    if _prev_assistant_conversational(history):
+        for candidate in (q, stripped):
+            if _BARE_WHY_RE.match(candidate):
+                return "capability"
     return None
+
+
+def smalltalk_answer(query: str, history: list[dict] | None = None) -> str | None:
+    """Static conversational fallback for greetings/thanks/capability/chit-chat.
+
+    The chat endpoints normally have the model phrase these replies (natural and
+    varied); this is the deterministic fallback used when that call fails.
+    """
+    category = conversational_category(query, history)
+    return _CONVERSATIONAL_ANSWERS.get(category) if category else None
 
 
 def classify_intent(query: str, history: list[dict] | None = None) -> str:

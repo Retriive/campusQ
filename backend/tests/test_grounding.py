@@ -76,13 +76,16 @@ def test_services_filter_keeps_library():
     assert {ns for _, ns in filtered} == {"library", "services"}
 
 
-# ── Small talk ───────────────────────────────────────────────────────────────
-# Greetings retrieve nothing, so before smalltalk_answer() they hit the
-# no-context refusal — "hi" answered with "that's outside of what I know".
+# ── Small talk / conversational routing ───────────────────────────────────────
+# Greetings, chit-chat, and meta questions retrieve nothing useful. Before this
+# routing "hi" hit the no-context refusal and "how are you" got answered from an
+# unrelated document. conversational_category() flags them so the caller can
+# skip retrieval; smalltalk_answer() is the static fallback.
 
 def test_greetings_get_friendly_answer_not_refusal():
     from grounding import smalltalk_answer, NO_CONTEXT_ANSWER
-    for q in ["hi", "Hello!", "hey there", "good morning", "salam", "whats up", "yo"]:
+    for q in ["hi", "Hello!", "hey there", "good morning", "salam", "whats up",
+              "yo", "heyyy", "howdy", "hey campusq"]:
         answer = smalltalk_answer(q)
         assert answer is not None, f"{q!r} should be small talk"
         assert answer != NO_CONTEXT_ANSWER
@@ -95,6 +98,35 @@ def test_capability_questions_get_answer():
         assert smalltalk_answer(q) is not None, f"{q!r} should be small talk"
 
 
+def test_chitchat_is_conversational_not_retrieval():
+    from grounding import conversational_category
+    # The "how are you" -> CSAS-office-hours misroute this fixes.
+    for q in ["how are you", "how are you doing?", "how's it going", "how r u",
+              "what's up with you", "you good?", "nice to meet you"]:
+        assert conversational_category(q) == "chitchat", f"{q!r} should be chit-chat"
+
+
+def test_meta_and_purpose_questions_are_conversational():
+    from grounding import conversational_category
+    # "what's the point of this chatbot" / "why should I use you" used to refuse.
+    for q in ["what's the point of this chatbot", "um whats the point of this chatbot",
+              "whats the point", "why should i use you", "what are you for",
+              "who made you", "are you a bot", "is this even useful"]:
+        assert conversational_category(q) == "capability", f"{q!r} should be meta"
+
+
+def test_bare_why_is_meta_only_without_a_real_prior_answer():
+    from grounding import conversational_category
+    # After a greeting/refusal, a bare "why" is a meta question.
+    greeting_hist = [{"role": "assistant", "content": "Hey! I'm CampusQ, ..."}]
+    assert conversational_category("like why", greeting_hist) == "capability"
+    assert conversational_category("why", None) == "capability"
+    # After a real answer, "why" is a knowledge follow-up -> must reach retrieval.
+    answer_hist = [{"role": "assistant",
+                    "content": "COMP 2402 requires COMP 1805 and COMP 1406."}]
+    assert conversational_category("why", answer_hist) is None
+
+
 def test_thanks_get_answer():
     from grounding import smalltalk_answer
     assert smalltalk_answer("thanks!") is not None
@@ -102,10 +134,16 @@ def test_thanks_get_answer():
 
 
 def test_real_questions_are_not_smalltalk():
-    from grounding import smalltalk_answer
+    from grounding import smalltalk_answer, conversational_category
     # Greeting glued to a real question must still go through retrieval.
     assert smalltalk_answer("hi, when is the last day to withdraw?") is None
     assert smalltalk_answer("what are the prereqs for COMP 2402?") is None
     assert smalltalk_answer("when do fall exams start") is None
     assert smalltalk_answer("What do you do if you fail a course?") is None
     assert smalltalk_answer("") is None
+    # Task questions that merely open with chit-chat words are not chit-chat.
+    for q in ["how do I withdraw from a course?",
+              "how are prerequisites enforced?",
+              "what is the point of a prerequisite?",
+              "what is COMP 2402?"]:
+        assert conversational_category(q) is None, f"{q!r} should reach retrieval"

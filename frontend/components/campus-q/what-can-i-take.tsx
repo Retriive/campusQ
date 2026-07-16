@@ -6,6 +6,7 @@ import { Plus, X, Sparkles, Loader2, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import ReactMarkdown from "react-markdown"
 import { API_BASE_URL } from "@/lib/api"
+import { safeHref } from "@/lib/safe-url"
 
 export function WhatCanITake() {
   const { getToken } = useAuth()
@@ -138,7 +139,18 @@ export function WhatCanITake() {
             Courses you can take now
           </div>
           <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
-            <ReactMarkdown>{result}</ReactMarkdown>
+            <ReactMarkdown
+              components={{
+                // Untrusted model output: only render http(s) links, never javascript:/data:.
+                a: ({ node, href, ...props }) => {
+                  const safe = safeHref(href)
+                  if (!safe) return <span {...props} />
+                  return <a href={safe} target="_blank" rel="noopener noreferrer" {...props} />
+                },
+              }}
+            >
+              {result}
+            </ReactMarkdown>
           </div>
         </div>
       )}

@@ -40,6 +40,7 @@ from grounding import (
     NO_CONTEXT_ANSWER,
 )
 from input_sanitize import sanitize_history
+from embedding_cache import EmbeddingCache
 from waitlist_store import append_waitlist, remove_waitlist_email
 
 load_dotenv()
@@ -101,6 +102,7 @@ RATE_LIMITS = {
     "calendar": (120, 3600),  # feed polls from calendar apps + add-to-calendar clicks
     "account": (60, 60),      # cloud chat sync for signed-in users
     "admin": (30, 60),        # dashboard / ingest — tighten against key stuffing
+    "admin_auth": (20, 300),  # EVERY admin attempt by IP — throttles key brute force
 }
 
 
@@ -112,16 +114,57 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def check_rate_limit(request: Request, scope: str):
+# Buckets for IPs/users seen once and never again would otherwise live forever
+# (spoofed X-Forwarded-For makes this a memory-exhaustion vector). Sweep stale
+# keys periodically: any bucket whose newest hit predates the largest window can
+# never again hold a counted entry, so it's safe to drop.
+_MAX_RATE_WINDOW_S = max(w for _, w in RATE_LIMITS.values())
+_last_bucket_sweep = 0.0
+
+
+def _evict_stale_buckets(now: float) -> None:
+    global _last_bucket_sweep
+    if now - _last_bucket_sweep < 300:  # at most once every 5 minutes
+        return
+    _last_bucket_sweep = now
+    horizon = now - _MAX_RATE_WINDOW_S
+    stale = [k for k, b in _RATE_BUCKETS.items() if not b or b[-1] <= horizon]
+    for k in stale:
+        _RATE_BUCKETS.pop(k, None)
+
+
+def check_rate_limit(request: Request, scope: str, identity: str | None = None):
+    """Sliding-window limit keyed by client IP, plus an optional per-user key.
+
+    Passing `identity` (a verified Clerk sub) adds a second bucket so a single
+    account is limited even when rotating IPs — important for chat, which burns
+    OpenAI/Pinecone budget. Anonymous/guest identities are ignored here (guests
+    are covered by IP + the daily guest quota).
+    """
     max_calls, window_s = RATE_LIMITS[scope]
-    key = (scope, _client_ip(request))
     now = time.time()
-    bucket = _RATE_BUCKETS[key]
-    while bucket and bucket[0] <= now - window_s:
-        bucket.popleft()
-    if len(bucket) >= max_calls:
-        raise HTTPException(status_code=429, detail="Too many requests — slow down and try again shortly.")
-    bucket.append(now)
+    keys = [(scope, f"ip:{_client_ip(request)}")]
+    if identity and identity not in ("anonymous", "quality-gate"):
+        keys.append((scope, f"user:{identity}"))
+
+    # Check all buckets before recording, so a rejection doesn't half-count.
+    for key in keys:
+        bucket = _RATE_BUCKETS[key]
+        while bucket and bucket[0] <= now - window_s:
+            bucket.popleft()
+        if len(bucket) >= max_calls:
+            raise HTTPException(status_code=429, detail="Too many requests — slow down and try again shortly.")
+    for key in keys:
+        _RATE_BUCKETS[key].append(now)
+    _evict_stale_buckets(now)
+
+
+async def admin_required(request: Request) -> None:
+    """Admin gate that throttles brute force. require_admin raises 401 before
+    any in-body limiter runs, so failed X-Admin-Key guesses were unthrottled.
+    Count every admin attempt by IP first, then validate the key."""
+    check_rate_limit(request, "admin_auth")
+    await require_admin(request)
 
 
 # ── Guest daily quota (signed-out only) ───────────────────────────────────────
@@ -197,7 +240,7 @@ LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "90"))
 _RETAINED_LOG_FILES = [
     "queries.log", "feedback.log", "reports.log",
     "no_context.log", "course_misses.log", "waitlist.log",
-    "calendar.log",
+    "calendar.log", "timing.log",
 ]
 
 def _prune_log_file(path: str, cutoff: datetime):
@@ -403,6 +446,12 @@ if not _ALLOWED_ORIGINS:
             "ALLOWED_ORIGINS must be set (comma-separated) when APP_ENV=production"
         )
     _ALLOWED_ORIGINS = ["*"]
+elif IS_PRODUCTION and "*" in _ALLOWED_ORIGINS:
+    # An explicit "*" is as unsafe as leaving it unset — fail closed rather
+    # than let a wildcard reach the CORS middleware in production.
+    raise RuntimeError(
+        "ALLOWED_ORIGINS must be explicit frontend origins, not '*', when APP_ENV=production"
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -559,6 +608,22 @@ def extract_clean_description(doc_text: str) -> str:
     return full_desc or " ".join(desc_parts)
 
 
+# Short-TTL cache for query embeddings so repeated/retried questions don't
+# re-hit OpenAI for an identical vector (#53). Bounded + LRU; see embedding_cache.
+_embed_cache = EmbeddingCache(
+    ttl_s=float(os.getenv("EMBED_CACHE_TTL_S", "300")),
+    max_entries=int(os.getenv("EMBED_CACHE_MAX", "512")),
+)
+
+
+def embed_query(text: str, model: str = "text-embedding-3-small") -> list[float]:
+    """Embed query text, served from the TTL cache on repeat calls (#53)."""
+    return _embed_cache.get_or_compute(
+        f"{model}\n{text}",
+        lambda: openai_client.embeddings.create(input=text, model=model).data[0].embedding,
+    )
+
+
 def rag_lookup_prerequisites(course_code: str) -> str:
     """
     When the O(1) metadata fetch has no prerequisite info, do a targeted
@@ -567,10 +632,7 @@ def rag_lookup_prerequisites(course_code: str) -> str:
     """
     try:
         query = f"{course_code} prerequisite required courses"
-        embedding = openai_client.embeddings.create(
-            input=query,
-            model="text-embedding-3-small",
-        ).data[0].embedding
+        embedding = embed_query(query)
         results = index.query(
             vector=embedding,
             top_k=5,
@@ -948,7 +1010,7 @@ async def chat_endpoint(
     file: UploadFile = File(None),
     auth_user: str = Depends(optional_user),
 ):
-    check_rate_limit(request, "chat")
+    check_rate_limit(request, "chat", identity=auth_user)
     if not question.strip():
         return {"answer": "Ask me something about courses, programs, or deadlines!", "sources": []}
     question = question[:MAX_QUESTION_CHARS]
@@ -1060,10 +1122,9 @@ async def chat_endpoint(
         search_query = rewrite_query_for_embedding(user_query)
         print(f"Embedding query: {search_query}")
 
-        query_embedding = openai_client.embeddings.create(
-            input=search_query,
-            model="text-embedding-3-small",
-        ).data[0].embedding
+        _t_embed = time.perf_counter()
+        query_embedding = embed_query(search_query)
+        _t_retr = time.perf_counter()
 
         all_matches, query_flags = retrieve_and_rerank(
             index=index,
@@ -1074,6 +1135,15 @@ async def chat_endpoint(
             openai_client=openai_client,
             chat_model=CHAT_MODEL,
         )
+        # Stage-latency instrumentation (#53): embedding vs. retrieval+rerank.
+        # LLM first-token/completion timing is tracked separately as response_ms.
+        _log("timing.log", {
+            "ts": datetime.utcnow().isoformat() + "Z",
+            "endpoint": "chat",
+            "intent": intent,
+            "embedding_ms": round((_t_retr - _t_embed) * 1000, 1),
+            "retrieve_rerank_ms": round((time.perf_counter() - _t_retr) * 1000, 1),
+        })
         is_program_query = query_flags.is_program_query
         all_matches = filter_matches_for_intent(all_matches, intent, user_query)
 
@@ -1162,7 +1232,7 @@ async def chat_stream(
     user_id: str = Form("anonymous"),
     auth_user: str = Depends(optional_user),
 ):
-    check_rate_limit(request, "chat")
+    check_rate_limit(request, "chat", identity=auth_user)
     question = question[:MAX_QUESTION_CHARS]
     _current_session.set(session_id[:100])
     # Trust the verified Clerk identity over the client-supplied form field.
@@ -1246,10 +1316,7 @@ async def chat_stream(
         try:
             def _prepare_stream_rag():
                 search_query = rewrite_query_for_embedding(user_query)
-                query_embedding = openai_client.embeddings.create(
-                    input=search_query,
-                    model="text-embedding-3-small",
-                ).data[0].embedding
+                query_embedding = embed_query(search_query)
 
                 all_matches, query_flags = retrieve_and_rerank(
                     index=index,
@@ -1572,29 +1639,29 @@ def _clamp_days(days: int | None) -> int | None:
     return max(1, min(days, 365))
 
 @app.get("/api/dashboard")
-async def dashboard_data(request: Request, days: int | None = 7, _: None = Depends(require_admin)):
+async def dashboard_data(request: Request, days: int | None = 7, _: None = Depends(admin_required)):
     """days=7,14,30,90 or omit for all-time (days=None via ?days=0)"""
     check_rate_limit(request, "admin")
     return {"ok": True, "data": build_dashboard_data(LOG_DIR, days=_clamp_days(days))}
 
 @app.get("/api/dashboard/digest")
-async def dashboard_digest(request: Request, _: None = Depends(require_admin)):
+async def dashboard_digest(request: Request, _: None = Depends(admin_required)):
     check_rate_limit(request, "admin")
     return {"ok": True, "digest": build_digest_text(LOG_DIR)}
 
 @app.get("/api/dashboard/waitlist")
-async def dashboard_waitlist(request: Request, days: int | None = 30, _: None = Depends(require_admin)):
+async def dashboard_waitlist(request: Request, days: int | None = 30, _: None = Depends(admin_required)):
     check_rate_limit(request, "admin")
     return {"ok": True, "data": build_waitlist_data(LOG_DIR, days=_clamp_days(days))}
 
 @app.get("/api/dashboard/gaps")
-async def dashboard_gaps(request: Request, days: int | None = 7, _: None = Depends(require_admin)):
+async def dashboard_gaps(request: Request, days: int | None = 7, _: None = Depends(admin_required)):
     """Clustered content-gap data behind the advisor report (JSON)."""
     check_rate_limit(request, "admin")
     return {"ok": True, "data": build_gap_report_data(LOG_DIR, days=_clamp_days(days))}
 
 @app.get("/api/dashboard/advisor-report")
-async def dashboard_advisor_report(request: Request, _: None = Depends(require_admin)):
+async def dashboard_advisor_report(request: Request, _: None = Depends(admin_required)):
     """The external, advisor-facing Student Questions Report (text + HTML)."""
     check_rate_limit(request, "admin")
     from advisor_report import build_advisor_report_html, build_advisor_report_text
@@ -1620,7 +1687,7 @@ _ingest_run_lock = threading.Lock()
 
 
 @app.get("/api/admin/ingest/sources")
-async def ingest_sources(request: Request, school: str = "carleton", _: None = Depends(require_admin)):
+async def ingest_sources(request: Request, school: str = "carleton", _: None = Depends(admin_required)):
     check_rate_limit(request, "admin")
     sources = load_sources(school, _INGEST_BACKEND_DIR, _ingest_state.extra_sources(school))
     pages = {p["url"]: p for p in _ingest_state.pages_for(school)}
@@ -1651,12 +1718,20 @@ async def ingest_add_source(
     school: str = Form(...),
     category: str = Form(...),
     url: str = Form(...),
-    _: None = Depends(require_admin),
+    _: None = Depends(admin_required),
 ):
     check_rate_limit(request, "admin")
     url = url.strip()
     if not re.match(r"^https://[^\s]+$", url):
         return {"ok": False, "error": "URL must start with https:// and contain no spaces"}
+    # SSRF guard: reject private/metadata hosts (and enforce the domain
+    # allowlist, if configured) at add time so a bad URL never reaches the
+    # fetcher or the vector DB. The fetcher re-validates every hop too.
+    from ingest.fetch import _assert_url_safe, FetchError as _FetchError
+    try:
+        _assert_url_safe(url)
+    except _FetchError as exc:
+        return {"ok": False, "error": f"URL rejected: {exc}"}
     if not re.match(r"^[a-z_]{2,30}$", category.strip()):
         return {"ok": False, "error": "category must be a short lowercase name (it becomes the Pinecone namespace)"}
     _ingest_state.add_extra_source(school.strip()[:40], category.strip(), url[:500])
@@ -1669,7 +1744,7 @@ async def ingest_trigger_run(
     school: str = Form("carleton"),
     category: str = Form(""),
     force: str = Form("false"),
-    _: None = Depends(require_admin),
+    _: None = Depends(admin_required),
 ):
     check_rate_limit(request, "admin")
     if not _ingest_run_lock.acquire(blocking=False):

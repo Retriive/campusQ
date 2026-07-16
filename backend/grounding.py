@@ -12,26 +12,30 @@ import re
 
 COURSE_CODE_RE = re.compile(r"([A-Za-z]{3,4})\s*(\d{4}[A-Za-z]?)")
 
-# Never pull a leftover course code into these questions.
-_COURSE_INJECT_BLOCK = (
-    "vpn", "wifi", "eduroam", "password", "phone", "contact", "call them",
-    "email them", "their number", "service desk", "its ", " its", "loan",
-    "bursar", "scholarship", "financial aid", "osap", "quebec", "mycarleton",
-    "office 365", "brightspace", "microsoft 365", "payment", "deferral",
-)
-
-# Only inject for course-shaped follow-ups.
-_COURSE_FOLLOWUP = (
-    "prereq", "credit", "taught", "instructor", "professor", "section",
-    "offered", "semester", "term", "outline", "syllabus", "who teaches",
-    "crn", "waitlist", "when is it", "when is this", "tell me more",
-    "more about", "description", "can i take", "without taking",
+# Anaphora / ellipsis that shows a query leans on an earlier turn to be
+# understood. Topic-agnostic on purpose: this is how we detect a follow-up for
+# ANY subject (courses, library, aid, residence, ...) instead of maintaining a
+# separate keyword list per topic.
+#
+# Only bare pronouns with no referent of their own — strong anaphora.
+# Determiners like "this"/"that" are deliberately excluded: they fire on
+# non-anaphoric usage ("this fall", "that program") and cause false positives.
+# Ambiguous cases are caught by the follow-up phrases or the short-fragment
+# rule below instead.
+_FOLLOWUP_TOKENS = frozenset({
+    "it", "its", "it's", "them", "they", "those", "these",
+    "one", "ones", "same", "either", "another",
+})
+_FOLLOWUP_PHRASES = (
+    "what about", "how about", "what if", "and what", "and how", "and where",
+    "what else", "any other", "the other", "more about", "tell me more",
 )
 
 # Intent → namespaces allowed into the model context + citations.
 # None means "no hard filter".
 INTENT_ALLOWED_NAMESPACES: dict[str, frozenset[str] | None] = {
-    "services": frozenset({"services", "registrar", "facts", "tuition"}),
+    # library is campus-services content (study space, hours, rooms) — keep it.
+    "services": frozenset({"services", "registrar", "facts", "tuition", "library"}),
     "deadlines": frozenset({"dates", "registrar", "facts"}),
     "regulations": frozenset({"regulations", "facts", "registrar"}),
     "registration": frozenset({"registrar", "dates", "facts"}),
@@ -88,30 +92,38 @@ def classify_intent(query: str, history: list[dict] | None = None) -> str:
     return "general"
 
 
-def maybe_inject_course_from_history(user_query: str, past_messages: list[dict]) -> str:
-    """Attach last course code only for genuine course follow-ups."""
-    if COURSE_CODE_RE.search(user_query):
-        return user_query
+def is_followup_query(query: str, history: list[dict] | None) -> bool:
+    """True when a query can't be understood without the prior conversation.
 
-    q = user_query.lower().strip()
-    if any(k in q for k in _COURSE_INJECT_BLOCK):
-        return user_query
+    Topic-agnostic replacement for the old per-subject history injectors: rather
+    than one keyword list per topic (courses, library, aid, ...), we detect the
+    *shape* of a follow-up — anaphora ("what about it?"), a leading follow-up
+    phrase ("what if I want..."), or a terse fragment ("quiet floors?") — and
+    let the caller resolve it against history. Deterministic and free, so it can
+    gate an LLM condense step without spending a call on self-contained asks.
+    """
+    if not history:
+        return False
+    q = (query or "").strip().lower()
+    if not q:
+        return False
+    # A question carrying its own course code resolves on its own.
+    if COURSE_CODE_RE.search(query or ""):
+        return False
+    # Long, fully-formed questions almost never depend on earlier turns.
+    if len(q) > 120:
+        return False
 
-    courseish = any(k in q for k in _COURSE_FOLLOWUP)
-    short_followup = (
-        len(q) < 60
-        and bool(re.search(r"^(when|where|who|what|is it|does it|can i)\b", q))
-        and any(k in q for k in ("it", "this", "that", "course", "class"))
-    )
-    if not (courseish or short_followup):
-        return user_query
-
-    for msg in reversed(past_messages):
-        found = COURSE_CODE_RE.search(msg.get("content") or "")
-        if found:
-            code = f"{found.group(1).upper()} {found.group(2).upper()}"
-            return f"{user_query} ({code})"
-    return user_query
+    words = re.findall(r"[a-z']+", q)
+    if any(w in _FOLLOWUP_TOKENS for w in words):
+        return True
+    if any(p in q for p in _FOLLOWUP_PHRASES):
+        return True
+    # A very short fragment ("cheaper option?", "quiet floors?") leans on the
+    # prior turn for its subject.
+    if len(words) <= 5:
+        return True
+    return False
 
 
 def filter_matches_for_intent(

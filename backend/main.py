@@ -34,7 +34,7 @@ from user_store import UserStore
 from guest_quota import GuestQuotaStore, GuestQuotaExceeded, normalize_guest_id
 from grounding import (
     classify_intent,
-    maybe_inject_course_from_history,
+    is_followup_query,
     filter_matches_for_intent,
     context_is_weak,
     NO_CONTEXT_ANSWER,
@@ -434,6 +434,54 @@ index = pc.Index("knowledge-base")
 
 SIMILARITY_THRESHOLD = 0.25
 CHAT_MODEL = "gpt-4o-mini"
+
+
+def contextualize_followup(user_query: str, past_messages: list[dict]) -> str:
+    """Resolve a follow-up into a standalone, retrieval-ready query.
+
+    This is the *general* replacement for the old per-topic history injectors
+    (course codes, library, ...): instead of a hand-maintained keyword list per
+    subject, one history-aware rewrite turns an elliptical follow-up like
+    "what if I want loud noise?" into a self-contained query using the actual
+    conversation — so a new topic (aid, residence, parking) needs no new code.
+
+    Only fires when the query is genuinely a follow-up (is_followup_query), so
+    self-contained and structured questions never pay for the LLM hop. Any
+    failure falls back to the original text — never blocks a chat turn.
+    """
+    if not is_followup_query(user_query, past_messages):
+        return user_query
+    recent = [m for m in (past_messages or []) if (m.get("content") or "").strip()][-6:]
+    if not recent:
+        return user_query
+    transcript = "\n".join(
+        f"{'User' if m.get('role') == 'user' else 'Assistant'}: {(m.get('content') or '')[:500]}"
+        for m in recent
+    )
+    try:
+        resp = openai_client.chat.completions.create(
+            model=CHAT_MODEL,
+            messages=[
+                {"role": "system", "content": (
+                    "You rewrite a student's follow-up question into ONE standalone search "
+                    "query for a Carleton University academic knowledge base. Use the "
+                    "conversation to resolve pronouns and the implied topic. Example: after a "
+                    "library answer, 'what if I want loud noise?' -> 'MacOdrum Library loud / "
+                    "conversational study spaces and floor noise policy'. Keep it concise and "
+                    "keyword-rich. If the question is already standalone, return it unchanged. "
+                    "Output ONLY the rewritten query, no explanation or quotes."
+                )},
+                {"role": "user", "content": (
+                    f"Conversation:\n{transcript}\n\nFollow-up: {user_query}\n\nStandalone query:"
+                )},
+            ],
+            max_tokens=60,
+            temperature=0,
+        )
+        rewritten = (resp.choices[0].message.content or "").strip().strip('"')
+        return rewritten or user_query
+    except Exception:
+        return user_query
 
 
 def rewrite_query_for_embedding(user_query: str) -> str:
@@ -915,8 +963,10 @@ async def chat_endpoint(
 
     past_messages = sanitize_history(history)
 
-    # Inject last course code only for genuine course follow-ups (not VPN/aid/etc).
-    user_query = maybe_inject_course_from_history(user_query, past_messages)
+    # Resolve any follow-up into a standalone retrieval query (topic-agnostic;
+    # replaces the old per-subject history injectors). Only calls the model on
+    # genuine follow-ups — self-contained questions pass through untouched.
+    user_query = contextualize_followup(user_query, past_messages)
     intent = classify_intent(user_query, past_messages)
 
     print(f"Searching database for: {user_query}")
@@ -1126,8 +1176,10 @@ async def chat_stream(
 
     past_messages = sanitize_history(history)
 
-    # Inject last course code only for genuine course follow-ups (not VPN/aid/etc).
-    user_query = maybe_inject_course_from_history(user_query, past_messages)
+    # Resolve any follow-up into a standalone retrieval query (topic-agnostic;
+    # replaces the old per-subject history injectors). Only calls the model on
+    # genuine follow-ups — self-contained questions pass through untouched.
+    user_query = contextualize_followup(user_query, past_messages)
     intent = classify_intent(user_query, past_messages)
 
     # Patterns that indicate the user wants course details directly (pill cards shown)

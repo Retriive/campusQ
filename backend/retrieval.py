@@ -16,10 +16,15 @@ INTENT_NAMESPACE_BOOSTS: dict[str, dict[str, float]] = {
     "regulations": {"regulations": 0.22},
     "registration": {"registrar": 0.28, "dates": 0.10},
     "program_requirements": {"programs": 0.22},
-    "services": {"services": 0.18, "registrar": 0.08},
+    "services": {"services": 0.18, "registrar": 0.08, "library": 0.12},
     "course_lookup": {"courses": 0.18},
     "general": {},
 }
+
+LIBRARY_QUERY_KEYWORDS = (
+    "library", "macodrum", "study space", "silent study", "study room",
+    "loud noise", "noisy", "quiet floor", "silent floor",
+)
 
 PROGRAM_SKIP_NS = frozenset({"tuition", "library", "facts", "services"})
 
@@ -96,6 +101,7 @@ class QueryFlags:
     is_schedule_query: bool
     is_deadline_query: bool
     is_action_query: bool
+    is_library_query: bool = False
 
 
 def query_terms(query: str) -> list[str]:
@@ -247,6 +253,8 @@ def _namespace_limits(flags: QueryFlags) -> dict[str, int]:
         limits["dates"] = 14
     if flags.is_action_query:
         limits["registrar"] = 12
+    if flags.is_library_query:
+        limits["library"] = 12
     return limits
 
 
@@ -298,6 +306,8 @@ def namespace_top_k(ns: str, flags: QueryFlags, token_count: int, has_course_cod
         top_k = max(top_k, 15)
     if ns == "registrar" and flags.is_action_query:
         top_k = max(top_k, 12)
+    if ns == "library" and flags.is_library_query:
+        top_k = max(top_k, 14)
     return min(30, max(4, top_k))
 
 
@@ -349,6 +359,7 @@ def detect_query_flags(query: str) -> QueryFlags:
         is_schedule_query=any(kw in q for kw in SCHEDULE_KEYWORDS),
         is_deadline_query=any(kw in q for kw in DEADLINE_KEYWORDS),
         is_action_query=any(kw in q for kw in ACTION_KEYWORDS),
+        is_library_query=any(kw in q for kw in LIBRARY_QUERY_KEYWORDS),
     )
 
 
@@ -379,6 +390,8 @@ def _boosted_namespace_score(base_score: float, namespace: str, flags: QueryFlag
         score = min(1.0, score + 0.25)
     if flags.is_action_query and namespace in ("registrar", "dates"):
         score = min(1.0, score + 0.20)
+    if flags.is_library_query and namespace == "library":
+        score = min(1.0, score + 0.28)
     return _apply_intent_boost(score, namespace, intent)
 
 

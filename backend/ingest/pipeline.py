@@ -25,6 +25,7 @@ import traceback
 from dataclasses import dataclass, field
 
 from . import adaptive as adaptive_mod
+from . import css_schema as css_schema_mod
 from . import extract as extract_mod
 from . import fetch as fetch_mod
 from . import fit as fit_mod
@@ -154,6 +155,28 @@ def _gather_pages(source: Source, log) -> list[fetch_mod.FetchedPage]:
     return pages
 
 
+def _extract_css_schema(page: fetch_mod.FetchedPage, school: str, category: str,
+                        schema_store, llm, log) -> list[dict]:
+    """Zero-LLM structured extraction via a cached CSS schema. The schema is
+    generated once per (school, category) from the first HTML page and reused
+    for every page and every re-crawl. Falls back to the LLM extractor when the
+    page isn't HTML, no schema can be built, or the schema matches nothing on a
+    page (a template variant / stale selectors) — so coverage never regresses.
+    """
+    fallback = "llm_courses" if category == "courses" else "llm_generic"
+    if page.kind != "html" or not page.html:
+        return extract_mod.extract(fallback, page.text, page.url, category, llm)
+
+    schema = schema_store.get_or_generate(school, category, page.html, llm, log=log)
+    if schema:
+        items = css_schema_mod.apply_schema(schema, page.html)
+        records = css_schema_mod.records_from_items(items, category, page.url)
+        if records:
+            return records
+        log(f"    css_schema matched nothing on {page.url} — LLM fallback")
+    return extract_mod.extract(fallback, page.text, page.url, category, llm)
+
+
 def run_category(school: str, category: str, sources: list[Source], state: IngestState,
                  *, force: bool = False, dry_run: bool = False, replay: bool = False,
                  openai_client=None, index=None, llm=None, log=print) -> CategoryResult:
@@ -166,6 +189,7 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
 
         records: list[dict] = []
         skipped_pages = 0
+        schema_store = css_schema_mod.SchemaStore(PREVIEW_DIR)
 
         if replay:
             records = _replay_pages(state, school, category, result, llm, log)
@@ -203,11 +227,11 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
                     result.pages_changed += 1
 
                 # BM25 fit-filter: prune boilerplate to category-relevant blocks
-                # before extraction. Skipped for course_regex, whose parser is
-                # sensitive to exact line layout. The raw lake still stores the
-                # full page text (persisted above), so --reextract stays lossless.
+                # before extraction. Skipped for course_regex (layout-sensitive)
+                # and css_schema (works on raw HTML, not cleaned text). The raw
+                # lake still stores full page text, so --reextract stays lossless.
                 text = page.text
-                if source.fit and extractor != "course_regex":
+                if source.fit and extractor not in ("course_regex", "css_schema"):
                     fr = fit_mod.fit_text(text, fit_mod.query_for(category, source.fit_query))
                     if fr.reduced:
                         log(f"    ⧉ fit: kept {fr.blocks_kept}/{fr.blocks_total} blocks, "
@@ -215,7 +239,11 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
                     text = fr.text
 
                 try:
-                    page_records = extract_mod.extract(extractor, text, page.url, category, llm)
+                    if extractor == "css_schema":
+                        page_records = _extract_css_schema(
+                            page, school, category, schema_store, llm, log)
+                    else:
+                        page_records = extract_mod.extract(extractor, text, page.url, category, llm)
                     records.extend(page_records)
                     state.record_page(page.url, school, category, page.content_hash, "ok", changed=changed)
                     log(f"  ✓ {page.url} → {len(page_records)} records ({extractor})")

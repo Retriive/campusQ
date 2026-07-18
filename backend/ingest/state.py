@@ -7,7 +7,6 @@ changed, plus a run history the admin dashboard can show.
 
 from __future__ import annotations
 
-import json
 import os
 import sqlite3
 import threading
@@ -42,27 +41,6 @@ CREATE TABLE IF NOT EXISTS extra_sources (
     category      TEXT NOT NULL,
     extractor     TEXT DEFAULT 'auto',
     added_at      TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS quarantine (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    school        TEXT NOT NULL,
-    category      TEXT NOT NULL,
-    record_id     TEXT NOT NULL,
-    source        TEXT,
-    reasons       TEXT NOT NULL,
-    record_json   TEXT NOT NULL,   -- full record, so nothing quarantined is lost
-    run_id        INTEGER,
-    created_at    TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS raw_pages (
-    url           TEXT PRIMARY KEY,
-    school        TEXT NOT NULL,
-    category      TEXT NOT NULL,
-    extractor     TEXT NOT NULL,   -- resolved extractor, so replay is self-contained
-    kind          TEXT,            -- html | pdf
-    content_hash  TEXT,
-    path          TEXT NOT NULL,   -- on-disk cleaned text (the extraction input)
-    fetched_at    TEXT NOT NULL
 );
 """
 
@@ -154,62 +132,6 @@ class IngestState:
         with self._conn() as con:
             row = con.execute("SELECT COUNT(*) AS n FROM runs WHERE status = 'running'").fetchone()
             return row["n"] > 0
-
-    # ── Raw lake ───────────────────────────────────────────────────────────
-    def save_raw_page(self, url: str, school: str, category: str, extractor: str,
-                      kind: str, content_hash: str | None, path: str):
-        """Record a fetched page in the raw lake. One row per URL (latest content),
-        so replay re-extracts current pages without re-crawling."""
-        now = datetime.utcnow().isoformat()
-        with _write_lock, self._conn() as con:
-            con.execute(
-                """INSERT INTO raw_pages (url, school, category, extractor, kind, content_hash, path, fetched_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                   ON CONFLICT(url) DO UPDATE SET
-                     school = excluded.school,
-                     category = excluded.category,
-                     extractor = excluded.extractor,
-                     kind = excluded.kind,
-                     content_hash = excluded.content_hash,
-                     path = excluded.path,
-                     fetched_at = excluded.fetched_at""",
-                (url, school, category, extractor, kind, content_hash, path, now),
-            )
-
-    def raw_pages_for(self, school: str, category: str | None = None) -> list[dict]:
-        q = "SELECT * FROM raw_pages WHERE school = ?"
-        args: list = [school]
-        if category:
-            q += " AND category = ?"
-            args.append(category)
-        with self._conn() as con:
-            return [dict(r) for r in con.execute(q + " ORDER BY url", args)]
-
-    # ── Quarantine ─────────────────────────────────────────────────────────
-    def add_quarantine(self, school: str, category: str, record: dict,
-                       reasons: list[str], run_id: int | None = None):
-        md = record.get("metadata", {})
-        with _write_lock, self._conn() as con:
-            con.execute(
-                """INSERT INTO quarantine (school, category, record_id, source,
-                                           reasons, record_json, run_id, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (school, category, record.get("id", ""), str(md.get("source", "")),
-                 "; ".join(reasons), json.dumps(record, ensure_ascii=False),
-                 run_id, datetime.utcnow().isoformat()),
-            )
-
-    def quarantined_for(self, school: str, category: str | None = None,
-                        limit: int = 50) -> list[dict]:
-        q = "SELECT * FROM quarantine WHERE school = ?"
-        args: list = [school]
-        if category:
-            q += " AND category = ?"
-            args.append(category)
-        q += " ORDER BY id DESC LIMIT ?"
-        args.append(limit)
-        with self._conn() as con:
-            return [dict(r) for r in con.execute(q, args)]
 
     # ── Admin-added sources ────────────────────────────────────────────────
     def add_extra_source(self, school: str, category: str, url: str, extractor: str = "auto"):

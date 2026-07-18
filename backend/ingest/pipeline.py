@@ -2,15 +2,11 @@
 
 Per category:
   1. resolve sources (sources.json + admin-added)
-  2. fetch pages (following same-prefix links where configured); every fetched
-     page's cleaned text is persisted into the raw lake (/data/raw + SQLite)
+  2. fetch pages (following same-prefix links where configured)
   3. change detection — unchanged pages are skipped unless force=True
   4. extract typed records (regex fast-path or LLM)
   5. verify (min counts, shrink guard) — BEFORE touching Pinecone
   6. promote (upsert over live by stable ID; stale-delete only on full coverage)
-
-Replay (--reextract): steps 4-6 re-run against the raw lake with no network,
-so extractor changes can be iterated on without re-crawling the university.
 
 Stale deletion only happens when every page in the category was extracted this
 run (full coverage): an incremental run that skipped unchanged pages must not
@@ -30,13 +26,11 @@ from . import extract as extract_mod
 from . import fetch as fetch_mod
 from . import fit as fit_mod
 from . import upsert as upsert_mod
-from . import validate as validate_mod
 from .registry import Source, load_sources
 from .state import IngestState
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PREVIEW_DIR = "/data" if os.path.isdir("/data") else BACKEND_DIR
-RAW_DIR = os.path.join(PREVIEW_DIR, "raw")
 
 
 @dataclass
@@ -46,7 +40,6 @@ class CategoryResult:
     pages_fetched: int = 0
     pages_changed: int = 0
     records: int = 0
-    quarantined: int = 0
     upserted: int = 0
     stale_deleted: int = 0
     message: str = ""
@@ -63,64 +56,11 @@ class RunResult:
         return all(r.status in ("ok", "dry_run", "skipped") for r in self.results)
 
 
-def _raw_path(school: str, content_hash: str) -> str:
-    return os.path.join(RAW_DIR, school, f"{content_hash}.txt")
-
-
-def _persist_raw(state: IngestState, page: fetch_mod.FetchedPage, school: str,
-                 category: str, extractor: str, log):
-    """Write a fetched page's cleaned text into the raw lake (content-addressed
-    file + SQLite row). Lets extractors be re-run offline via --reextract
-    without re-crawling the university. Best-effort: a lake failure must not
-    fail the ingestion run."""
-    try:
-        path = _raw_path(school, page.content_hash)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        if not os.path.isfile(path):
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(page.text)
-        state.save_raw_page(page.url, school, category, extractor,
-                            page.kind, page.content_hash, path)
-    except Exception as exc:
-        log(f"    raw lake write skipped for {page.url}: {exc}")
-
-
-def _replay_pages(state: IngestState, school: str, category: str,
-                  result: CategoryResult, llm, log) -> list[dict]:
-    """Re-extract records from the raw lake — no network. Every raw page is
-    processed (full coverage), so verify + stale cleanup behave like a forced
-    full crawl."""
-    records: list[dict] = []
-    for row in state.raw_pages_for(school, category):
-        result.pages_fetched += 1
-        try:
-            with open(row["path"], "r", encoding="utf-8") as f:
-                text = f.read()
-        except OSError as exc:
-            log(f"  ✗ raw read {row['url']}: {exc}")
-            continue
-        try:
-            page_records = extract_mod.extract(row["extractor"], text, row["url"], category, llm)
-            records.extend(page_records)
-            log(f"  ✓ (replay) {row['url']} → {len(page_records)} records ({row['extractor']})")
-        except Exception as exc:
-            log(f"  ✗ extract (replay) {row['url']}: {exc}")
-    return records
-
-
 def _gather_pages(source: Source, log) -> list[fetch_mod.FetchedPage]:
     """Fetch a source's page, fanning out to same-prefix links if configured.
     Non-web sources (sitemap, ics, filedrop) delegate to their connector."""
     if source.connector != "web":
-        try:
-            from connectors import get_connector
-        except ImportError as exc:
-            # The connectors module doesn't exist yet — fail this source with a
-            # clear message instead of an ImportError traceback mid-run.
-            raise fetch_mod.FetchError(
-                f"connector '{source.connector}' is not implemented yet "
-                f"(no connectors module) — use connector 'web' for {source.url}"
-            ) from exc
+        from connectors import get_connector
         return get_connector(source.connector)(source, log)
 
     pages: list[fetch_mod.FetchedPage] = []
@@ -178,7 +118,7 @@ def _extract_css_schema(page: fetch_mod.FetchedPage, school: str, category: str,
 
 
 def run_category(school: str, category: str, sources: list[Source], state: IngestState,
-                 *, force: bool = False, dry_run: bool = False, replay: bool = False,
+                 *, force: bool = False, dry_run: bool = False,
                  openai_client=None, index=None, llm=None, log=print) -> CategoryResult:
     result = CategoryResult(category=category, status="ok")
     run_id = state.start_run(school, category)
@@ -191,17 +131,7 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
         skipped_pages = 0
         schema_store = css_schema_mod.SchemaStore(PREVIEW_DIR)
 
-        if replay:
-            records = _replay_pages(state, school, category, result, llm, log)
-            if result.pages_fetched == 0:
-                result.status = "failed"
-                result.message = (f"No raw pages stored for {school}/{category} — "
-                                  f"run a normal ingest first to populate the raw lake.")
-                state.finish_run(run_id, "failed", 0, 0, 0, result.message)
-                return result
-            result.pages_changed = result.pages_fetched
-
-        for source in ([] if replay else [s for s in sources if s.category == category]):
+        for source in [s for s in sources if s.category == category]:
             extractor = source.resolve_extractor()
             try:
                 pages = _gather_pages(source, log)
@@ -212,9 +142,6 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
 
             for page in pages:
                 result.pages_fetched += 1
-                # Persist every fetched page (even unchanged/skipped ones) so the
-                # raw lake always mirrors the latest crawl.
-                _persist_raw(state, page, school, category, extractor, log)
                 previous_hash = state.get_page_hash(page.url)
                 changed = previous_hash != page.content_hash
 
@@ -256,17 +183,6 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
         for r in records:
             by_id[r["id"]] = r
         records = list(by_id.values())
-
-        # Per-record validation: quarantine bad or contradictory records
-        # instead of publishing them. A failed validation distrusts the NEW
-        # value, not the old one — so quarantined IDs also keep their
-        # previously-live vector (excluded from stale deletion below).
-        records, quarantined = validate_mod.screen(records, category)
-        result.quarantined = len(quarantined)
-        for rec, reasons in quarantined:
-            if not dry_run:
-                state.add_quarantine(school, category, rec, reasons, run_id)
-            log(f"  ⚠ quarantined {rec['id']}: {'; '.join(reasons)}")
         result.records = len(records)
 
         if result.pages_fetched > 0 and not records and skipped_pages == result.pages_fetched:
@@ -284,10 +200,7 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
             with open(result.preview_path, "w", encoding="utf-8") as f:
                 for r in records:
                     f.write(json.dumps(r, ensure_ascii=False) + "\n")
-            result.message = (
-                f"{len(records)} records written to preview (no Pinecone writes)"
-                + (f", {result.quarantined} quarantined" if result.quarantined else "")
-            )
+            result.message = f"{len(records)} records written to preview (no Pinecone writes)"
             state.finish_run(run_id, "dry_run", result.pages_fetched, result.pages_changed,
                              len(records), result.message)
             return result
@@ -310,9 +223,7 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
 
         vectors = upsert_mod.embed_records(records, openai_client)
         stats = upsert_mod.promote(index, category, records, vectors,
-                                   delete_stale=full_coverage,
-                                   keep_ids=frozenset(rec["id"] for rec, _ in quarantined),
-                                   log=log)
+                                   delete_stale=full_coverage, log=log)
         result.upserted = stats["upserted"]
         result.stale_deleted = stats["stale_deleted"]
 
@@ -326,7 +237,6 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
 
         result.message = (
             f"{stats['upserted']} live, {stats['stale_deleted']} stale removed"
-            + (f", {result.quarantined} quarantined" if result.quarantined else "")
             + ("" if full_coverage else " (incremental — stale cleanup skipped)")
         )
         state.finish_run(run_id, "ok", result.pages_fetched, result.pages_changed,
@@ -348,32 +258,22 @@ def run_category(school: str, category: str, sources: list[Source], state: Inges
 
 
 def run_ingest(school: str, category: str | None = None, *, force: bool = False,
-               dry_run: bool = False, replay: bool = False, backend_dir: str = BACKEND_DIR,
+               dry_run: bool = False, backend_dir: str = BACKEND_DIR,
                openai_client=None, index=None, llm=None,
                state: IngestState | None = None, log=print) -> RunResult:
     state = state or IngestState()
     sources = load_sources(school, backend_dir, state.extra_sources(school))
+    if not sources:
+        raise ValueError(f"No sources configured for school '{school}' "
+                         f"(expected {backend_dir}/schools/{school}/sources.json)")
 
-    if replay:
-        # Replay works from the raw lake alone; sources (if configured) still
-        # supply min_records floors, but aren't required.
-        lake_categories = list(dict.fromkeys(r["category"] for r in state.raw_pages_for(school)))
-        if not lake_categories:
-            raise ValueError(f"No raw pages stored for school '{school}' — "
-                             f"run a normal ingest first to populate the raw lake.")
-        wanted = [category] if category else lake_categories
-    else:
-        if not sources:
-            raise ValueError(f"No sources configured for school '{school}' "
-                             f"(expected {backend_dir}/schools/{school}/sources.json)")
-        wanted = [category] if category else list(dict.fromkeys(s.category for s in sources))
-
+    wanted = [category] if category else list(dict.fromkeys(s.category for s in sources))
     run = RunResult(school=school)
 
     for cat in wanted:
         log(f"\n[{school} / {cat}]")
         run.results.append(run_category(
-            school, cat, sources, state, force=force, dry_run=dry_run, replay=replay,
+            school, cat, sources, state, force=force, dry_run=dry_run,
             openai_client=openai_client, index=index, llm=llm, log=log))
 
     return run

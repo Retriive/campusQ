@@ -14,7 +14,6 @@ instead of gutting production data.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
 
 EMBED_MODEL = "text-embedding-3-small"
 EMBED_BATCH = 100
@@ -87,17 +86,10 @@ def _existing_ids(index, namespace: str) -> set[str]:
 
 
 def promote(index, namespace: str, records: list[dict], vectors: list[list[float]],
-            delete_stale: bool, keep_ids: frozenset[str] = frozenset(), log=print) -> dict:
-    """Upsert over live by stable ID, then (optionally) remove stale IDs.
-
-    keep_ids: IDs whose previously-live vectors must survive stale cleanup —
-    quarantined records aren't published this run, but their last verified
-    value keeps serving rather than vanishing."""
-    # Freshness stamp: lets "how old is this namespace's data?" be answered
-    # from Pinecone metadata alone (legacy scrapers never recorded this).
-    scraped_at = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            delete_stale: bool, log=print) -> dict:
+    """Upsert over live by stable ID, then (optionally) remove stale IDs."""
     payload = [
-        {"id": r["id"], "values": v, "metadata": {**r["metadata"], "scraped_at": scraped_at}}
+        {"id": r["id"], "values": v, "metadata": r["metadata"]}
         for r, v in zip(records, vectors)
     ]
 
@@ -108,7 +100,7 @@ def promote(index, namespace: str, records: list[dict], vectors: list[list[float
     stale_deleted = 0
     if delete_stale:
         new_ids = {r["id"] for r in records}
-        stale = list(_existing_ids(index, namespace) - new_ids - set(keep_ids))
+        stale = list(_existing_ids(index, namespace) - new_ids)
         for i in range(0, len(stale), DELETE_BATCH):
             index.delete(ids=stale[i:i + DELETE_BATCH], namespace=namespace)
         stale_deleted = len(stale)

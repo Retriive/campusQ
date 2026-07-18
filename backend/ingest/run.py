@@ -5,7 +5,6 @@ Usage (from backend/):
   py -m ingest.run --school carleton --category dates --dry-run
   py -m ingest.run --school carleton --category dates       # incremental (changed pages only)
   py -m ingest.run --school carleton --force                # full re-crawl, all categories
-  py -m ingest.run --school carleton --reextract --dry-run  # replay raw lake offline, preview
 
 --dry-run extracts everything and writes ingest_preview_<school>_<category>.jsonl
 so you can eyeball records before anything touches Pinecone.
@@ -41,11 +40,6 @@ def cmd_list(school: str):
     for r in state.recent_runs(school, limit=10):
         print(f"  #{r['id']} {r['category']:12s} {r['status']:8s} {r['started'][:19]} "
               f"pages={r['pages_fetched']} changed={r['pages_changed']} records={r['records']}  {r['message'] or ''}")
-    quarantined = state.quarantined_for(school, limit=10)
-    if quarantined:
-        print("\nRecent quarantine (records blocked from publishing):")
-        for q in quarantined:
-            print(f"  #{q['id']} [{q['category']:12s}] {q['record_id']}  {q['reasons']}  ({q['created_at'][:19]})")
     return 0
 
 
@@ -55,8 +49,6 @@ def main() -> int:
     parser.add_argument("--category", default=None, help="one category (namespace); default all")
     parser.add_argument("--force", action="store_true", help="re-extract unchanged pages / override shrink guard")
     parser.add_argument("--dry-run", action="store_true", help="extract to a preview file; no Pinecone writes")
-    parser.add_argument("--reextract", action="store_true",
-                        help="replay extraction from the raw lake (no crawling); combine with --dry-run to preview")
     parser.add_argument("--list", action="store_true", help="show configured sources and recent runs")
     args = parser.parse_args()
 
@@ -70,8 +62,7 @@ def main() -> int:
         print("PINECONE_API_KEY is required (or use --dry-run).")
         return 2
 
-    run = run_ingest(args.school, args.category, force=args.force,
-                     dry_run=args.dry_run, replay=args.reextract)
+    run = run_ingest(args.school, args.category, force=args.force, dry_run=args.dry_run)
 
     print("\n" + "=" * 60)
     for r in run.results:

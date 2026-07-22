@@ -517,12 +517,12 @@
 
 /* Sliding school pill — interruptible transform/width (not keyframes). */
 .land-toggle-pill {
-  left: 0;
   transition:
     transform 220ms var(--ease-land-out, var(--ease-out)),
     width 220ms var(--ease-land-out, var(--ease-out)),
+    height 220ms var(--ease-land-out, var(--ease-out)),
     opacity 160ms ease;
-  will-change: transform, width;
+  will-change: transform, width, height;
 }
 
 .land-press {

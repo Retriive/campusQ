@@ -12,7 +12,7 @@ export function UniversityToggle({
 }) {
   const listRef = useRef<HTMLDivElement>(null)
   const btnRefs = useRef(new Map<SchoolId, HTMLButtonElement>())
-  const [pill, setPill] = useState({ x: 0, w: 0, ready: false })
+  const [pill, setPill] = useState({ x: 0, y: 0, w: 0, h: 0, ready: false })
 
   const measure = useCallback(() => {
     const list = listRef.current
@@ -20,7 +20,15 @@ export function UniversityToggle({
     if (!list || !btn) return
     const lr = list.getBoundingClientRect()
     const br = btn.getBoundingClientRect()
-    setPill({ x: br.left - lr.left, w: br.width, ready: true })
+    // Track the full rect (x, y, w, h) so the pill lands on the active
+    // button even when the toggle wraps onto multiple rows on narrow screens.
+    setPill({
+      x: br.left - lr.left,
+      y: br.top - lr.top,
+      w: br.width,
+      h: br.height,
+      ready: true,
+    })
   }, [activeId])
 
   useLayoutEffect(() => {
@@ -41,10 +49,11 @@ export function UniversityToggle({
     >
       <span
         aria-hidden
-        className="land-toggle-pill pointer-events-none absolute top-1 bottom-1 rounded-full bg-ink"
+        className="land-toggle-pill pointer-events-none absolute top-0 left-0 rounded-full bg-ink"
         style={{
           width: pill.w,
-          transform: `translateX(${pill.x}px)`,
+          height: pill.h,
+          transform: `translate(${pill.x}px, ${pill.y}px)`,
           opacity: pill.ready ? 1 : 0,
         }}
       />
@@ -61,7 +70,7 @@ export function UniversityToggle({
               else btnRefs.current.delete(s.id)
             }}
             onClick={() => onSelect(s.id)}
-            className={`relative z-[1] land-press text-[12px] px-3 py-1.5 rounded-full transition-colors duration-200 ${
+            className={`relative z-[1] whitespace-nowrap land-press text-[12px] px-3 py-1.5 rounded-full transition-colors duration-200 ${
               active ? "text-canvas font-semibold" : "text-ink-faint hover:text-ink"
             }`}
           >

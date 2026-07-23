@@ -13,6 +13,7 @@
 |---|---|
 | Run the app on my laptop | [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) |
 | Understand how the AI works | [docs/HOW_THE_AI_WORKS.md](docs/HOW_THE_AI_WORKS.md) |
+| Understand how we get university data | [docs/HOW_INGESTION_WORKS.md](docs/HOW_INGESTION_WORKS.md) |
 | Run the quality tests before deploy | [docs/QUALITY_GATE.md](docs/QUALITY_GATE.md) |
 | See what each folder does | [docs/PROJECT_MAP.md](docs/PROJECT_MAP.md) |
 | Know our ship / no-ship rules | [docs/TEAM_RULES.md](docs/TEAM_RULES.md) |
